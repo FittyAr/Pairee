@@ -1,6 +1,6 @@
 //! Keymap layers and the `extends` chain of preset files.
 
-use super::report::KeymapLoadReport;
+use super::report::{KeymapLoadReport, fill};
 use crate::keybindings::options::{KeymapOptions, OptionsTable};
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -25,10 +25,10 @@ pub enum Origin {
 impl fmt::Display for Origin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Preset(name) => write!(f, "preset '{name}'"),
-            Self::Setting(key) => write!(f, "setting '{key}'"),
+            Self::Preset(name) => f.write_str(&fill("keymap_origin_preset", &[name])),
+            Self::Setting(key) => f.write_str(&fill("keymap_origin_setting", &[key])),
             Self::Override(key) => write!(f, "overrides.{key}"),
-            Self::Plugin(name) => write!(f, "plugin '{name}'"),
+            Self::Plugin(name) => f.write_str(&fill("keymap_origin_plugin", &[name])),
         }
     }
 }
@@ -125,25 +125,26 @@ pub fn resolve_chain(
     let mut next = Some(name.to_string());
     while let Some(current) = next.take() {
         if files.iter().any(|(n, _)| *n == current) || files.len() == MAX_CHAIN {
-            report.errors.push(format!(
-                "Keymap 'extends' chain loops or is too deep at '{current}'"
-            ));
+            report
+                .errors
+                .push(fill("keymap_issue_extends_loop", &[&current]));
             break;
         }
         let Some(src) = source(&current, report) else {
             if files.is_empty() {
                 return None;
             }
-            report.errors.push(format!(
-                "Preset '{current}' (extended by another preset) not found"
-            ));
+            report
+                .errors
+                .push(fill("keymap_issue_extended_missing", &[&current]));
             break;
         };
         let file = match toml::from_str::<PresetFile>(&src) {
             Ok(file) => file,
             Err(e) => {
-                report.errors.push(format!(
-                    "Failed to parse keymap for preset '{current}': {e}"
+                report.errors.push(fill(
+                    "keymap_issue_parse_failed",
+                    &[&current, &e.to_string()],
                 ));
                 // The selected preset itself is unusable: the caller falls
                 // back to a shipped one instead of an empty keymap.

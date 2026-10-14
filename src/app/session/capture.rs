@@ -69,7 +69,7 @@ mod tests {
             host: host.into(),
             port: port.into(),
             username: "me".into(),
-            password: Some("secret".into()),
+            password: Some(crate::credential_prompt::Secret::new("secret".into())),
             ..Connection::default()
         }
     }

@@ -9,13 +9,12 @@
 //! configuration ([`super::toml_store`]), only when the folders history is
 //! saved.
 
-use anyhow::Result;
+use super::toml_store::StateFile;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-const FILE_NAME: &str = "frecency.toml";
 /// Most folders kept.
 pub const MAX_FOLDERS: usize = 500;
 /// Sum of the ranks above which they all shrink (zoxide's `_ZO_MAXAGE`).
@@ -75,36 +74,33 @@ pub struct FrecencyStore {
     saved: Vec<FolderVisits>,
 }
 
-impl FrecencyStore {
-    /// The saved store (empty when missing or unreadable).
-    pub fn load() -> Self {
-        Self::load_from(&default_path())
-    }
+impl StateFile for FrecencyStore {
+    const FILE_NAME: &'static str = "frecency.toml";
 
-    pub fn load_from(path: &Path) -> Self {
-        let mut store: Self = super::toml_store::load_or_default(path);
+    /// Remembers what was read, the base of [`Self::save_visits`].
+    fn read_from(path: &Path) -> Option<Self> {
+        let mut store: Self = super::toml_store::load(path)?;
         store.saved = store.folders.clone();
-        store
+        Some(store)
     }
+}
 
-    pub fn save(&mut self) -> Result<()> {
-        self.save_to(&default_path())
-    }
-
+impl FrecencyStore {
     /// Writes the visits made since the last load or save on top of the
     /// store as it is on disk now (other instances may have saved theirs).
-    pub fn save_to(&mut self, path: &Path) -> Result<()> {
-        super::shared_file::merge_save(path, |disk: Option<Self>| {
-            self.merged(disk.unwrap_or_default(), now())
-        })?;
+    pub fn save_visits(&mut self) -> anyhow::Result<()> {
+        self.save_visits_to(&Self::path())
+    }
+
+    pub fn save_visits_to(&mut self, path: &Path) -> anyhow::Result<()> {
+        Self::merge_save_to(path, |disk| self.merged(disk.unwrap_or_default(), now()))?;
         self.saved = self.folders.clone();
         Ok(())
     }
 
     /// Empties the saved store (the folders history is not kept).
-    pub fn forget_saved() -> Result<()> {
-        let path = default_path();
-        super::shared_file::with_lock(&path, || super::toml_store::save(&path, &Self::default()))
+    pub fn forget_saved() -> anyhow::Result<()> {
+        Self::default().save()
     }
 
     /// `disk` plus this instance's changes since it last loaded or saved:
@@ -234,10 +230,6 @@ pub fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs())
-}
-
-fn default_path() -> PathBuf {
-    super::paths::get_config_dir().join(FILE_NAME)
 }
 
 #[cfg(test)]

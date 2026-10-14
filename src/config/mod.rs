@@ -13,6 +13,7 @@ pub mod settings;
 pub mod shared_file;
 pub mod theme;
 pub mod toml_store;
+pub use toml_store::StateFile;
 
 mod loading;
 
@@ -300,6 +301,19 @@ pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
         // MOVEFILE_REPLACE_EXISTING); on POSIX it is a single rename(2)
         // syscall.
         fs::rename(&tmp_path, path).context("Renaming temp file onto target")?;
+        // The rename lives in the directory: sync it too, or a crash may
+        // bring back the old file (or none). Windows has no directory sync.
+        #[cfg(unix)]
+        {
+            let dir = if parent.as_os_str().is_empty() {
+                std::path::Path::new(".")
+            } else {
+                parent
+            };
+            fs::File::open(dir)
+                .and_then(|d| d.sync_all())
+                .context("Syncing the directory of the atomic write")?;
+        }
         Ok(())
     })();
 
@@ -423,7 +437,7 @@ mod tests {
             host: "h".into(),
             port: "22".into(),
             username: "u".into(),
-            password: Some("pw".into()),
+            password: Some(crate::credential_prompt::Secret::new("pw".into())),
             ..settings::Connection::default()
         });
         settings.active_dev_plugin = Some("no-such-plugin".into());
@@ -435,12 +449,11 @@ mod tests {
 
         let config = AppConfig::load_or_create().unwrap();
         assert!(config.settings.active_dev_plugin.is_none());
+        assert_eq!(config.settings.connections[0].secret(), Some("pw"));
+        let id = &config.settings.connections[0].id;
+        assert!(!id.is_empty(), "given an id on load");
         assert_eq!(
-            config.settings.connections[0].password.as_deref(),
-            Some("pw")
-        );
-        assert_eq!(
-            credentials::test_store::secret("connection:box").as_deref(),
+            credentials::test_store::secret(&format!("connection-id:{id}")).as_deref(),
             Some("pw")
         );
     }

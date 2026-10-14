@@ -128,6 +128,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `Ctrl+Alt+k` | Cycle key bar modifiers |
 | `Ctrl+l` | Refresh |
 | `.` · `Ctrl+h` | Show / hide hidden files |
+| `Ctrl+Alt+n` | Show / hide key bar |
 | `Ctrl+n` | Toggle long names |
 | `Alt+F9` | Video mode |
 | `Ctrl+9` | View: alternative full |
@@ -166,6 +167,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `Ctrl+p` | Show / hide inactive panel |
 | `Ctrl+F1` | Show / hide left panel |
 | `Ctrl+F2` | Show / hide right panel |
+| `Ctrl+Alt+y` | Swap panels |
 | `Tab` | Switch panel |
 | `Ctrl+t` | Transfer panel |
 
@@ -214,6 +216,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `Ctrl+[` | Left folder to command line |
 | `Ctrl+Enter` | Name to command line |
 | `Ctrl+x` | Next command |
+| `Ctrl+Alt+j` | Path to command line |
 | `F11` | Plugins |
 | `Ctrl+e` | Previous command |
 | `Ctrl+]` | Right folder to command line |

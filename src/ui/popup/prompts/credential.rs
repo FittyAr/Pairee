@@ -16,8 +16,13 @@ impl DialogView for CredentialPrompt {
             SecretKind::Certificate => return render_certificate(self, f, cx),
         };
         // The subject goes in first, so the field takes the remaining `{}`.
+        let retry = if self.retry {
+            format!("{}\n", t("credential_prompt_retry"))
+        } else {
+            String::new()
+        };
         let template = format!(
-            "{}\n{{}}\n\n{}",
+            "{retry}{}\n{{}}\n\n{}",
             t(question).replacen("{}", &self.subject, 1),
             t("credential_prompt_hint")
         );

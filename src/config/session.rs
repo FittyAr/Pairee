@@ -2,14 +2,10 @@
 //! sides, the focused side and the panel layout, written on exit and read
 //! at startup when `restore_session` is on.
 
-use super::toml_store;
+use super::toml_store::StateFile;
 use crate::app::state::ActivePanel;
 use crate::app::state::tabs::spec::TabSpec;
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-
-const FILE_NAME: &str = "session.toml";
 
 /// Tabs of one panel side.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,31 +38,14 @@ impl SessionFile {
             ActivePanel::Right => &self.right,
         }
     }
-
-    /// The saved session, if there is a readable one. A corrupted file is
-    /// copied to `session.toml.bak`, logged and ignored.
-    pub fn load() -> Option<Self> {
-        Self::load_from(&default_path())
-    }
-
-    pub fn load_from(path: &Path) -> Option<Self> {
-        toml_store::load(path)
-    }
-
-    pub fn save(&self) -> Result<()> {
-        self.save_to(&default_path())
-    }
-
-    /// Replaces the saved session: with several instances running, the
-    /// last one to quit wins, but its session is written whole (under the
-    /// shared lock, see [`super::shared_file`]).
-    pub fn save_to(&self, path: &Path) -> Result<()> {
-        super::shared_file::with_lock(path, || toml_store::save(path, self))
-    }
 }
 
-fn default_path() -> PathBuf {
-    crate::config::paths::get_config_dir().join(FILE_NAME)
+/// Read with [`StateFile::read`]: a corrupted file is copied to
+/// `session.toml.bak`, logged and ignored. With several instances running,
+/// the last one to quit wins, but its session is written whole (under the
+/// shared lock, see [`StateFile::save_to`]).
+impl StateFile for SessionFile {
+    const FILE_NAME: &'static str = "session.toml";
 }
 
 #[cfg(test)]
@@ -74,6 +53,7 @@ mod tests {
     use super::*;
     use crate::app::state::tabs::spec::SourceKind;
     use crate::app::state::{PanelViewMode, SortField};
+    use std::path::PathBuf;
 
     fn spec(path: &str, source: SourceKind) -> TabSpec {
         TabSpec {
@@ -117,33 +97,36 @@ mod tests {
     #[test]
     fn session_round_trips_through_toml() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join(FILE_NAME);
+        let path = dir.path().join(SessionFile::FILE_NAME);
         let session = sample();
         session.save_to(&path).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("connection = \"web\""));
         assert!(text.contains("branch_view = true"));
         assert!(!text.contains("password"));
-        assert_eq!(SessionFile::load_from(&path), Some(session.clone()));
+        assert_eq!(SessionFile::read_from(&path), Some(session.clone()));
 
         // Sessions of older releases named the field `ssh_preset`.
         let old = text.replace("connection = \"web\"", "ssh_preset = \"web\"");
         std::fs::write(&path, old).unwrap();
-        assert_eq!(SessionFile::load_from(&path), Some(session));
+        assert_eq!(SessionFile::read_from(&path), Some(session));
     }
 
     #[test]
     fn missing_session_is_none() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(SessionFile::load_from(&dir.path().join(FILE_NAME)), None);
+        assert_eq!(
+            SessionFile::read_from(&dir.path().join(SessionFile::FILE_NAME)),
+            None
+        );
     }
 
     #[test]
     fn corrupted_session_is_ignored_and_backed_up() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join(FILE_NAME);
+        let path = dir.path().join(SessionFile::FILE_NAME);
         std::fs::write(&path, "active_side = [broken").unwrap();
-        assert_eq!(SessionFile::load_from(&path), None);
+        assert_eq!(SessionFile::read_from(&path), None);
         assert_eq!(
             std::fs::read_to_string(crate::config::load_guard::backup_path(&path)).unwrap(),
             "active_side = [broken"
@@ -155,7 +138,7 @@ mod tests {
     fn session_file_is_private() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join(FILE_NAME);
+        let path = dir.path().join(SessionFile::FILE_NAME);
         sample().save_to(&path).unwrap();
         let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);

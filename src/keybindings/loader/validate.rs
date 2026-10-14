@@ -1,7 +1,7 @@
 //! Whole-keymap checks run after every layer is applied.
 
 use super::assign::Row;
-use super::report::KeymapLoadReport;
+use super::report::{KeymapLoadReport, fill};
 use crate::config::localization::t;
 use crate::keybindings::chord::{Fragility, fragility};
 use crate::keybindings::registry::Bindable;
@@ -48,11 +48,4 @@ pub fn check_robustness<B: Bindable>(rows: &[Row<B>], report: &mut KeymapLoadRep
             ));
         }
     }
-}
-
-/// The translation of `key` with its `{}` placeholders filled in order.
-fn fill(key: &str, values: &[&str]) -> String {
-    values
-        .iter()
-        .fold(t(key), |text, value| text.replacen("{}", value, 1))
 }

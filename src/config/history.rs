@@ -1,4 +1,5 @@
-use anyhow::Result;
+use super::toml_store::Home;
+use super::toml_store::StateFile;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -30,12 +31,13 @@ fn push_front<T: PartialEq>(list: &mut Vec<T>, item: T) {
     list.truncate(MAX_HISTORY);
 }
 
-impl HistoryStore {
-    /// Loads history from `<cache_dir>/history.toml`, returning a default on a missing or invalid file.
-    pub fn load() -> Self {
-        super::toml_store::load_or_default(&history_path())
-    }
+/// `<cache_dir>/history.toml`.
+impl StateFile for HistoryStore {
+    const FILE_NAME: &'static str = "history.toml";
+    const HOME: Home = Home::Cache;
+}
 
+impl HistoryStore {
     /// Saves what this instance changed since `base` (what it loaded or
     /// last saved) on top of `history.toml` as it is now, so entries other
     /// running instances saved meanwhile are kept (see
@@ -45,10 +47,8 @@ impl HistoryStore {
         &self,
         base: &HistoryStore,
         keep: impl FnOnce(HistoryStore) -> HistoryStore,
-    ) -> Result<HistoryStore> {
-        super::shared_file::merge_save(&history_path(), |disk: Option<HistoryStore>| {
-            keep(self.merged(base, &disk.unwrap_or_default()))
-        })
+    ) -> anyhow::Result<HistoryStore> {
+        Self::merge_save(|disk| keep(self.merged(base, &disk.unwrap_or_default())))
     }
 
     /// This instance's changes from `base` applied to `disk`, list by list.
@@ -124,10 +124,6 @@ impl HistoryStore {
             push_front(&mut self.replacements, replacement);
         }
     }
-}
-
-fn history_path() -> PathBuf {
-    crate::config::paths::get_cache_dir().join("history.toml")
 }
 
 #[cfg(test)]

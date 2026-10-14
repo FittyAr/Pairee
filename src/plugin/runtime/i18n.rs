@@ -3,17 +3,15 @@
 //! UI language first, then the plugin's `default_language`, then `[key]`.
 //! Nested tables give dotted keys (`[menu] open` → `menu.open`).
 
-use crate::config::localization::translator::{Dictionary, flatten_table, interpolate, lookup};
+use crate::config::localization::translator::{
+    Dictionary, interpolate, lookup, read_dictionary as read_file,
+};
 use crate::plugin::loader::PluginManifest;
 use std::path::Path;
 
 /// Reads `<lang_dir>/<code>.toml` as a flat dictionary (empty on error).
 fn read_dictionary(lang_dir: &Path, code: &str) -> Dictionary {
-    std::fs::read_to_string(lang_dir.join(format!("{code}.toml")))
-        .ok()
-        .and_then(|content| toml::from_str::<toml::Table>(&content).ok())
-        .map(|table| flatten_table(&table))
-        .unwrap_or_default()
+    read_file(&lang_dir.join(format!("{code}.toml")), None).unwrap_or_default()
 }
 
 /// Builds the `pairee.t` function for the plugin in `plugin_dir`.

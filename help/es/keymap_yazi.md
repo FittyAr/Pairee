@@ -130,6 +130,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+Alt+k` | Ciclar modificadores de la barra de teclas |
 | `Alt+F9` | Modo de vídeo |
 | `.` · `Ctrl+h` | Mostrar / ocultar archivos ocultos |
+| `Ctrl+Alt+n` | Mostrar / ocultar barra de teclas |
 | `Ctrl+4` | Vista: ancha |
 | `m n` · `Ctrl+1` | Vista: breve |
 | `m b` · `m m` · `m s` · `Ctrl+3` | Vista: completa |
@@ -161,6 +162,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | Teclas | Acción |
 | :--- | :--- |
 | `Tab` | Cambiar de panel |
+| `Ctrl+Alt+y` | Intercambiar paneles |
 | `Ctrl+o` | Mostrar / ocultar ambos paneles |
 | `Ctrl+F2` | Mostrar / ocultar panel derecho |
 | `Ctrl+p` | Mostrar / ocultar panel inactivo |
@@ -219,6 +221,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `F2` | Menú de usuario |
 | `Ctrl+Enter` | Nombre a la línea de comandos |
 | `F11` | Plugins |
+| `Ctrl+Alt+j` | Ruta a la línea de comandos |
 
 ### Sistema
 

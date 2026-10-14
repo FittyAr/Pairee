@@ -12,15 +12,16 @@ use crate::plugin;
 /// Runs the subcommand named by `args` (the full process arguments).
 /// Returns `Ok(true)` when one was handled and the process should exit.
 pub(super) async fn run_subcommand(args: &[String]) -> Result<bool> {
-    if let Some(pos) = args.iter().position(|a| a == "--elevated-helper") {
-        let Some(temp_file) = args.get(pos + 1) else {
+    let first = args.get(1).map(String::as_str);
+    // Internal: `fs::privileges` always passes it first.
+    if first == Some("--elevated-helper") {
+        let Some(temp_file) = args.get(2) else {
             anyhow::bail!("Missing temp file argument for --elevated-helper");
         };
         fs::elevated_helper::run_elevated_helper_loop(&PathBuf::from(temp_file))?;
         return Ok(true);
     }
-    let first = args.get(1).map(String::as_str);
-    if first == Some("--version") || first == Some("-V") {
+    if asks_version(args) {
         println!("pairee {}", env!("CARGO_PKG_VERSION"));
         return Ok(true);
     }
@@ -43,6 +44,21 @@ pub(super) async fn run_subcommand(args: &[String]) -> Result<bool> {
         _ => print!("{}", help::text(topic)),
     }
     Ok(true)
+}
+
+/// Whether `--version` / `-V` is among the options (before `--`) of an
+/// interactive command line (not a `plugin`, `developer` or `keymap` one).
+fn asks_version(args: &[String]) -> bool {
+    let subcommand = matches!(
+        args.get(1).map(String::as_str),
+        Some("plugin" | "developer" | "keymap")
+    );
+    !subcommand
+        && args
+            .iter()
+            .skip(1)
+            .take_while(|a| *a != "--")
+            .any(|a| a == "--version" || a == "-V")
 }
 
 /// `pairee keymap print [--preset <name>] [--lang <code>]`: the Markdown
@@ -152,8 +168,24 @@ fn parse_install_spec(spec: &str) -> (String, Option<&str>) {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_install_spec;
+    use super::{asks_version, parse_install_spec};
     use crate::plugin::updater::ops::validate_identifier;
+
+    #[test]
+    fn version_is_an_option_anywhere_before_double_dash() {
+        let args = |list: &[&str]| -> Vec<String> {
+            std::iter::once("pairee")
+                .chain(list.iter().copied())
+                .map(String::from)
+                .collect()
+        };
+        assert!(asks_version(&args(&["--version"])));
+        assert!(asks_version(&args(&["--no-mouse", "-V"])));
+        assert!(asks_version(&args(&["/a", "--version"])));
+        assert!(!asks_version(&args(&["--", "--version"])), "a folder");
+        assert!(!asks_version(&args(&["plugin", "info", "--version"])));
+        assert!(!asks_version(&args(&["/a"])));
+    }
 
     #[test]
     fn install_spec_drops_suffix_and_splits_version() {

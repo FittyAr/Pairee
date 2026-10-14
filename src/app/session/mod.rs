@@ -12,6 +12,7 @@ mod tests;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
+use crate::config::StateFile;
 use crate::config::history::HistoryStore;
 use crate::config::session::SessionFile;
 use crate::config::settings::Settings;
@@ -21,7 +22,7 @@ use std::path::PathBuf;
 /// session (when `restore_session` is on), then the command-line folders.
 /// Returns the notices to show once the interface is up.
 pub fn start(state: &mut AppState, settings: &Settings, cli_paths: &[PathBuf]) -> Vec<String> {
-    let session = settings.restore_session.then(SessionFile::load).flatten();
+    let session = settings.restore_session.then(SessionFile::read).flatten();
     start_with(state, settings, session.as_ref(), cli_paths)
 }
 
@@ -54,7 +55,7 @@ pub fn persist_on_exit(state: &mut AppState, context: &mut AppContext) -> Option
     // Folder frecency is part of the folders history: kept only with it.
     // Both merge with what other running instances saved meanwhile.
     let saved = if settings.save_folders_history {
-        state.frecency.save()
+        state.frecency.save_visits()
     } else {
         crate::config::frecency::FrecencyStore::forget_saved()
     };

@@ -8,6 +8,45 @@ use keybinds::{Key, KeyInput, KeySeq, Match, Mods};
 /// or compact `"<leader>gb"`).
 pub const LEADER_TOKEN: &str = "<leader>";
 
+/// Splits a list of alternative chords (`"Ctrl+h, F1"`) into its chords,
+/// trimmed and non-empty. A comma is the `,` key itself, not a separator,
+/// when it starts a chord or follows a modifier (`Ctrl+,`, `ctrl-,`,
+/// `<C-,>`), so `"Ctrl+,, F1"` is `Ctrl+,` and `F1`. `Comma` also names
+/// the key.
+pub fn split_chords(list: &str) -> Vec<&str> {
+    let mut chords = Vec::new();
+    let mut start = 0;
+    for (at, c) in list.char_indices() {
+        if c != ',' {
+            continue;
+        }
+        let chord = list[start..at].trim();
+        // A lone comma is the key when nothing but a separator follows.
+        let rest = list[at + 1..].trim_start();
+        let lone_key = chord.is_empty() && (rest.is_empty() || rest.starts_with(','));
+        if !lone_key && !awaits_key(chord) {
+            chords.push(chord);
+            start = at + 1;
+        }
+    }
+    chords.push(list[start..].trim());
+    chords.retain(|chord| !chord.is_empty());
+    chords
+}
+
+/// Whether `chord` ends in a modifier and its `+` / `-` (`Ctrl+`, `<C-`),
+/// so it still lacks its key (unlike `Ctrl+-` or `gray-`).
+fn awaits_key(chord: &str) -> bool {
+    const MODIFIERS: [&str; 12] = [
+        "ctrl", "control", "alt", "shift", "meta", "super", "cmd", "c", "a", "s", "m", "d",
+    ];
+    let Some(mods) = chord.strip_suffix(['+', '-']) else {
+        return false;
+    };
+    let last = mods.rsplit(['+', '-', '<']).next().unwrap_or_default();
+    MODIFIERS.iter().any(|m| last.eq_ignore_ascii_case(m))
+}
+
 /// Normalizes a chord or a space-separated key sequence written by a user,
 /// expanding `<leader>` to `leader`.
 pub fn normalize_chord(raw: &str, leader: Option<&str>) -> String {
@@ -157,6 +196,28 @@ mod tests {
 
     fn seq(s: &str) -> KeySeq {
         s.parse().unwrap()
+    }
+
+    #[test]
+    fn chord_lists_keep_a_literal_comma_key() {
+        assert_eq!(split_chords("Ctrl+h, F1"), ["Ctrl+h", "F1"]);
+        assert_eq!(split_chords("Ctrl+,"), ["Ctrl+,"]);
+        assert_eq!(split_chords("Ctrl+,, F1"), ["Ctrl+,", "F1"]);
+        assert_eq!(split_chords("F1, ctrl-,"), ["F1", "ctrl-,"]);
+        assert_eq!(split_chords("<C-,>, x"), ["<C-,>", "x"]);
+        assert_eq!(split_chords(",, a"), [",", "a"]);
+        assert_eq!(split_chords("a, ,"), ["a", ","]);
+        assert_eq!(split_chords("Ctrl+-, gray-, -"), ["Ctrl+-", "gray-", "-"]);
+        assert_eq!(
+            split_chords(" a ,  , b "),
+            ["a", "b"],
+            "empty entries skipped"
+        );
+        let parsed: Vec<KeySeq> = split_chords("Ctrl+,, Alt+Comma")
+            .into_iter()
+            .map(|chord| seq(&normalize_chord(chord, None)))
+            .collect();
+        assert_eq!(parsed, [seq("Ctrl+,"), seq("Alt+,")]);
     }
 
     #[test]

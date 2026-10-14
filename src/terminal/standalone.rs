@@ -4,15 +4,18 @@ use std::ffi::OsString;
 #[cfg(not(target_os = "windows"))]
 use std::process::Command;
 
-const STANDALONE: &str = "--standalone";
+use crate::launch_args::STANDALONE;
 
-/// Checks if the `--standalone` argument is among `args` (the full command
-/// line, program first). If it is present, it launches a new independent
-/// terminal window running the same executable (without the
-/// `--standalone` flag) and returns `true`. If the flag is not present,
-/// returns `false`.
+/// Launches a new independent terminal window running the same executable
+/// with `args` (the full command line, program first, already validated)
+/// minus the `--standalone` option, and returns `true`; `false` when
+/// `args` has no such option (before `--`).
 pub fn check_and_launch_standalone(args: &[OsString]) -> Result<bool> {
-    let Some(pos) = args.iter().position(|x| x == STANDALONE) else {
+    let Some(pos) = args
+        .iter()
+        .take_while(|a| *a != "--")
+        .position(|x| x == STANDALONE)
+    else {
         return Ok(false);
     };
     let current_exe = env::current_exe()?;

@@ -5,12 +5,19 @@ pub struct BranchInfo {
     pub name: String,
     /// Whether this is the currently checked-out branch
     pub is_current: bool,
-    /// Whether this is a remote-tracking branch
-    pub is_remote: bool,
+    /// The remote of a remote-tracking branch (`None`: a local branch).
+    pub remote: Option<String>,
     /// Commits ahead of upstream tracking branch
     pub ahead: usize,
     /// Commits behind upstream tracking branch
     pub behind: usize,
+}
+
+impl BranchInfo {
+    /// Whether this is a remote-tracking branch.
+    pub fn is_remote(&self) -> bool {
+        self.remote.is_some()
+    }
 }
 
 /// Returns all local and remote branches in the repository.
@@ -65,10 +72,14 @@ pub fn get_branches(repo: &git2::Repository) -> Vec<BranchInfo> {
                     (0, 0)
                 };
 
+                let remote = is_remote.then(|| {
+                    crate::git::remote::split_remote_branch(repo, &name)
+                        .map_or_else(String::new, |(remote, _)| remote.to_string())
+                });
                 result.push(BranchInfo {
                     name,
                     is_current,
-                    is_remote: *is_remote,
+                    remote,
                     ahead,
                     behind,
                 });
@@ -83,7 +94,7 @@ pub fn get_branches(repo: &git2::Repository) -> Vec<BranchInfo> {
         } else if b.is_current {
             std::cmp::Ordering::Greater
         } else {
-            a.is_remote.cmp(&b.is_remote).then(a.name.cmp(&b.name))
+            a.is_remote().cmp(&b.is_remote()).then(a.name.cmp(&b.name))
         }
     });
 

@@ -34,8 +34,7 @@ pub struct HostSnapshot {
     pub sort_reverse: bool,
     pub image_preview: bool,
     /// Syntax highlighting of the viewer, reused by `pairee.preview_code`.
-    pub syntax_highlighting: bool,
-    pub syntax_max_bytes: u64,
+    pub syntax: crate::syntax::SyntaxLimits,
     /// Theme name and `(key, color)` pairs of the active theme.
     pub theme_name: String,
     pub theme_colors: Vec<(String, String)>,
@@ -57,8 +56,7 @@ impl HostSnapshot {
             sort_by: format!("{:?}", settings.sort_field).to_lowercase(),
             sort_reverse: settings.sort_reverse,
             image_preview: settings.image_preview_enabled,
-            syntax_highlighting: settings.syntax_highlighting,
-            syntax_max_bytes: u64::from(settings.syntax_highlighting_max_kb) * 1024,
+            syntax: crate::syntax::SyntaxLimits::from_settings(settings),
             theme_name: config.theme.name.clone(),
             theme_colors,
         }

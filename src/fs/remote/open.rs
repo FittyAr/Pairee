@@ -9,7 +9,7 @@
 use super::conn::{RemoteConn, RemoteInfo, user_at_host};
 use crate::config::localization::t;
 use crate::config::settings::{Connection, RemoteKind};
-use crate::credential_prompt::{Ask, CredentialRequest};
+use crate::credential_prompt::{Ask, CredentialRequest, Secret};
 use std::io;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -25,7 +25,7 @@ pub fn open(
             host: &conn.host,
             port: conn.port_number().unwrap_or_default(),
             username: &conn.username,
-            password: conn.password.as_deref(),
+            password: conn.secret(),
             key_path: conn.key_path.as_deref(),
             timeout,
             ask,
@@ -36,10 +36,11 @@ pub fn open(
     if password.is_none() && !conn.username.is_empty() {
         password = Some(ask_password(conn, ask)?);
     }
-    let remote = match connect_trusting(conn, &url(conn, password.as_deref())?, ask) {
+    let password = password.as_ref().map(|s| s.as_str());
+    let remote = match connect_trusting(conn, &url(conn, password)?, ask) {
         Err(e) if e.kind() == io::ErrorKind::PermissionDenied && !conn.username.is_empty() => {
             let retry = ask_password(conn, ask)?;
-            super::connect(&url(conn, Some(&retry))?)?
+            super::connect(&url(conn, Some(retry.as_str()))?)?
         }
         other => other?,
     };
@@ -87,7 +88,7 @@ fn start_folder(conn: &Connection) -> PathBuf {
 }
 
 /// The password of `conn`, asked from the user (`Err`: cancelled).
-fn ask_password(conn: &Connection, ask: Ask<'_>) -> anyhow::Result<String> {
+fn ask_password(conn: &Connection, ask: Ask<'_>) -> anyhow::Result<Secret> {
     let subject = user_at_host(&conn.username, &conn.host);
     ask(CredentialRequest::password(subject))
         .ok_or_else(|| anyhow::anyhow!(t("credential_prompt_cancelled")))
@@ -188,7 +189,7 @@ mod tests {
         let asked = std::sync::Mutex::new(Vec::new());
         let trust = |req: CredentialRequest| {
             asked.lock().unwrap().push(req);
-            Some(String::new())
+            Some(crate::credential_prompt::Secret::default())
         };
         open(&conn, Duration::from_secs(5), &trust).unwrap();
         let asked = asked.lock().unwrap();
@@ -206,7 +207,9 @@ mod tests {
         );
 
         // Pinned: the next connection does not ask.
-        let ask_again = |_req: CredentialRequest| -> Option<String> { panic!("asked again") };
+        let ask_again = |_req: CredentialRequest| -> Option<crate::credential_prompt::Secret> {
+            panic!("asked again")
+        };
         open(&conn, Duration::from_secs(5), &ask_again).unwrap();
     }
 

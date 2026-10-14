@@ -41,18 +41,22 @@ async fn run_app() -> Result<()> {
         return Ok(());
     }
 
-    // 0. Check if we need to spawn a standalone terminal window
-    if terminal::standalone::check_and_launch_standalone(&args).unwrap_or(false) {
+    // 0. Interactive arguments, validated before anything starts (in the
+    // configured language, so errors are localized)
+    config::load_configured_language();
+    let launch = crate::launch_args::LaunchArgs::parse(args.iter().skip(1).cloned())
+        .map_err(|e| anyhow::anyhow!(e.message()))?;
+
+    // 0b. Spawn a standalone terminal window when asked to
+    if launch.standalone
+        && terminal::standalone::check_and_launch_standalone(&args).unwrap_or(false)
+    {
         return Ok(());
     }
 
     // 1. Load configuration TOML profiles
     let config =
         config::AppConfig::load_or_create().context("Failed to initialize config files")?;
-
-    // 1b. Interactive arguments (after the language is loaded, so errors are localized)
-    let launch = crate::launch_args::LaunchArgs::parse(args.into_iter().skip(1))
-        .map_err(|e| anyhow::anyhow!(e.message()))?;
     if launch.no_mouse {
         terminal::mouse::disable_from_cli();
     }

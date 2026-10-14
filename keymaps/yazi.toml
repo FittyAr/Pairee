@@ -22,6 +22,7 @@ execute         = "l, o, Enter"
 go_parent       = "h, Backspace, Ctrl+PageUp"
 history_back    = "H"
 history_forward = "L"
+swap_panels     = "Ctrl+Alt+y"
 
 # ── Selection ─────────────────────────────────────────────────────────────────
 select_item      = "Space, Insert"

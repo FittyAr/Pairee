@@ -200,6 +200,7 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::StateFile;
 
     #[test]
     fn saving_mid_run_skips_the_lists_the_user_does_not_keep() {

@@ -1,20 +1,8 @@
 /// Extracts the local branch name from a remote branch name (e.g. "origin/feature" -> "feature").
 pub fn local_branch_name_for_remote(repo: &git2::Repository, remote_branch_name: &str) -> String {
-    if let Ok(remotes) = repo.remotes() {
-        for remote in &remotes {
-            if let Ok(Some(remote)) = remote {
-                let prefix = format!("{}/", remote);
-                if let Some(stripped) = remote_branch_name.strip_prefix(&prefix) {
-                    return stripped.to_string();
-                }
-            }
-        }
-    }
-    if let Some((_remote, local)) = remote_branch_name.split_once('/') {
-        local.to_string()
-    } else {
-        remote_branch_name.to_string()
-    }
+    crate::git::remote::split_remote_branch(repo, remote_branch_name)
+        .map_or(remote_branch_name, |(_, local)| local)
+        .to_string()
 }
 
 /// Checks out a branch by name (local or remote).
