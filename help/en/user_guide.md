@@ -23,28 +23,58 @@ The compiled output is located at:
 You can place the binary in your system path (e.g. `/usr/local/bin/` or `C:\Windows\System32\`) or run it directly from the target folder.
 Make sure the `lang/` and `help/` directories are located alongside the executable or in the system share path (`/usr/share/pairee/` on Linux) to ensure localizations and manuals load correctly.
 
-On the **first launch** (new config directory), Pairee asks which keyboard preset to use: **Norton Commander**, **Neovim**, or **VS Code**. Enter selects; Esc keeps Norton. Change it later under Settings → Interface → Keybindings preset.
+On the **first launch** (new config directory), Pairee asks which keyboard preset to use: **Norton Commander**, **Standard** (Windows Explorer / VS Code / Total Commander keys), **Neovim** or **yazi**. Enter selects; Esc keeps Norton. Change it later under Settings → Interface → Keybindings preset.
 
 ---
 
 ## 🎨 2. Custom TOML Themes
 
-Themes are loaded from `%APPDATA%/pairee/config/themes/` (Windows) or `~/.config/pairee/themes/` (Linux/macOS) in TOML formats.
+Themes are loaded from `%APPDATA%/pairee/config/themes/` (Windows) or `~/.config/pairee/themes/` (Linux/macOS) in TOML format, one file per theme: `themes/<name>.toml` is the theme selected by name in the settings. Two themes are built in, `slate` (the default) and `classic_blue`; a file with the same name replaces the built-in one.
 
 ### Theme Properties Map
+The colors are flat keys at the top of the file. `name` and every color below are **required**: a file that misses one (or has a syntax error) is ignored, the built-in theme is used and the error is reported. Only `[syntax]` and `[ui]` are optional, and any entry missing inside them keeps its default.
 ```toml
-[panel]
-border = "Blue"              # Panel border frame color
-background = "Black"          # Panel inner background
-file_selected = "Yellow"      # Color of tagged items
-file_directory = "Cyan"       # Color of folder items
-file_executable = "Green"     # Color of binaries/scripts
+name = "my_theme"
 
-[menu]
-background = "Blue"          # Top menu background
-selected = "White"            # Selected item text color
+panel_bg = "Reset"          # Panel background
+panel_fg = "White"          # Panel text
+panel_border = "DarkGray"   # Panel border frame
+selection_bg = "Blue"       # Cursor line background
+selection_fg = "White"      # Cursor line text
+marked_fg = "Yellow"        # Tagged (selected) items
+header_bg = "Reset"         # Path header background
+header_fg = "Cyan"          # Path header text
+cli_bg = "Reset"            # Command line background
+cli_fg = "White"            # Command line text
+fkey_num_fg = "White"       # F-key bar: key number
+fkey_text_fg = "Black"      # F-key bar: label
+fkey_bg = "Cyan"            # F-key bar background
+popup_bg = "Black"          # Dialog background
+popup_fg = "White"          # Dialog text
+popup_border = "DarkGray"   # Dialog border
+
+[syntax]                    # Editor and viewer highlighting (optional)
+comment = "DarkGray"
+string = "Green"
+keyword = "LightMagenta"
+constant = "LightRed"       # Numbers, true / false, escapes
+function = "LightYellow"
+type_name = "LightCyan"
+operator = "Gray"
+tag = "LightBlue"           # Markup tags, headings, links
+
+[ui]                        # Semantic colors of dialogs, labels and progress bars (optional)
+accent = "Cyan"
+warning = "Yellow"
+danger = "Red"
+error = "LightRed"
+success = "Green"
+muted = "DarkGray"
+# also: accent_alt, warning_alt, success_alt, secondary, info, link, special, strong, badge_fg, alert_bg
 ```
-Supported colors: `Black`, `Red`, `Green`, `Yellow`, `Blue`, `Magenta`, `Cyan`, `White`, `Gray`, `DarkGray`, `Reset`, or custom hexadecimal numbers (`#RRGGBB`).
+The values shown are those of the built-in `slate` theme. The meaning of each `[ui]` entry is listed under *Color groups* in the configuration reference, where the same colors can also be edited from inside Pairee.
+
+Supported colors: `Black`, `Red`, `Green`, `Yellow`, `Blue`, `Magenta`, `Cyan`, `Gray`, `DarkGray`, `White`, the `Light` variants (`LightRed`, `LightGreen`, `LightYellow`, `LightBlue`, `LightMagenta`, `LightCyan`), `Reset` (the terminal's own color) and hexadecimal `#RRGGBB`. Names are not case sensitive; an unknown name is shown as `Reset`.
 
 ---
 
@@ -55,7 +85,7 @@ When using **Pairee** remotely over SSH, you may notice that holding down `Ctrl`
 To resolve this limitation, we have implemented several options to ensure you can still easily inspect and run these key combinations:
 
 ### 3.1 Manual Modifier Cycling (No Third-Party Apps Required)
-Inside **Pairee**, you can press **`Ctrl+p`** (or `Ctrl+P`) to cycle the bottom F-key bar states manually:
+You can press **`Ctrl+Alt+k`** (action "Cycle key bar modifiers", `cycle_fkeys_modifiers`; bound in the Norton preset and in the Neovim and yazi presets that inherit its keys, unbound in Standard, where you can assign it in the shortcuts list) to cycle the bottom F-key bar states manually (`Ctrl+p` is not this: it switches the inactive panel in Norton, and `Ctrl+P` opens the command palette):
 * **First Press**: Locks the bottom bar to show `CONTROL` functions (e.g. F3: Name, F4: Extension).
 * **Second Press**: Locks the bottom bar to show `ALT` functions (e.g. F3: View, F4: Edit).
 * **Third Press**: Locks the bottom bar to show `SHIFT` functions (e.g. F1: Pack, F6: multi-rename).
@@ -184,12 +214,13 @@ When **Restore last session** (`restore_session`, **Options → Configuration �
 
 ### Command-line arguments
 ```
-pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [<left folder> [<right folder>]]
+pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [--standalone] [<left folder> [<right folder>]]
 ```
 * `<left folder>` / `<right folder>` open in the shown tab of each panel, overriding the restored folders (other tabs are kept). A file opens its folder with the cursor on it.
 * `--cwd-file <file>` writes the folder of the focused panel to `<file>` on exit (empty for SFTP panels), so a shell function can `cd` there.
 * `--print-cwd` prints that folder to standard output on exit.
 * `--no-mouse` starts without mouse capture, whatever the configuration says.
+* `--standalone` opens Pairee in a new, dedicated console window.
 * `--version` (`-V`) prints the installed version and exits.
 * `--help` (`-h`) lists the options and the subcommands (`plugin`, `developer`, `keymap`); `pairee <subcommand> --help` lists the commands of each.
 

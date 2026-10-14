@@ -15,9 +15,9 @@ Pairee is a modern, highly modular, and cross-platform terminal file manager ins
 - 💪 **Async Task Scheduling**: Real-time progress tracking, progress bar popups, and task cancellation for concurrent workers.
 - 🎨 **Visual Themes & Layouts**: Customizable theme loader supporting Slate, Blue, and other custom styles, alongside responsive layout division.
 - ⌨️ **Keys you already know**: presets that keep the keys of Norton Commander / Far, Windows Explorer / VS Code / Total Commander, Neovim and yazi, a searchable keyboard-shortcuts list where any key can be changed, and plugin commands in the same keymap ([help/en/keyboard_shortcuts.md](help/en/keyboard_shortcuts.md)).
-- 🔌 **Extensible Plugin System**: Sandboxed Lua plugins (`mlua`) with real confirm/input/which dialogs, `pairee.cx` + `File` userdata, `pairee.fs` extras, and `pairee.Command` streaming. Lua API **v1.0** ([docs/api/lua](docs/api/lua/README.md)).
+- 🔌 **Extensible Plugin System**: Sandboxed Lua plugins (`mlua`) with real confirm/input/which dialogs, `pairee.cx` + `File` userdata, `pairee.fs` extras, and `pairee.Command` streaming. Lua API **v1.3.0** ([docs/api/lua](docs/api/lua/README.md)).
 - 🧰 **Advanced Utilities**: Built-in file search by name/content, folder comparison, custom user commands menu, OS process manager, and file attributes viewer.
-- 📦 **Smart Auto-Updates**: Secure checks supporting auto-detection across 13 installation methods with SHA-256 verification.
+- 📦 **Smart Auto-Updates**: Secure checks supporting auto-detection across 13 installation methods, with SHA-256 checksums and mandatory minisign signature verification.
 - 🌐 **Centralized Translations**: Core translation engine supporting English, Spanish, and easily extendable to new languages.
 
 ---
@@ -66,7 +66,7 @@ Pairee/
 
 ### Installation (Quick Installers)
 
-Pairee provides precompiled binaries built automatically via GitHub Actions (supporting Windows MSVC, Linux GNU, and static Linux MUSL). You can install them instantly via command line:
+Pairee provides precompiled binaries built automatically via GitHub Actions (Windows x64 and arm64, Linux x64 and arm64 with static MUSL builds plus a x64 GNU build, macOS x64 and arm64). You can install them instantly via command line:
 
 * **Linux (statically linked, standalone binary, x86_64 and aarch64):**
   * **Standard Release:**
@@ -121,7 +121,7 @@ cargo build --release
 
 ### Command Line & Shell Integration
 ```sh
-pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [<left folder> [<right folder>]]
+pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [--standalone] [<left folder> [<right folder>]]
 ```
 The last session (tabs, folders, layout) is restored at startup (**Restore last session** setting); folders given on the command line win. `--cwd-file` writes the focused panel's folder on exit so a shell function can `cd` there:
 

@@ -118,7 +118,7 @@ Configures UI general appearance, terminal rendering, and modal workflow.
 * **Restore last session:** Saves tabs, folders, the focused side, panel visibility and Quick View to `session.toml` on exit and reopens them at startup (folders given on the command line win). SFTP tabs reconnect from their preset when shown. On by default.
 
 ### Keybindings
-* **Keybindings preset:** Cycle Norton / Neovim / VS Code. A status line shows whether the selected preset (plus your `custom_bindings`) loaded cleanly.
+* **Keybindings preset:** Cycle the presets Norton / Standard / Neovim / yazi (and your own preset files). A status line shows whether the selected preset (plus your `custom_bindings`) loaded cleanly.
 * **View keymap issues:** Opens the full list of rejected chords, duplicates, and warnings. Far-style `Gray+` / `Gray-` / `Gray*` aliases map to `Plus` / `-` / `*`.
 
 ### Workflow

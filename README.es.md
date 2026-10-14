@@ -15,9 +15,9 @@ Pairee es un gestor de archivos para terminal moderno, multiplataforma y altamen
 - 💪 **Planificación de Tareas Asíncronas**: Seguimiento del progreso en tiempo real con ventanas emergentes de barras de progreso y cancelación de tareas para trabajadores concurrentes.
 - 🎨 **Temas Visuales y Diseños**: Cargador de temas visuales personalizados (como Slate, Blue, entre otros) y distribución adaptable del diseño de pantalla.
 - ⌨️ **Las teclas que ya conoces**: presets que conservan las teclas de Norton Commander / Far, el Explorador de Windows / VS Code / Total Commander, Neovim y yazi, una lista de atajos con búsqueda donde cualquier tecla se puede cambiar, y los comandos de los plugins en el mismo mapa de teclas ([help/es/keyboard_shortcuts.md](help/es/keyboard_shortcuts.md)).
-- 🔌 **Sistema de Complementos Extensible**: Plugins Lua con sandbox (`mlua`), diálogos reales confirm/input/which, `pairee.cx` + userdata `File`, extras de `pairee.fs` y `pairee.Command` con streaming. API Lua **v1.0** ([docs/api/lua](docs/api/lua/README.md)).
+- 🔌 **Sistema de Complementos Extensible**: Plugins Lua con sandbox (`mlua`), diálogos reales confirm/input/which, `pairee.cx` + userdata `File`, extras de `pairee.fs` y `pairee.Command` con streaming. API Lua **v1.3.0** ([docs/api/lua](docs/api/lua/README.md)).
 - 🧰 **Herramientas Avanzadas**: Búsqueda integrada por nombre/contenido, comparación de carpetas, menú de comandos personalizados del usuario, gestor de procesos del sistema y visor de atributos.
-- 📦 **Actualizaciones Automáticas Inteligentes**: Comprobaciones seguras de actualización con detección automática entre 13 métodos de instalación y validación de firmas SHA-256.
+- 📦 **Actualizaciones Automáticas Inteligentes**: Comprobaciones seguras de actualización con detección automática entre 13 métodos de instalación, con sumas SHA-256 y verificación obligatoria de la firma minisign.
 - 🌐 **Traducciones Centralizadas**: Motor de traducción centralizado que soporta inglés y español, diseñado para extenderse fácilmente a nuevos idiomas.
 
 ---
@@ -66,7 +66,7 @@ Pairee/
 
 ### Instalación (Instaladores Rápidos)
 
-NCRust ofrece binarios precompilados de forma automática mediante GitHub Actions (compatibles con Windows MSVC, Linux GNU y Linux MUSL estático). Puedes instalarlos al instante desde tu terminal:
+Pairee ofrece binarios precompilados de forma automática mediante GitHub Actions (Windows x64 y arm64, Linux x64 y arm64 con builds MUSL estáticos más un build GNU x64, macOS x64 y arm64). Puedes instalarlos al instante desde tu terminal:
 
 * **Linux (enlace estático, ejecutable independiente, x86_64 y aarch64):**
   * **Lanzamiento Estándar:**
@@ -117,6 +117,48 @@ cargo run
 
 # Compilar el binario optimizado para producción
 cargo build --release
+```
+
+### Línea de Comandos e Integración con la Shell
+```sh
+pairee [--cwd-file <archivo>] [--print-cwd] [--no-mouse] [--standalone] [<carpeta izquierda> [<carpeta derecha>]]
+```
+La última sesión (pestañas, carpetas, diseño) se restaura al iniciar (ajuste **Restaurar la última sesión**); las carpetas dadas en la línea de comandos tienen prioridad. `--cwd-file` escribe la carpeta del panel activo al salir, para que una función de la shell pueda hacer `cd` allí:
+
+```sh
+# bash / zsh (~/.bashrc, ~/.zshrc)
+p() {
+  local tmp dir
+  tmp="$(mktemp)"
+  command pairee --cwd-file "$tmp" "$@"
+  dir="$(cat -- "$tmp")"
+  [ -n "$dir" ] && [ "$dir" != "$PWD" ] && cd -- "$dir"
+  rm -f -- "$tmp"
+}
+```
+
+```fish
+# fish (~/.config/fish/functions/p.fish)
+function p
+    set tmp (mktemp)
+    command pairee --cwd-file $tmp $argv
+    set dir (cat -- $tmp)
+    if test -n "$dir"; and test "$dir" != "$PWD"
+        cd -- $dir
+    end
+    rm -f -- $tmp
+end
+```
+
+```powershell
+# PowerShell ($PROFILE)
+function p {
+    $tmp = New-TemporaryFile
+    pairee --cwd-file $tmp.FullName @args
+    $dir = Get-Content -Raw -LiteralPath $tmp.FullName
+    if ($dir -and $dir -ne $PWD.Path) { Set-Location -LiteralPath $dir }
+    Remove-Item -LiteralPath $tmp.FullName
+}
 ```
 
 ### Iniciar en Modo Independiente

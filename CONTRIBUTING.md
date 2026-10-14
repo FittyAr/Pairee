@@ -94,7 +94,7 @@ and `PAIREE_SFTP_PASSWORD` point it at another server.
 
 ## Developer Guidelines
 
-Our code architecture values modularity and clean decoupling. All modifications must comply with the guidelines defined in [.agents/AGENTS.md](file:///.agents/AGENTS.md):
+Our code architecture values modularity and clean decoupling. All modifications must comply with the guidelines defined in [.agents/AGENTS.md](.agents/AGENTS.md):
 
 - **Single Responsibility Principle (SRP)**: Each source file must do one, well-defined task. No monolithic "god files" are allowed.
 - **Zero Hardcoding**: Do not hardcode strings, key names, default paths, or styles. Use translations in `lang/en.toml` or `lang/es.toml`, settings in TOML, and themes.

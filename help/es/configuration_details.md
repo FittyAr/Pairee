@@ -115,7 +115,7 @@ Configura aspectos visuales, redibujado de terminal y flujos de trabajo rápidos
 * **Restore last session (Restaurar la última sesión):** Guarda al salir las pestañas, carpetas, el lado activo, la visibilidad de los paneles y la Vista rápida en `session.toml` y los reabre al iniciar (las carpetas indicadas en la línea de comandos tienen prioridad). Las pestañas SFTP se reconectan desde su perfil al mostrarse. Activado por defecto.
 
 ### Atajos de teclado
-* **Preajuste de atajos:** Alterna Norton / Neovim / VS Code. Una línea de estado indica si el preset (más `custom_bindings`) cargó bien.
+* **Preajuste de atajos:** Alterna los presets Norton / Standard / Neovim / yazi (y tus propios archivos de preset). Una línea de estado indica si el preset (más `custom_bindings`) cargó bien.
 * **Ver problemas del mapa de teclas:** Lista acordes rechazados, duplicados y avisos. Los alias Far `Gray+` / `Gray-` / `Gray*` se traducen a `Plus` / `-` / `*`.
 
 ### Flujo de Trabajo

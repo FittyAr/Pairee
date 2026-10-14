@@ -95,9 +95,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Sizes in dialogs, the transfer panel and the viewer status line use binary units (KiB, MiB, GiB), matching the 1024-byte steps they are computed with.
 - The log file `app.log` is appended to instead of truncated on every start, and rotates to `app.log.1` past 5 MiB; two Pairee windows no longer overwrite each other's log.
 - Release builds log at `info` level instead of `debug` (`RUST_LOG=debug` restores the detail); errors while loading the configuration or running a subcommand are now logged too.
-- `install.sh` requires `minisign` and a valid release signature; `--insecure-skip-signature` accepts the download on its SHA-256 checksum alone.
 - `install.ps1` always verifies the release signature, with the official minisign build it downloads itself (pinned version and SHA-256); `-InsecureSkipSignature` accepts the download on its SHA-256 checksum alone. Both install scripts can also just download and verify (`--verify-only` / `-VerifyOnly`).
-- Release archives are named after the platform instead of the Rust target triple: `pairee-X.Y.Z-linux-x64-musl.tar.gz`, `pairee-X.Y.Z-macos-arm64.tar.gz`, `pairee-X.Y.Z-windows-x64.zip`... Until 0.12.0 each archive is also published under its old name, so Pairee 0.10 and older can still update itself.
+- Release archives are named after the platform instead of the Rust target triple: `pairee-X.Y.Z-linux-x64-musl.tar.gz`, `pairee-X.Y.Z-macos-arm64.tar.gz`, `pairee-X.Y.Z-windows-x64.zip`... 0.11.0 is the last release that also publishes each archive under its old name, so Pairee 0.10 and older can still update itself to it.
 - Git: pull follows the branch's configured upstream instead of always using the same-named remote branch.
 - Git: aborting a merge keeps the local changes you had in other files, like `git merge --abort`.
 - Untrusted plugins can only fire navigation, view, sort, selection and help actions (and their own commands) with `pairee.emit`.
@@ -119,8 +118,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Removed
 - `run.bat` and `run.sh`: their developer menu is now `cargo xtask dev` (also `cargo xtask dev <action>`, e.g. `cargo xtask dev clippy`).
 
-- Copying a folder into itself or a file onto itself showed the untranslated message key instead of the error; the help index shows translated titles for every page (it showed file names such as "Ssh Sftp").
 ### Fixed
+- Copying a folder into itself or a file onto itself showed the untranslated message key instead of the error; the help index shows translated titles for every page (it showed file names such as "Ssh Sftp").
 - Files written into a zip, tar or 7z archive from a remote panel or another archive are staged in a private temporary file instead of being held whole in memory, so large files no longer risk running out of memory; the temporary file is removed when the copy ends, fails or is cancelled.
 - Errors from archives and extraction (unsafe entries, decompression bombs, links in the way, 7z failures, unsupported formats) and from creating folders and links, reading folders, changing attributes, wiping and saving descriptions are shown in the configured language, and name the file and the cause.
 - SSH: a wrong passphrase for an encrypted key is asked again (up to three times, saying the previous one was wrong) instead of failing the connection.

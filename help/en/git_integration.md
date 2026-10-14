@@ -9,7 +9,7 @@ Pairee features a fully integrated Git dashboard that allows you to monitor and 
 ### 1.1 Dashboard Shortcut
 * **Hotkey Shortcut:** Press **`Alt+G`** (or **`Alt+g`**) while inside any directory that belongs to a Git repository.
 * **Top Menu:** Select **`Left Panel`** (or **`Right Panel`**) -> **`Git panel`**.
-* The panel opens immediately and reads the repository in the background: the title shows "⟳ Loading…" until status, log, branches, stashes and tags arrive. After an operation (stage, commit, checkout, fetch…) and with `r` / `F5` the panel keeps its current contents while it is refreshed. Older commits are fetched in the background as you scroll down the Log tab.
+* The panel opens immediately and reads the repository in the background: the title shows "⟳ Loading…" until status, log, branches, stashes and tags arrive. After an operation (stage, commit, checkout, fetch…) and when you refresh the panel (`F5`, or `r` on the Status, Stash and Tags tabs; on the Log tab `r` reverts a commit and on the Branches tab it renames a branch) the panel keeps its current contents while it is reloaded. Older commits are fetched in the background as you scroll down the Log tab.
 * Local operations (stage, unstage, discard, add to `.gitignore`, diffs, commit, stash, branch, tag, checkout, merge, rebase, reset, cherry-pick, revert, remotes) also run in the background: the title shows "⟳ Working…" meanwhile, a second operation waits until the first one ends, and a failure opens an error message over the panel (`Esc` returns to it).
 
 ### 1.2 Repository Management from Explorer
