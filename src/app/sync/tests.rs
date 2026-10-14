@@ -21,9 +21,11 @@ pub(crate) fn two_trees() -> (tempfile::TempDir, tempfile::TempDir) {
 
 /// Waits for the background scan (it runs on the blocking pool under Tokio;
 /// generous, as CI runners under a full parallel test run can be slow).
+/// A scan that ended before `start_scan` returned was already applied by
+/// the poll `start_scan` makes, so it is no longer running.
 pub(crate) async fn finish_scan(state: &mut AppState) {
     for _ in 0..3000 {
-        if poll_folder_scan(state) {
+        if poll_folder_scan(state) || !state.folder_scan.is_running() {
             return;
         }
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
