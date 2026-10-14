@@ -76,6 +76,9 @@ pub struct Harness {
     keymap: String,
     /// The next mouse press completes a double click (see `double_click`).
     join_next_press: bool,
+    /// Every key waits for running transfer jobs (see
+    /// [`Harness::without_waiting_for_transfers`]).
+    wait_for_transfers: bool,
     // Field order matters: the redirect is restored before the sandbox goes.
     _redirect: test_root::Redirect,
     sandbox: TempDir,
@@ -147,6 +150,7 @@ impl Harness {
             screen: Terminal::new(TestBackend::new(width, height)).expect("test terminal"),
             keymap: options.keymap,
             join_next_press: false,
+            wait_for_transfers: true,
             _redirect: redirect,
             sandbox,
         };

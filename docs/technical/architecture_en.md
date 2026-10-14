@@ -32,7 +32,7 @@ graph TD
 The core business logic does not import `ratatui` or handle console outputs directly.
 * All directory listings, glob filtering, active operations state, selected files lists, and background tasks channels are housed inside `AppState` (`src/app/state/mod.rs`) and `AppContext` (`src/app/context.rs`).
 * This enables writing standard Rust unit tests for directory changes, sorting options, and path manipulations without mocking terminal devices.
-* End-to-end smoke scenarios (`src/smoke_tests/`) use the test harness in `src/test_harness/` (test builds only): a `Harness` runs the real state over a temporary sandbox (both panels and every per-user directory, so the real configuration is never touched), sends key scripts such as `h.keys("@copy Enter")` through the event-loop dispatcher (`@action` replays the active keymap's chord), drains background jobs and paints frames on a `TestBackend` for screen assertions.
+* End-to-end smoke scenarios (`src/smoke_tests/`) use the test harness in `src/test_harness/` (test builds only): a `Harness` runs the real state over a temporary sandbox (both panels and every per-user directory, so the real configuration is never touched), sends key scripts such as `h.keys("@copy Enter")` through the event-loop dispatcher (`@action` replays the active keymap's chord), drains background jobs and paints frames on a `TestBackend` for screen assertions. Every input waits for running background jobs; `without_waiting_for_transfers` lets a test drive the transfer bar or panel of a job that is still running and `wait_for_transfers` waits explicitly.
 
 ### 1.2 The Event Loop (`app::run`)
 The main execution sequence:
@@ -207,7 +207,7 @@ Archive formats are a second Strategy (`fs::archive::format::ArchiveReader`, one
 * **Dialogs through their keys:** a dialog control records the keys that reach and use it from the current focus (`PopupKeys`, `PopupRow { steps, focus }`, `PopupField`); `kit::mouse::FormFocus` derives them from a `FormLayout`. The router presses them through the dialog's own key handler, stopping if the dialog changes, so no dialog has mouse-specific state.
 * **Placement:** `ui::placement` applies the open dialog's offset and extra size inside the centering helpers, so every centered dialog moves without code of its own; `app::mouse::dialog_drag` keeps it per dialog (stack depth + kind) and resumes from what the last frame could honour.
 * **Drag and drop:** `app::mouse::file_drag` turns a press on a row into a drag, `drop_target` resolves the folder (or the command line) under the pointer and `fs_ops::transfer::start` runs the F5/F6 path with explicit SSH endpoints; `ui::drag_label` draws the pointer label.
-* **Tests:** `test_harness` has `click`, `double_click`, `right_click`, `middle_click`, `wheel`, `drag`, `hover`, `hit_cell` and `locate`; `smoke_tests::mouse` covers the behaviour, including a dialog coverage test.
+* **Tests:** `test_harness` has `click`, `double_click`, `right_click`, `middle_click`, `wheel`, `drag`, `hover`, `hit_cell` and `locate`; `smoke_tests::mouse` covers the behaviour, including a dialog coverage test. Gestures are timed by `MouseState`'s clock (`gesture::MouseClock`): the harness uses a manual one, so every press is a new gesture and `double_click` joins its two presses whatever time the machine took between them.
 
 ---
 

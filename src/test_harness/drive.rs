@@ -252,6 +252,34 @@ impl Harness {
         });
     }
 
+    /// Lets keys and clicks go through while transfer jobs run (by default
+    /// every input waits for them): for driving the transfer bar or panel
+    /// of a job that is still going. [`Self::wait_for_transfers`] waits
+    /// explicitly.
+    pub fn without_waiting_for_transfers(&mut self) -> &mut Self {
+        self.wait_for_transfers = false;
+        self
+    }
+
+    /// Waits until no transfer job is running any more.
+    pub fn wait_for_transfers(&mut self) -> &mut Self {
+        self.wait_until("the transfers to end", |h| !h.transfers_running());
+        self
+    }
+
+    /// A transfer job is queued or running (one waiting for a conflict
+    /// answer is idle until a key arrives).
+    fn transfers_running(&self) -> bool {
+        self.state.transfer.as_ref().is_some_and(|t| {
+            t.active_conflict_info.is_none()
+                && t.engine
+                    .queue
+                    .get_all()
+                    .iter()
+                    .any(|job| !job.is_terminal())
+        })
+    }
+
     /// True while a background job the harness knows about is running.
     fn busy(&self) -> bool {
         let state = &self.state;
@@ -262,15 +290,7 @@ impl Harness {
         .into_iter()
         .flat_map(|side| state.panels.tabs(side).tabs())
         .any(|tab| tab.panel.listing.is_running() || tab.panel.dir_sizes.is_running());
-        // A job waiting for a conflict answer is idle until a key arrives.
-        let transfer = state.transfer.as_ref().is_some_and(|t| {
-            t.active_conflict_info.is_none()
-                && t.engine
-                    .queue
-                    .get_all()
-                    .iter()
-                    .any(|job| !job.is_terminal())
-        });
+        let transfer = self.wait_for_transfers && self.transfers_running();
         listing
             || transfer
             || state.git_op.is_running()
