@@ -3,6 +3,9 @@
 
 use super::mouse;
 use crossterm::cursor::Show;
+use crossterm::event::{
+    DisableBracketedPaste, DisableFocusChange, EnableBracketedPaste, EnableFocusChange,
+};
 use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
@@ -32,6 +35,10 @@ pub fn suspend() -> io::Result<Suspended> {
     SUSPENDED.store(true, Ordering::SeqCst);
     let mouse = mouse::is_captured();
     mouse::set_capture(false)?;
+    // Terminal-wide modes: the child would read `ESC[200~` around pastes
+    // and `ESC[I` / `ESC[O` on focus changes (best effort: some consoles
+    // do not support them).
+    let _ = execute!(io::stdout(), DisableBracketedPaste, DisableFocusChange);
     disable_raw_mode()?;
     execute!(io::stdout(), LeaveAlternateScreen, Show)?;
     Ok(Suspended { mouse })
@@ -44,6 +51,7 @@ impl Suspended {
         SUSPENDED.store(false, Ordering::SeqCst);
         enable_raw_mode()?;
         execute!(io::stdout(), EnterAlternateScreen)?;
+        let _ = execute!(io::stdout(), EnableBracketedPaste, EnableFocusChange);
         mouse::set_capture(self.mouse)
     }
 }
