@@ -226,6 +226,14 @@ async fn copies_into_a_zip_follow_the_conflict_setting() {
     assert_eq!(a, b"old");
 }
 
+/// A conflict setting the engine does not know asks (here answered with
+/// skip) instead of overwriting.
+#[tokio::test]
+async fn an_unknown_conflict_setting_asks_instead_of_overwriting() {
+    let (_, a) = copy_over_existing("Overwrite ", ConflictResolution::Skip).await;
+    assert_eq!(a, b"old");
+}
+
 #[tokio::test]
 async fn asking_about_a_zip_conflict_waits_for_the_answer() {
     let asked_skip = copy_over_existing("ask", ConflictResolution::Skip).await;

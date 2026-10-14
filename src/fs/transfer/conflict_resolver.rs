@@ -15,6 +15,15 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
+/// Conflict settings applied without asking.
+const KNOWN_MODES: &[&str] = &[
+    "overwrite",
+    "overwrite_older",
+    "skip",
+    "rename",
+    "keep_both",
+];
+
 pub enum ConflictAction {
     Skip,
     Proceed,
@@ -43,7 +52,9 @@ fn meta_on(fs: &dyn Vfs, path: &Path) -> (u64, Option<SystemTime>) {
 impl ConflictResolver<'_> {
     /// The setting to apply to `dst`, asking the user for "ask".
     async fn mode(&mut self, src: &Path, dst: &Path) -> anyhow::Result<String> {
-        if self.options.conflict_resolution != "ask" {
+        // A setting this code does not know (a hand-edited config) asks
+        // instead of falling through to an overwrite.
+        if KNOWN_MODES.contains(&self.options.conflict_resolution.as_str()) {
             return Ok(self.options.conflict_resolution.clone());
         }
         let chosen = match self.auto {
@@ -124,7 +135,8 @@ impl ConflictResolver<'_> {
                     _ => Ok(ConflictAction::Proceed),
                 }
             }
-            _ => Ok(ConflictAction::Proceed), // Overwrite
+            "overwrite" => Ok(ConflictAction::Proceed),
+            _ => Ok(self.skipped(src, results, "transfer_skip_exists")),
         }
     }
 
