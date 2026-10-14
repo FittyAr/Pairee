@@ -70,6 +70,13 @@ impl AppState {
         self.prefs = PanelPrefs::from_settings(settings);
         self.screens.terminal_lines = settings.terminal_scrollback_lines as usize;
         self.auto_refresh.configure(settings);
+        // Open editors show, insert and select with the new tab width.
+        let tab_size = crate::app::editor::EditorOptions::from(settings).tab_size;
+        for screen in self.screens.iter_mut() {
+            if let super::Screen::Editor(ed) = screen {
+                ed.tab_size = tab_size.max(1);
+            }
+        }
     }
 }
 
@@ -91,5 +98,19 @@ mod tests {
         assert!(state.prefs.sort.case_sensitive && state.prefs.sort.natural());
         assert!(state.prefs.select_folders);
         assert_eq!(state.prefs.disable_panel_update_object_count, 7);
+    }
+
+    #[test]
+    fn open_editors_take_a_new_tab_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.txt");
+        std::fs::write(&path, "\tx").unwrap();
+        let mut state = AppState::new(".".into(), ".".into());
+        crate::app::editor::open::open_in_editor(&mut state, path, &Settings::default());
+        let mut settings = Settings::default();
+        let wanted = crate::app::editor::EditorOptions::from(&settings).tab_size + 3;
+        settings.editor_tab_size = wanted as _;
+        state.apply_settings(&settings);
+        assert_eq!(state.active_editor_mut().unwrap().tab_size, wanted);
     }
 }

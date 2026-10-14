@@ -30,6 +30,9 @@ pub struct EditorState {
     /// Where the last find stopped on an empty match (`^`, `$`...), which
     /// cannot be shown as a selection; "Replace" replaces it there.
     pub empty_match: Option<Pos>,
+    /// Where the last Up / Down left the cursor and the display column it
+    /// aims for (kept while the cursor is still there).
+    pub goal_column: Option<(Pos, usize)>,
     /// Line ending, final newline and BOM to write back.
     pub format: TextFormat,
     /// Modification time / read-only flag when the file was read or saved.
@@ -69,6 +72,7 @@ impl EditorState {
             last_search: None,
             show_matches: false,
             empty_match: None,
+            goal_column: None,
             format,
             stamp: DiskStamp::default(),
             locked: false,
@@ -172,7 +176,9 @@ impl EditorState {
         if !options.tab_expansion.inserts_spaces() {
             return self.insert_at_cursor("\t");
         }
-        let tab = options.tab_size.max(1);
+        // The width the buffer is shown with (the settings' one since
+        // `AppState::apply_settings`).
+        let tab = self.tab_size;
         let at = self.insertion_point();
         let before = &self.lines[at.y][..at.x];
         let col = display_width(&expand_tabs(before, tab));
@@ -381,6 +387,20 @@ mod tests {
         ed.set_cursor(Pos::new(1, 2));
         ed.insert_newline(true);
         assert_eq!(ed.lines, vec!["  ", "  "]);
+    }
+
+    #[test]
+    fn up_and_down_keep_the_display_column() {
+        let mut ed = editor("日本語\nabcdefgh\nx\n\tabcdefgh");
+        ed.set_cursor(Pos::new(0, "日本".len()));
+        ed.move_down(1);
+        assert_eq!(ed.cursor(), Pos::new(1, 4), "column 4, not byte 6");
+        ed.move_down(1);
+        assert_eq!(ed.cursor(), Pos::new(2, 1), "end of a short line");
+        ed.move_down(1);
+        assert_eq!(ed.cursor(), Pos::new(3, 1), "column 4 again (a tab is 4)");
+        ed.move_up(3);
+        assert_eq!(ed.cursor(), Pos::new(0, "日本".len()));
     }
 
     #[test]
