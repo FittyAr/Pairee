@@ -437,7 +437,7 @@ mod tests {
             host: "h".into(),
             port: "22".into(),
             username: "u".into(),
-            password: Some("pw".into()),
+            password: Some(crate::credential_prompt::Secret::new("pw".into())),
             ..settings::Connection::default()
         });
         settings.active_dev_plugin = Some("no-such-plugin".into());
@@ -450,7 +450,7 @@ mod tests {
         let config = AppConfig::load_or_create().unwrap();
         assert!(config.settings.active_dev_plugin.is_none());
         assert_eq!(
-            config.settings.connections[0].password.as_deref(),
+            config.settings.connections[0].secret(),
             Some("pw")
         );
         assert_eq!(

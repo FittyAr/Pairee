@@ -49,7 +49,7 @@ impl CredentialRequests {
     }
 
     /// Answers the shown request `id` (`None`: cancelled).
-    fn answer(&mut self, id: u64, secret: Option<String>) {
+    fn answer(&mut self, id: u64, secret: Option<crate::credential_prompt::Secret>) {
         if self.shown.as_ref().is_some_and(|p| p.id == id)
             && let Some(pending) = self.shown.take()
         {
@@ -81,6 +81,7 @@ pub fn process(state: &mut AppState) {
         id: next.id,
         kind: next.request.kind,
         subject: next.request.subject.clone(),
+        retry: next.request.retry,
         input: TextField::default(),
     };
     requests.shown = Some(next);
@@ -101,7 +102,7 @@ pub fn finish_prompt(state: &mut AppState, submit: bool) {
     let Some(prompt) = state.dialogs.pop_as::<CredentialPrompt>() else {
         return;
     };
-    let secret = submit.then(|| prompt.input.into_text());
+    let secret = submit.then(|| crate::credential_prompt::Secret::new(prompt.input.into_text()));
     state.credential_requests.answer(prompt.id, secret);
     state.mark_ui_dirty();
 }

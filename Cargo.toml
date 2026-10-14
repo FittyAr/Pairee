@@ -89,6 +89,7 @@ quick-xml = "0.42.0"
 url = "2.5.8"
 bytes = "1.12"
 http-body = "1.1"
+zeroize = { version = "1.9.1", features = ["serde"] }
 
 [features]
 # Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in

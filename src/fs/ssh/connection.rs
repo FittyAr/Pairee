@@ -10,6 +10,11 @@ use std::time::Duration;
 
 /// Time allowed to reach the server.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+/// Times the passphrase of a key is asked for before giving up.
+pub(crate) const MAX_PASSPHRASE_PROMPTS: usize = 3;
+/// libssh2's error for a key file it cannot decrypt (a wrong passphrase),
+/// as opposed to the server refusing the key.
+const LIBSSH2_ERROR_FILE: std::ffi::c_int = -16;
 
 pub fn open_session(login: &SshLogin<'_>) -> Result<Session> {
     let (host, port) = (login.host, login.port);
@@ -187,7 +192,8 @@ fn authenticate(sess: &mut Session, login: &SshLogin<'_>) -> Result<()> {
 }
 
 /// Public key login with the key file at `path`. An encrypted key uses
-/// `passphrase`, or one asked from the user (also after a wrong one).
+/// `passphrase`, or one asked from the user; a wrong passphrase is asked
+/// again, up to [`MAX_PASSPHRASE_PROMPTS`] times.
 fn key_login(
     sess: &Session,
     login: &SshLogin<'_>,
@@ -198,16 +204,48 @@ fn key_login(
     if !crate::credential_prompt::key::is_encrypted(path) {
         return Ok(sess.userauth_pubkey_file(username, None, path, None)?);
     }
-    if let Some(given) = passphrase
-        && sess
-            .userauth_pubkey_file(username, None, path, Some(given))
-            .is_ok()
-    {
-        return Ok(());
+    let try_key = |secret: &str| sess.userauth_pubkey_file(username, None, path, Some(secret));
+    let mut request = CredentialRequest::passphrase(path);
+    if let Some(given) = passphrase {
+        match try_key(given) {
+            Ok(()) => return Ok(()),
+            Err(e) if wrong_passphrase(&e) => request = request.again(),
+            Err(_) => {}
+        }
     }
-    let asked = (login.ask)(CredentialRequest::passphrase(path))
-        .ok_or_else(|| anyhow::anyhow!(t("credential_prompt_cancelled")))?;
-    Ok(sess.userauth_pubkey_file(username, None, path, Some(&asked))?)
+    with_prompts(login.ask, request, MAX_PASSPHRASE_PROMPTS, |asked| {
+        try_key(asked).map_err(|e| (wrong_passphrase(&e), e.into()))
+    })
+}
+
+/// Whether `error` says the key file could not be decrypted.
+fn wrong_passphrase(error: &ssh2::Error) -> bool {
+    error.code() == ssh2::ErrorCode::Session(LIBSSH2_ERROR_FILE)
+}
+
+/// Asks `request` and hands the answer to `attempt`, asking again (marked
+/// as a retry) while it fails with `(true, _)`, at most `prompts` times.
+/// Cancelling the prompt ends with the "cancelled" error.
+pub(crate) fn with_prompts(
+    ask: crate::credential_prompt::Ask<'_>,
+    mut request: CredentialRequest,
+    prompts: usize,
+    mut attempt: impl FnMut(&str) -> std::result::Result<(), (bool, anyhow::Error)>,
+) -> Result<()> {
+    let mut last = None;
+    for _ in 0..prompts {
+        let asked =
+            ask(request.clone()).ok_or_else(|| anyhow::anyhow!(t("credential_prompt_cancelled")))?;
+        match attempt(&asked) {
+            Ok(()) => return Ok(()),
+            Err((true, e)) => {
+                last = Some(e);
+                request = request.again();
+            }
+            Err((false, e)) => return Err(e),
+        }
+    }
+    Err(last.unwrap_or_else(|| anyhow::anyhow!(t("credential_prompt_cancelled"))))
 }
 
 /// Environment variable holding the user's home directory.
@@ -239,6 +277,43 @@ pub(super) fn known_hosts_path_in(home: Option<std::ffi::OsString>) -> Option<Pa
 mod timeout_tests {
     use super::timeout_millis;
     use std::time::Duration;
+
+    #[test]
+    fn a_wrong_passphrase_is_asked_again_a_bounded_number_of_times() {
+        use super::{CredentialRequest, MAX_PASSPHRASE_PROMPTS, with_prompts};
+        use crate::credential_prompt::Secret;
+        use std::sync::Mutex;
+        let asked: Mutex<Vec<bool>> = Mutex::new(Vec::new());
+        let ask = |req: CredentialRequest| {
+            asked.lock().unwrap().push(req.retry);
+            Some(Secret::new(format!("try{}", asked.lock().unwrap().len())))
+        };
+        let request = CredentialRequest::passphrase(std::path::Path::new("k"));
+        // Right on the second try.
+        let result = with_prompts(&ask, request.clone(), MAX_PASSPHRASE_PROMPTS, |p| {
+            if p == "try2" {
+                Ok(())
+            } else {
+                Err((true, anyhow::anyhow!("wrong")))
+            }
+        });
+        assert!(result.is_ok());
+        assert_eq!(*asked.lock().unwrap(), [false, true]);
+        // Always wrong: gives up after the last prompt.
+        asked.lock().unwrap().clear();
+        let result = with_prompts(&ask, request.clone(), MAX_PASSPHRASE_PROMPTS, |_| {
+            Err((true, anyhow::anyhow!("wrong")))
+        });
+        assert!(result.is_err());
+        assert_eq!(asked.lock().unwrap().len(), MAX_PASSPHRASE_PROMPTS);
+        // Another failure (the server refused the key): no new prompt.
+        asked.lock().unwrap().clear();
+        let result = with_prompts(&ask, request, MAX_PASSPHRASE_PROMPTS, |_| {
+            Err((false, anyhow::anyhow!("refused")))
+        });
+        assert!(result.is_err());
+        assert_eq!(asked.lock().unwrap().len(), 1);
+    }
 
     #[test]
     fn timeout_is_clamped_to_u32_millis() {

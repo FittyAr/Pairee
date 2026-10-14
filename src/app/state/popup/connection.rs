@@ -155,7 +155,7 @@ impl ConnectionPromptState {
         self.set(F::Host, c.host.clone());
         self.set(F::Port, c.port.clone());
         self.set(F::User, c.username.clone());
-        self.set(F::Password, c.password.clone().unwrap_or_default());
+        self.set(F::Password, c.secret().unwrap_or_default());
         self.set(F::KeyPath, c.key_path.clone().unwrap_or_default());
         self.set(F::Folder, c.path.clone());
         self.set(F::Options, c.options.clone());
@@ -194,9 +194,11 @@ impl ConnectionPromptState {
         use ConnectionField as F;
         let optional = |f: F| Some(self.field(f).to_string()).filter(|s| !s.is_empty());
         let trimmed = |f: F| self.field(f).trim().to_string();
-        let password = optional(F::Password);
+        let password = optional(F::Password).map(crate::credential_prompt::Secret::new);
         Connection {
             name: trimmed(F::Name),
+            // Kept from the saved connection it replaces (see `save`).
+            id: String::new(),
             kind: self.kind,
             host: trimmed(F::Host),
             port: trimmed(F::Port),
@@ -282,6 +284,6 @@ mod tests {
             .insert_char('p');
         let typed = p.to_connection();
         assert!(!typed.secret_unread);
-        assert_eq!(typed.password.as_deref(), Some("p"));
+        assert_eq!(typed.secret(), Some("p"));
     }
 }

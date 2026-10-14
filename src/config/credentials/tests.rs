@@ -1,22 +1,33 @@
-use super::index::{INDEX_ACCOUNT, LEGACY_INDEX_ACCOUNT};
+use super::index::{INDEX_ACCOUNT, LEGACY_INDEX_ACCOUNT, NAME_INDEX_ACCOUNT};
 use super::*;
 use crate::config::settings::RemoteKind;
+use crate::credential_prompt::Secret;
 
 fn reset() {
     test_store::set_available(true);
     test_store::set_reads_fail(false);
 }
 
-fn settings_with(password: Option<&str>) -> Settings {
-    let mut settings = Settings::default();
-    settings.connections.push(Connection {
-        name: "box".into(),
+/// The keyring account of the connection with id `id`.
+fn by_id(id: &str) -> String {
+    format!("connection-id:{id}")
+}
+
+fn connection(name: &str, id: &str, password: Option<&str>) -> Connection {
+    Connection {
+        name: name.into(),
+        id: id.into(),
         host: "h".into(),
         port: "22".into(),
         username: "u".into(),
-        password: password.map(str::to_owned),
+        password: password.map(|p| Secret::new(p.to_owned())),
         ..Connection::default()
-    });
+    }
+}
+
+fn settings_with(password: Option<&str>) -> Settings {
+    let mut settings = Settings::default();
+    settings.connections.push(connection("box", "b1", password));
     settings
 }
 
@@ -26,11 +37,8 @@ fn plaintext_passwords_migrate_to_the_keyring() {
     let mut settings = settings_with(Some("s3cret"));
     let outcome = load_passwords(&mut settings);
     assert!(outcome.migrated && !outcome.not_persisted);
-    assert_eq!(
-        test_store::secret("connection:box").as_deref(),
-        Some("s3cret")
-    );
-    assert_eq!(settings.connections[0].password.as_deref(), Some("s3cret"));
+    assert_eq!(test_store::secret(&by_id("b1")).as_deref(), Some("s3cret"));
+    assert_eq!(settings.connections[0].secret(), Some("s3cret"));
     let disk = for_disk(&settings);
     assert!(
         disk.connections[0].password.is_none(),
@@ -46,48 +54,79 @@ fn passwords_are_read_back_and_cleared_ones_deleted() {
     let saved = for_disk(&settings_with(Some("pw")));
     let mut loaded = saved.clone();
     assert_eq!(load_passwords(&mut loaded), LoadOutcome::default());
-    assert_eq!(loaded.connections[0].password.as_deref(), Some("pw"));
+    assert_eq!(loaded.connections[0].secret(), Some("pw"));
     let _ = for_disk(&settings_with(None));
-    assert!(test_store::secret("connection:box").is_none());
+    assert!(test_store::secret(&by_id("b1")).is_none());
 }
 
 #[test]
-fn removed_and_renamed_connections_lose_their_keyring_entry() {
+fn connections_with_the_same_name_keep_their_own_password() {
+    reset();
+    let mut settings = Settings::default();
+    settings.connections.push(connection("box", "", Some("one")));
+    settings.connections.push(connection("box", "", Some("two")));
+    assert!(load_passwords(&mut settings).migrated);
+    let ids: Vec<String> = settings.connections.iter().map(|c| c.id.clone()).collect();
+    assert!(!ids[0].is_empty() && ids[0] != ids[1], "{ids:?}");
+    let disk = for_disk(&settings);
+    let mut loaded = disk.clone();
+    load_passwords(&mut loaded);
+    assert_eq!(loaded.connections[0].secret(), Some("one"));
+    assert_eq!(loaded.connections[1].secret(), Some("two"));
+}
+
+#[test]
+fn a_copied_id_is_replaced() {
+    let mut settings = Settings::default();
+    settings.connections.push(connection("a", "same", None));
+    settings.connections.push(connection("b", "same", None));
+    assert!(assign_ids(&mut settings));
+    assert_eq!(settings.connections[0].id, "same");
+    assert_ne!(settings.connections[1].id, "same");
+    assert!(!assign_ids(&mut settings), "stable once assigned");
+}
+
+#[test]
+fn removed_connections_lose_their_entry_and_renamed_ones_keep_it() {
     reset();
     let mut settings = settings_with(Some("pw"));
-    let mut other = settings.connections[0].clone();
-    other.name = "other".into();
+    let mut other = connection("other", "o1", Some("pw"));
     other.kind = RemoteKind::Ftp;
     settings.connections.push(other);
     let _ = for_disk(&settings);
-    assert!(test_store::secret("connection:other").is_some());
+    assert!(test_store::secret(&by_id("o1")).is_some());
 
     settings.connections[0].name = "renamed".into();
     settings.connections.pop();
     let _ = for_disk(&settings);
-    assert!(test_store::secret("connection:box").is_none(), "renamed");
-    assert!(test_store::secret("connection:other").is_none(), "removed");
+    assert!(test_store::secret(&by_id("o1")).is_none(), "removed");
     assert_eq!(
-        test_store::secret("connection:renamed").as_deref(),
-        Some("pw")
+        test_store::secret(&by_id("b1")).as_deref(),
+        Some("pw"),
+        "a rename keeps the id"
     );
 
     settings.connections.clear();
     let _ = for_disk(&settings);
-    assert!(test_store::secret("connection:renamed").is_none());
+    assert!(test_store::secret(&by_id("b1")).is_none());
     assert!(test_store::secret(INDEX_ACCOUNT).is_none());
 }
 
 #[test]
-fn entries_from_before_the_index_are_pruned_once_loaded() {
+fn name_keyed_entries_move_to_the_id_and_stale_ones_are_pruned() {
     reset();
     test_store::put("connection:box", "pw");
+    test_store::put("connection:gone", "stale");
+    test_store::put(NAME_INDEX_ACCOUNT, r#"["box","gone"]"#);
     let mut settings = settings_with(None);
     load_passwords(&mut settings);
-    assert_eq!(settings.connections[0].password.as_deref(), Some("pw"));
-    settings.connections.clear();
+    assert_eq!(settings.connections[0].secret(), Some("pw"));
+    assert_eq!(test_store::secret(&by_id("b1")).as_deref(), Some("pw"));
+    assert!(test_store::secret("connection:box").is_none(), "moved");
+    assert!(test_store::secret(NAME_INDEX_ACCOUNT).is_none(), "folded");
     let _ = for_disk(&settings);
-    assert!(test_store::secret("connection:box").is_none());
+    assert!(test_store::secret("connection:gone").is_none(), "pruned");
+    assert_eq!(test_store::secret(&by_id("b1")).as_deref(), Some("pw"));
 }
 
 #[test]
@@ -98,11 +137,8 @@ fn ssh_preset_entries_of_older_releases_move_to_connection_accounts() {
     test_store::put(LEGACY_INDEX_ACCOUNT, r#"["box","gone"]"#);
     let mut settings = settings_with(None);
     load_passwords(&mut settings);
-    assert_eq!(settings.connections[0].password.as_deref(), Some("old-pw"));
-    assert_eq!(
-        test_store::secret("connection:box").as_deref(),
-        Some("old-pw")
-    );
+    assert_eq!(settings.connections[0].secret(), Some("old-pw"));
+    assert_eq!(test_store::secret(&by_id("b1")).as_deref(), Some("old-pw"));
     for gone in ["ssh-preset:box", "ssh-preset:gone", LEGACY_INDEX_ACCOUNT] {
         assert!(test_store::secret(gone).is_none(), "{gone}");
     }
@@ -131,7 +167,7 @@ fn an_unreadable_keyring_never_deletes_the_entry_on_save() {
     test_store::set_reads_fail(false);
     let mut conn = settings.connections[0].clone();
     retry_unread(&mut conn);
-    assert_eq!(conn.password.as_deref(), Some("pw"));
+    assert_eq!(conn.secret(), Some("pw"));
     assert!(!conn.secret_unread);
 }
 
@@ -146,10 +182,7 @@ fn without_keyring_plaintext_needs_the_opt_in() {
 
     settings.security.passwords_in_config = true;
     assert!(!load_passwords(&mut settings).not_persisted);
-    assert_eq!(
-        for_disk(&settings).connections[0].password.as_deref(),
-        Some("pw")
-    );
+    assert_eq!(for_disk(&settings).connections[0].secret(), Some("pw"));
     reset();
 }
 

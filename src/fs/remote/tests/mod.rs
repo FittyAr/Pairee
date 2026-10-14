@@ -117,7 +117,7 @@ fn saved_ftp_connections_open_on_their_folder() {
     };
     let timeout = std::time::Duration::from_secs(5);
     let never =
-        |_: CredentialRequest| -> Option<String> { panic!("an anonymous login asks nothing") };
+        |_: CredentialRequest| -> Option<crate::credential_prompt::Secret> { panic!("an anonymous login asks nothing") };
     let (remote, start) = super::open(&conn, timeout, &never).unwrap();
     assert_eq!(start, Path::new("/").join(&name));
     assert_eq!(remote.info().kind, RemoteKind::Ftp);
@@ -137,7 +137,7 @@ fn saved_ftp_connections_open_on_their_folder() {
     let asked = std::sync::Mutex::new(0);
     let ask = |_: CredentialRequest| {
         *asked.lock().unwrap() += 1;
-        Some("typed".to_string())
+        Some(crate::credential_prompt::Secret::new("typed".to_string()))
     };
     let (remote, _) = super::open(&with_user, timeout, &ask).unwrap();
     assert_eq!(*asked.lock().unwrap(), 1);

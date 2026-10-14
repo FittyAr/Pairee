@@ -54,17 +54,21 @@ fn missing_field(conn: &Connection, saving: bool) -> Option<&'static str> {
 /// Saves the fields as a connection (replacing one with the same name).
 /// `Err` holds the message key of a missing required field.
 fn save(prompt: &mut Prompt, context: &mut AppContext) -> Result<(), &'static str> {
-    let conn = prompt.to_connection();
+    let mut conn = prompt.to_connection();
     if let Some(key) = missing_field(&conn, true) {
         return Err(key);
     }
     let saved = &mut context.config.settings.connections;
     let idx = match saved.iter().position(|c| c.name == conn.name) {
         Some(idx) => {
+            // The same connection: its keyring entry stays its own.
+            conn.id = std::mem::take(&mut saved[idx].id);
+            conn.ensure_id();
             saved[idx] = conn;
             idx
         }
         None => {
+            conn.ensure_id();
             saved.push(conn);
             saved.len() - 1
         }
