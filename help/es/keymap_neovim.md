@@ -12,7 +12,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | Teclas | Acción |
 | :--- | :--- |
 | `Enter` · `l` | Abrir / ejecutar |
-| `Ctrl+i` | Adelante |
+| `Alt+i` · `Ctrl+i` | Adelante |
 | `Ctrl+o` | Atrás |
 | `Down` · `j` | Bajar |
 | `Alt+F2` | Cambiar unidad (panel derecho) |

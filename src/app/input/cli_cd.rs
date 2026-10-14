@@ -59,7 +59,7 @@ pub fn z_argument(line: &str) -> Option<&str> {
 /// `arg` without its shell quoting: shell words on Unix (several words are
 /// one name, as `cd My Docs` in cmd.exe); on Windows quotes are dropped and
 /// a leading `/d` (change drive too) is ignored, as cmd.exe does (an
-/// apostrophe is part of the name there, as in `O'Brien`).
+/// apostrophe inside the name stays, as in `O'Brien`).
 pub fn unquote(arg: &str) -> String {
     let arg = arg.trim();
     if cfg!(windows) {
@@ -68,7 +68,13 @@ pub fn unquote(arg: &str) -> String {
             .or_else(|| arg.strip_prefix("/D "))
             .unwrap_or(arg)
             .trim();
-        arg.chars().filter(|c| !matches!(c, '"' | '\'')).collect()
+        let name: String = arg.chars().filter(|&c| c != '"').collect();
+        // Single quotes only wrap a whole name (`'My Docs'`); inside it
+        // they are part of the name.
+        match name.strip_prefix('\'').and_then(|n| n.strip_suffix('\'')) {
+            Some(inner) => inner.to_string(),
+            None => name,
+        }
     } else {
         shlex::split(arg).map_or_else(|| arg.to_string(), |words| words.join(" "))
     }

@@ -176,7 +176,7 @@ mod tests {
         assert_eq!(extension_len("año.txt"), 4);
         assert_eq!(
             extension_len("e\u{301}.tx\u{301}t"),
-            3,
+            4,
             "combining marks are one step"
         );
     }

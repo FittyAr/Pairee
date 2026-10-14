@@ -91,7 +91,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | :--- | :--- |
 | `Ctrl+Alt+v` | Next view mode |
 | `Ctrl+r` | Refresh |
-| `Ctrl+.` · `Ctrl+h` | Show / hide hidden files |
+| `Alt+.` · `Ctrl+.` · `Ctrl+h` | Show / hide hidden files |
 | `Ctrl+9` | View: alternative full |
 | `Ctrl+1` | View: brief |
 | `Ctrl+6` | View: descriptions |

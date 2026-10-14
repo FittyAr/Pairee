@@ -17,7 +17,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `Ctrl+PageDown` | Enter folder or archive |
 | `Ctrl+Alt+b` | Folder hotlist |
 | `Alt+F10` | Folder tree |
-| `Ctrl+i` | Forward |
+| `Alt+i` · `Ctrl+i` | Forward |
 | `Home` · `g g` | Go to first item |
 | `Ctrl+Alt+1` | Go to folder shortcut 1 |
 | `Ctrl+Alt+2` | Go to folder shortcut 2 |
