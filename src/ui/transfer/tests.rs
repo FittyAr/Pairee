@@ -223,6 +223,12 @@ fn a_conflict_names_the_file_and_offers_the_answers() {
     assert!(screen.contains("a.txt"), "{screen}");
     assert!(screen.contains("[o] Overwrite"), "{screen}");
     assert!(screen.contains("[x] Cancel job"), "{screen}");
+    // Clicks on the dialog stay in it, not on the job list underneath.
+    let (x, y) = h.locate("[x] Cancel job");
+    h.render();
+    let hit = h.state.hits.at(x, y).expect("the dialog is recorded");
+    assert_eq!(hit.target, HitTarget::PopupBody);
+    assert_eq!(hit.area.width, 60, "the conflict dialog's own body");
 }
 
 #[test]

@@ -13,26 +13,10 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         None => return,
     };
 
-    // Crear un área centrada para el diálogo de conflicto
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage(20),
-            Constraint::Length(16),
-            Constraint::Percentage(20),
-        ])
-        .split(area);
-
-    let center_row = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(20),
-            Constraint::Length(60),
-            Constraint::Percentage(20),
-        ])
-        .split(popup_layout[1]);
-
-    let dialog_area = center_row[1];
+    // Centered over the transfer panel; a click on it stays in it (the
+    // panel's placement is the one the mouse moves, so only the body).
+    let dialog_area = crate::ui::popup::centered_area(60, 16, area);
+    crate::ui::hit::register(dialog_area, crate::ui::hit::HitTarget::PopupBody);
 
     // Limpiar el fondo
     f.render_widget(Clear, dialog_area);
