@@ -226,10 +226,10 @@ pub struct FocusStyles {
 }
 
 impl FocusStyles {
-    /// Cyan-on-black focus over the theme's popup foreground.
+    /// The theme's selection colors for focus, over its popup foreground.
     pub fn from_theme(theme: &ResolvedTheme) -> Self {
         Self {
-            active: Style::default().bg(Color::Cyan).fg(Color::Black),
+            active: theme.selection(),
             normal: theme.popup_fg(),
         }
     }
@@ -383,4 +383,19 @@ pub fn form_buttons(
 /// A full-width horizontal rule.
 pub fn separator<'a>(width: u16, style: Style) -> Paragraph<'a> {
     Paragraph::new(ratatui::symbols::line::HORIZONTAL.repeat(width as usize)).style(style)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn form_focus_follows_the_theme_selection() {
+        let theme = ResolvedTheme {
+            selection_bg: Color::Rgb(1, 2, 3),
+            selection_fg: Color::Rgb(4, 5, 6),
+            ..ResolvedTheme::default()
+        };
+        assert_eq!(FocusStyles::from_theme(&theme).active, theme.selection());
+    }
 }

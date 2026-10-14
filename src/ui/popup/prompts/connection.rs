@@ -53,10 +53,7 @@ impl DialogView for ConnectionPromptState {
             ])
             .areas(form_area);
 
-        let styles = kit::FocusStyles {
-            active: Style::default().bg(Color::Cyan).fg(Color::Black),
-            normal: Style::default().fg(theme.popup_fg),
-        };
+        let styles = kit::FocusStyles::from_theme(theme);
         let form = kit::mouse::FormFocus::new(FORM, self.cursor_idx);
         let list = List::new(list_items(self, saved, styles))
             .block(Block::default().title(format!(" {} ", t("prompt_conn_list_title").trim())))

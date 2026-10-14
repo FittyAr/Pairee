@@ -83,24 +83,8 @@ fn render_buttons(
     cursor_idx: usize,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
-    let active_style = Style::default().bg(Color::Cyan).fg(Color::Black);
-    let normal_style = Style::default().fg(theme.popup_fg);
-    let btn1 = if cursor_idx == 0 {
-        active_style
-    } else {
-        normal_style
-    };
-    let btn2 = if cursor_idx == 1 {
-        active_style
-    } else {
-        normal_style
-    };
     let labels = [t("btn_delete_bracket"), t("btn_cancel_bracket")];
-    let btns = ratatui::text::Line::from(vec![
-        ratatui::text::Span::styled(labels[0].clone(), btn1),
-        ratatui::text::Span::raw("  "),
-        ratatui::text::Span::styled(labels[1].clone(), btn2),
-    ]);
+    let styles = crate::ui::popup::kit::FocusStyles::from_theme(theme);
     {
         use crate::ui::popup::kit::mouse::{key, span_buttons};
         use crossterm::event::{KeyCode, KeyEvent};
@@ -112,7 +96,7 @@ fn render_buttons(
         span_buttons(area, &labels, (2, true), vec![delete, key(KeyCode::Esc)]);
     }
     f.render_widget(
-        Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
+        crate::ui::popup::kit::button_bar(&labels, Some(cursor_idx), styles),
         area,
     );
 }
