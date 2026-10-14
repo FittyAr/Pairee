@@ -16,9 +16,6 @@ use uuid::Uuid;
 const PAUSE_POLL_ASYNC: Duration = Duration::from_millis(100);
 const PAUSE_POLL_BLOCKING: Duration = Duration::from_millis(50);
 
-/// Reason recorded for files skipped from the UI.
-const SKIPPED_BY_USER: &str = "Skipped by user";
-
 #[derive(Debug, Clone)]
 pub struct JobControl {
     pub job_id: Uuid,
@@ -93,7 +90,7 @@ impl JobControl {
             results,
             SkippedFile {
                 src: src.to_path_buf(),
-                reason: SKIPPED_BY_USER.to_string(),
+                reason: crate::config::localization::t("transfer_skipped_by_user"),
             },
         );
         true
