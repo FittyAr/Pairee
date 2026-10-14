@@ -22,6 +22,8 @@ const MAX_LINE_BYTES: usize = 64 * 1024;
 const DRAIN_QUIET: Duration = Duration::from_millis(500);
 /// ...and never for longer than this.
 const DRAIN_MAX: Duration = Duration::from_secs(5);
+/// A cancelled child still running this long after a kill is killed again.
+const KILL_INSIST: Duration = Duration::from_secs(2);
 
 /// Result of a PTY-backed shell command.
 #[derive(Debug, Clone)]
@@ -31,10 +33,16 @@ pub struct PtyRunResult {
 }
 
 /// Run `script` on a PTY and return the captured text (stdout+stderr mixed).
-pub fn run_shell_on_pty(script: &str, cwd: Option<&Path>) -> anyhow::Result<PtyRunResult> {
+/// Once `cancelled` returns `true` the command is killed (see
+/// [`PtyRun::wait_or_cancel`]) and ends unsuccessfully.
+pub fn run_shell_on_pty(
+    script: &str,
+    cwd: Option<&Path>,
+    cancelled: &dyn Fn() -> bool,
+) -> anyhow::Result<PtyRunResult> {
     let mut lines = Vec::new();
     let (_control, run) = spawn_shell_on_pty(script, cwd, PtySize::DEFAULT)?;
-    let success = run.wait(|line| lines.push(line))?;
+    let success = run.wait_or_cancel(|line| lines.push(line), cancelled)?;
     Ok(PtyRunResult {
         output: lines.join("\n"),
         success,
@@ -95,7 +103,18 @@ pub struct PtyRun {
 impl PtyRun {
     /// Calls `on_line` with every complete output line until the child
     /// exits; returns whether it succeeded.
-    pub fn wait(self, mut on_line: impl FnMut(String)) -> anyhow::Result<bool> {
+    pub fn wait(self, on_line: impl FnMut(String)) -> anyhow::Result<bool> {
+        self.wait_or_cancel(on_line, || false)
+    }
+
+    /// [`Self::wait`] that stops the child once `cancelled` turns `true`:
+    /// it is killed, and killed again (harder, see [`PtyControl::kill`])
+    /// every [`KILL_INSIST`] it keeps running.
+    pub fn wait_or_cancel(
+        self,
+        mut on_line: impl FnMut(String),
+        cancelled: impl Fn() -> bool,
+    ) -> anyhow::Result<bool> {
         let PtyRun {
             waiter,
             reader,
@@ -107,6 +126,7 @@ impl PtyRun {
             let _ = done_tx.send(waiter.wait());
         });
 
+        let mut killed_at: Option<Instant> = None;
         let status = loop {
             match done_rx.try_recv() {
                 Ok(exit) => break exit.map_err(|e| anyhow!("wait pty child: {e}")),
@@ -114,6 +134,10 @@ impl PtyRun {
                     break Err(anyhow!("pty wait thread ended"));
                 }
                 Err(std::sync::mpsc::TryRecvError::Empty) => {}
+            }
+            if killed_at.is_none_or(|at| at.elapsed() >= KILL_INSIST) && cancelled() {
+                control.kill();
+                killed_at = Some(Instant::now());
             }
             match line_rx.recv_timeout(std::time::Duration::from_millis(16)) {
                 Ok(line) => on_line(line),
@@ -399,6 +423,57 @@ mod tests {
         assert!(!ok);
     }
 
+    /// A child that runs until it is killed (then fails), counting kills.
+    struct RunsUntilKilled(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+    struct CountingKiller(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+    impl crate::terminal::pty::ChildKiller for CountingKiller {
+        fn kill(&mut self) -> std::io::Result<()> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    struct UntilKilled(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+    impl ChildWaiter for UntilKilled {
+        fn wait(self: Box<Self>) -> std::io::Result<bool> {
+            while self.0.load(std::sync::atomic::Ordering::SeqCst) == 0 {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Ok(false)
+        }
+    }
+
+    impl PtySystem for RunsUntilKilled {
+        fn spawn(&self, _: &PtyCommand) -> std::io::Result<SpawnedPty> {
+            Ok(SpawnedPty {
+                pid: Some(7),
+                reader: Box::new(&b""[..]),
+                writer: Box::new(std::io::sink()),
+                master: Box::new(Inert),
+                killer: Box::new(CountingKiller(self.0.clone())),
+                waiter: Box::new(UntilKilled(self.0.clone())),
+            })
+        }
+    }
+
+    #[test]
+    fn cancelling_kills_the_child_and_ends_the_wait() {
+        let kills = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let fake = RunsUntilKilled(kills.clone());
+        let (_control, run) = spawn_on(&fake, "long job", None, FAKE_SIZE).unwrap();
+        let started = Instant::now();
+        let cancel_after = Duration::from_millis(50);
+        let ok = run
+            .wait_or_cancel(|_| {}, || started.elapsed() >= cancel_after)
+            .unwrap();
+        assert!(!ok, "a killed command failed");
+        assert_eq!(kills.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
     #[test]
     fn empty_script_is_refused() {
         let fake = FakePty {
@@ -411,7 +486,7 @@ mod tests {
     fn run_echo_hello() -> PtyRunResult {
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
-            let res = run_shell_on_pty("echo hello", None);
+            let res = run_shell_on_pty("echo hello", None, &|| false);
             let _ = tx.send(res);
         });
         match rx.recv_timeout(Duration::from_secs(15)) {
@@ -437,7 +512,7 @@ mod tests {
     fn pty_stdout_is_a_tty() {
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
-            let res = run_shell_on_pty("test -t 1 && echo IS_TTY || echo NOT_TTY", None);
+            let res = run_shell_on_pty("test -t 1 && echo IS_TTY || echo NOT_TTY", None, &|| false);
             let _ = tx.send(res);
         });
         let result = match rx.recv_timeout(Duration::from_secs(15)) {

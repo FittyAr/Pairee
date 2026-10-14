@@ -175,6 +175,8 @@ impl JobControl {
             match op(src) {
                 Ok(dst) => self.file_completed(&mut results, done(src, dst, 0, start)),
                 Err(error) => {
+                    // Stopped by a cancel (a killed command): cancelled, not failed.
+                    self.ensure_running()?;
                     return self.fail_job(&mut results, failed(src, PathBuf::new(), error));
                 }
             }
