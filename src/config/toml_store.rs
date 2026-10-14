@@ -29,16 +29,38 @@ pub fn read<T: DeserializeOwned>(path: &Path) -> Loaded<T> {
     }
 }
 
-/// Reads `path`, falling back to the default when it is missing or invalid
-/// (an invalid file is logged and left untouched).
-pub fn load_or_default<T: DeserializeOwned + Default>(path: &Path) -> T {
+/// Reads `path`; `None` when it is missing or invalid. An invalid file is
+/// copied to `<name>.bak` first, since the next save replaces it.
+pub fn load<T: DeserializeOwned>(path: &Path) -> Option<T> {
     match read(path) {
-        Loaded::Ok(value) => value,
-        Loaded::Missing => T::default(),
+        Loaded::Ok(value) => Some(value),
+        Loaded::Missing => None,
         Loaded::Invalid(e) => {
-            log::warn!("Ignoring invalid {}: {e}", path.display());
-            T::default()
+            set_aside(path, &e);
+            None
         }
+    }
+}
+
+/// [`load`], falling back to the default.
+pub fn load_or_default<T: DeserializeOwned + Default>(path: &Path) -> T {
+    load(path).unwrap_or_default()
+}
+
+/// Keeps a copy of the invalid file `path` (rejected for `error`) in
+/// `<name>.bak`, so writing defaults over it loses nothing.
+pub fn set_aside(path: &Path, error: &str) {
+    let bak = super::load_guard::backup_path(path);
+    match std::fs::copy(path, &bak) {
+        Ok(_) => log::warn!(
+            "Ignoring invalid {} ({error}); kept a copy in {}",
+            path.display(),
+            bak.display()
+        ),
+        Err(copy) => log::warn!(
+            "Ignoring invalid {} ({error}); backup failed: {copy}",
+            path.display()
+        ),
     }
 }
 
@@ -77,5 +99,10 @@ mod tests {
         std::fs::write(&path, "count = [broken").unwrap();
         assert!(matches!(read::<Sample>(&path), Loaded::Invalid(_)));
         assert_eq!(load_or_default::<Sample>(&path), Sample::default());
+        // The next save replaces it, so the invalid file was kept aside.
+        assert_eq!(
+            std::fs::read_to_string(crate::config::load_guard::backup_path(&path)).unwrap(),
+            "count = [broken"
+        );
     }
 }

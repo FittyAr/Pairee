@@ -50,9 +50,7 @@ pub fn persist_on_exit(state: &AppState, context: &mut AppContext) -> Option<Pat
         context.config.save_logging();
     }
     let settings = &context.config.settings;
-    if let Err(e) = persisted_history(state.history.to_store(), settings).save() {
-        log::warn!("Failed to save the history: {e}");
-    }
+    state.history.save(settings);
     // Folder frecency is part of the folders history: kept only with it.
     let frecency = if settings.save_folders_history {
         state.frecency.clone()
