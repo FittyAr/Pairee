@@ -87,6 +87,15 @@ fn the_minimized_bar_shows_the_running_job_while_it_runs() {
 }
 
 #[test]
+fn the_minimized_bar_stays_while_its_job_is_paused() {
+    let mut h = Harness::new();
+    let job = with_status(running(&h, 3, 10), TransferJobStatus::Paused);
+    queue(&mut h, vec![job], TransferViewMode::Minimized);
+    assert!(h.screen_text().contains("3/10"));
+    assert!(bar_hit(&mut h), "a paused job can still be expanded");
+}
+
+#[test]
 fn the_minimized_bar_expands_on_click_and_minimizes_again_while_a_job_runs() {
     let mut h = Harness::new();
     h.without_waiting_for_transfers();

@@ -99,6 +99,12 @@ impl TransferQueue {
         jobs.iter().cloned().collect()
     }
 
+    /// `f` over the listed jobs without copying them (a job's logs and
+    /// results grow with every file, so the UI must not clone them per frame).
+    pub fn with_jobs<R>(&self, f: impl FnOnce(&VecDeque<TransferJob>) -> R) -> R {
+        f(&self.jobs.lock_safe())
+    }
+
     /// A copy of the job `job_id`, if it is still listed.
     pub fn get(&self, job_id: Uuid) -> Option<TransferJob> {
         self.jobs
