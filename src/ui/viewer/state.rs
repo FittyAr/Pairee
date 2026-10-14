@@ -186,7 +186,7 @@ impl ViewerState {
                 ViewerMode::Image => ViewerMode::Hex,
                 _ => ViewerMode::Image,
             };
-        } else if self.is_text && !self.is_image {
+        } else if !self.is_image {
             self.mode = match self.mode {
                 ViewerMode::Text => ViewerMode::Hex,
                 _ => ViewerMode::Text,
@@ -201,15 +201,14 @@ impl ViewerState {
         self.scroll = 0;
     }
 
-    /// Rows of content in the current mode (lines indexed so far in text mode).
+    /// Rows of content in the current mode (lines indexed so far in text
+    /// mode, none to scroll in image mode).
     pub fn content_rows(&self) -> usize {
         match self.mode {
             ViewerMode::Text => self.doc.line_count() as usize,
             ViewerMode::Hex => self.doc.len().div_ceil(HEX_ROW_BYTES as u64) as usize,
-            ViewerMode::Image => self
-                .image_data
-                .as_ref()
-                .map_or(0, |img| img.height() as usize / 2),
+            // The picture is fitted whole into the viewer.
+            ViewerMode::Image => 0,
         }
     }
 
@@ -291,6 +290,23 @@ mod tests {
         assert_eq!(vs.content_rows(), 3);
         vs.scroll_down(10);
         assert_eq!(vs.scroll, 2);
+        // Neither text nor image: the toggle never offers image mode.
+        vs.toggle_mode();
+        assert_eq!(vs.mode, ViewerMode::Text);
+        vs.toggle_mode();
+        assert_eq!(vs.mode, ViewerMode::Hex);
+    }
+
+    #[test]
+    fn image_mode_has_nothing_to_scroll() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tall.png");
+        image::RgbImage::new(4, 400).save(&path).unwrap();
+        let mut vs = load(path, true);
+        assert_eq!(vs.mode, ViewerMode::Image);
+        vs.scroll_down(50);
+        vs.scroll = vs.last_scroll();
+        assert_eq!(vs.scroll, 0);
     }
 
     #[test]

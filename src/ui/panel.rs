@@ -106,14 +106,14 @@ pub fn render_panel(
             .as_deref()
             .map(crate::app::text_filter::TextFilter::new),
     };
-    match table_view::for_mode(panel.view_mode) {
+    let shown = match table_view::for_mode(panel.view_mode) {
         Some(view) => render_table(f, list_area, block, &ctx, view),
         None => render_brief(f, list_area, block, &ctx),
-    }
+    };
 
     // ── Optional scrollbar (fractional thumb via tui-scrollbar) ───────────────
     if show_scrollbar && !panel.entries.is_empty() {
-        render_scrollbar(f, list_area, panel, theme, (scrollbar, scroll_id));
+        render_scrollbar(f, list_area, shown, theme, (scrollbar, scroll_id));
     }
 
     // ── Optional footer lines ─────────────────────────────────────────────────
@@ -125,25 +125,19 @@ pub fn render_panel(
     }
 }
 
-/// Scrollbar of the entry list, inside the panel frame.
+/// Scrollbar of the entry list, inside the panel frame, for the window
+/// the view drew (`shown`).
 fn render_scrollbar(
     f: &mut Frame,
     list_area: Rect,
-    panel: &PanelState,
+    shown: ScrollView,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     (hits, id): (Option<&ScrollbarUiState>, ScrollTargetId),
 ) {
-    let inner_height = list_area.height.saturating_sub(2) as usize;
-    let total = panel.entries.len();
-    let offset = scrollbar::centered_scroll(panel.cursor_index, total, inner_height);
     scrollbar::render_vertical_inside_block(
         f,
         list_area,
-        ScrollView {
-            content_len: total,
-            viewport_len: inner_height,
-            offset,
-        },
+        shown,
         theme,
         ScrollTarget {
             surface: ScrollbarSurface::Panel,

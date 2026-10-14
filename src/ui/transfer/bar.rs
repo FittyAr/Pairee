@@ -17,32 +17,23 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, context:
         return;
     }
 
-    let jobs = transfer_state.engine.queue.get_all();
-    let active_job = jobs
-        .iter()
-        .find(|j| {
-            matches!(
-                j.status,
-                crate::fs::transfer::job::TransferJobStatus::Scanning
-                    | crate::fs::transfer::job::TransferJobStatus::Transferring
-                    | crate::fs::transfer::job::TransferJobStatus::Verifying
-                    | crate::fs::transfer::job::TransferJobStatus::Paused
-            )
-        })
-        .or_else(|| jobs.first());
-
-    let job = match active_job {
-        Some(j) => j,
-        None => return,
+    let active_job = transfer_state.engine.queue.with_jobs(|jobs| {
+        jobs.iter()
+            .find(|j| j.is_active())
+            .or_else(|| jobs.front())
+            .map(|j| (j.status, j.operation, j.progress.clone()))
+    });
+    let Some((status, operation, progress)) = active_job else {
+        return;
     };
 
-    let progress = match &job.progress {
-        Some(p) => p,
-        None => return,
+    let Some(progress) = progress else {
+        return;
     };
 
     // Color según estado
-    let bar_color = if job.status == crate::fs::transfer::job::TransferJobStatus::Paused {
+    let paused = status == crate::fs::transfer::job::TransferJobStatus::Paused;
+    let bar_color = if paused {
         Color::Yellow
     } else if progress.files_failed > 0 {
         Color::Red
@@ -75,7 +66,7 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, context:
 
     // 1. Info de archivos
     let info_text = t("transfer_bar_files")
-        .replace("{op}", &super::labels::operation(job.operation))
+        .replace("{op}", &super::labels::operation(operation))
         .replace("{done}", &progress.files_completed.to_string())
         .replace("{total}", &progress.files_total.to_string());
     f.render_widget(
@@ -94,7 +85,6 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, context:
     f.render_widget(gauge, chunks[1]);
 
     // 3. Velocidad y ETA
-    let paused = job.status == crate::fs::transfer::job::TransferJobStatus::Paused;
     let speed = if paused {
         0
     } else {

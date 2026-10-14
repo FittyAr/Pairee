@@ -3,6 +3,7 @@ use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
 use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::text_width::pad_to_width;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -36,17 +37,23 @@ pub fn render_remote_manage(
     if state.remotes.is_empty() {
         f.render_widget(kit::hint(t("git_remote_no_remotes")), chunks[0]);
     } else {
+        let start = crate::ui::scrollbar::centered_scroll(
+            state.selected_idx,
+            state.remotes.len(),
+            chunks[0].height as usize,
+        );
         let lines: Vec<Line> = state
             .remotes
             .iter()
             .enumerate()
+            .skip(start)
             .map(|(i, remote)| {
                 let is_selected = i == state.selected_idx;
                 let (bg, fg) = theme.row_colors(is_selected);
                 let url = remote.url.as_deref().unwrap_or("-");
                 Line::from(vec![
                     Span::styled(
-                        format!(" {:<16} ", remote.name),
+                        format!(" {} ", pad_to_width(&remote.name, 16)),
                         Style::default()
                             .fg(Color::Yellow)
                             .bg(bg)
@@ -59,7 +66,7 @@ pub fn render_remote_manage(
         f.render_widget(Paragraph::new(lines), chunks[0]);
         crate::ui::popup::kit::mouse::list_rows(
             chunks[0],
-            0,
+            start,
             state.remotes.len(),
             state.selected_idx,
         );

@@ -8,17 +8,46 @@ use crate::app::state::{PanelState, PanelViewMode, SortField};
 use crate::config::localization::t;
 use crate::fs::FileEntry;
 use crate::fs::attrs::format_unix_mode;
+use crate::fs::descriptions::{find_description, read_descriptions_file};
 use crate::ui::hit::{self, HitTarget};
+use crate::ui::scrollbar::ScrollView;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     widgets::{Block, Cell, Row, Table},
 };
+use std::cell::OnceCell;
 use std::path::Path;
 
 /// Text of one cell for an entry.
-type CellFn = fn(&PanelState, &FileEntry) -> String;
+type CellFn = fn(&Cells, &FileEntry) -> String;
+
+/// What the cells of one frame read: the panel and the folder's
+/// `descript.ion`, loaded on first use (once per frame, not once per row).
+pub(crate) struct Cells<'a> {
+    panel: &'a PanelState,
+    descriptions: OnceCell<Option<String>>,
+}
+
+impl<'a> Cells<'a> {
+    fn new(panel: &'a PanelState) -> Self {
+        Self {
+            panel,
+            descriptions: OnceCell::new(),
+        }
+    }
+
+    /// Description of `entry`, or empty.
+    fn description(&self, entry: &FileEntry) -> String {
+        self.descriptions
+            .get_or_init(|| read_descriptions_file(&self.panel.current_path))
+            .as_deref()
+            .and_then(|content| find_description(content, &entry.name))
+            .unwrap_or_default()
+            .to_string()
+    }
+}
 
 /// A non-name column: header key, width share, cell text and the sort its
 /// title selects when clicked.
@@ -66,7 +95,7 @@ fn size_or(panel: &PanelState, entry: &FileEntry, dir: &str) -> String {
 const SIZE: Column = Column {
     header: "col_size",
     percent: 25,
-    cell: |p, e| size_or(p, e, ""),
+    cell: |c, e| size_or(c.panel, e, ""),
     sort: Some(SortField::Size),
 };
 
@@ -101,7 +130,7 @@ pub(crate) const FULL: TableView = TableView {
         Column {
             header: "col_size",
             percent: 15,
-            cell: |p, e| size_or(p, e, "  <DIR>  "),
+            cell: |c, e| size_or(c.panel, e, "  <DIR>  "),
             sort: Some(SortField::Size),
         },
         Column {
@@ -128,8 +157,9 @@ pub(crate) const DETAILED: TableView = TableView {
         Column {
             header: "col_perms",
             percent: 15,
-            cell: |p, e| {
-                p.entry_attrs(e)
+            cell: |c, e| {
+                c.panel
+                    .entry_attrs(e)
                     .map(|a| format_unix_mode(a.mode))
                     .unwrap_or_else(|| "?????????".to_string())
             },
@@ -144,7 +174,7 @@ pub(crate) const DETAILED: TableView = TableView {
         Column {
             header: "col_size",
             percent: 25,
-            cell: |p, e| size_or(p, e, "<DIR>"),
+            cell: |c, e| size_or(c.panel, e, "<DIR>"),
             sort: Some(SortField::Size),
         },
     ],
@@ -157,9 +187,7 @@ pub(crate) const DESCRIPTIONS: TableView = TableView {
     columns: &[Column {
         header: "col_description",
         percent: 60,
-        cell: |p, e| {
-            crate::fs::descriptions::read_description(&p.current_path, &e.name).unwrap_or_default()
-        },
+        cell: |c, e| c.description(e),
         sort: None,
     }],
     headers: true,
@@ -183,8 +211,9 @@ pub(crate) const FILE_LINKS: TableView = TableView {
     columns: &[Column {
         header: "col_links",
         percent: 20,
-        cell: |p, e| {
-            p.entry_attrs(e)
+        cell: |c, e| {
+            c.panel
+                .entry_attrs(e)
                 .map(|a| a.nlinks.to_string())
                 .unwrap_or_else(|| "?".to_string())
         },
@@ -207,8 +236,9 @@ pub(crate) fn for_mode(mode: PanelViewMode) -> Option<&'static TableView> {
     })
 }
 
-fn owner(panel: &PanelState, entry: &FileEntry) -> String {
-    panel
+fn owner(cells: &Cells, entry: &FileEntry) -> String {
+    cells
+        .panel
         .entry_attrs(entry)
         .map(|a| a.owner.clone())
         .unwrap_or_else(|| "?".to_string())
@@ -221,12 +251,13 @@ pub(crate) fn render_table(
     block: Block,
     ctx: &ListCtx,
     view: &TableView,
-) {
+) -> ScrollView {
     let settings = &ctx.context.config.settings;
     let headers = view.headers && settings.show_column_titles;
     let height = area.height.saturating_sub(if headers { 3 } else { 2 }) as usize;
     let (start, end) = ctx.range(height);
     let name_width = view.name.width(area.width, view.name_percent);
+    let source = Cells::new(ctx.panel);
 
     let rows: Vec<Row> = visible_slice(ctx.panel, start, end)
         .iter()
@@ -236,7 +267,7 @@ pub(crate) fn render_table(
             cells.extend(
                 view.columns
                     .iter()
-                    .map(|c| Cell::from((c.cell)(ctx.panel, entry))),
+                    .map(|c| Cell::from((c.cell)(&source, entry))),
             );
             Row::new(cells).style(ctx.row_style(start + rel, entry))
         })
@@ -273,6 +304,11 @@ pub(crate) fn render_table(
         );
     }
     f.render_widget(table, area);
+    ScrollView {
+        content_len: ctx.panel.entries.len(),
+        viewport_len: height,
+        offset: start,
+    }
 }
 
 /// Records the column titles on the first inner row; the columns are laid
@@ -291,5 +327,33 @@ fn register_headers(ctx: &ListCtx, view: &TableView, inner: Rect, widths: &[Cons
                 sort,
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn descriptions_are_read_once_per_frame() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join(crate::fs::descriptions::DESCRIPTIONS_FILE);
+        std::fs::write(&file, "a.txt First\n\"b c.txt\" Second\n").unwrap();
+        let panel = PanelState::new(dir.path().to_path_buf());
+        let entry = |name: &str| FileEntry {
+            name: name.into(),
+            path: dir.path().join(name),
+            size: 0,
+            is_dir: false,
+            is_symlink: false,
+            modified: None,
+        };
+        let cells = Cells::new(&panel);
+        assert_eq!(cells.description(&entry("A.TXT")), "First");
+        // Later rows of the same frame reuse the text read for the first.
+        std::fs::remove_file(&file).unwrap();
+        assert_eq!(cells.description(&entry("b c.txt")), "Second");
+        assert_eq!(cells.description(&entry("none")), "");
+        assert_eq!(Cells::new(&panel).description(&entry("a.txt")), "");
     }
 }

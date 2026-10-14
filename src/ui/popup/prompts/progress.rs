@@ -1,6 +1,5 @@
 //! Progress popup for background Git network operations.
 
-use super::super::centered_rect_fixed;
 use crate::app::state::popup::GitProgress;
 use crate::config::localization::t;
 use crate::git::remote::TransferStats;
@@ -9,7 +8,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Clear, Gauge, Paragraph},
+    widgets::{Gauge, Paragraph},
 };
 
 impl DialogView for GitProgress {
@@ -26,15 +25,14 @@ fn render_git(
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) {
-    let area = centered_rect_fixed(60, 7, size);
-    f.render_widget(Clear, area);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
-        .title(title.to_string())
-        .style(Style::default().bg(theme.popup_bg));
-    let inner = block.inner(area);
-    f.render_widget(block, area);
+    let inner = crate::ui::popup::kit::dialog_frame(
+        f,
+        size,
+        (60, 7),
+        title.to_string(),
+        crate::ui::popup::kit::fg(Color::Cyan),
+        theme,
+    );
 
     let rows = Layout::default()
         .direction(Direction::Vertical)

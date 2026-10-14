@@ -1,4 +1,5 @@
 use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::text_width::pad_to_width;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -92,7 +93,7 @@ pub fn render_log_lines(
                     Style::default().fg(Color::Cyan).bg(bg),
                 ),
                 Span::styled(
-                    format!("{:<20} ", commit.author.clone()),
+                    format!("{} ", pad_to_width(&commit.author, 20)),
                     Style::default().fg(Color::Green).bg(bg),
                 ),
                 Span::styled(commit.message.clone(), Style::default().fg(fg).bg(bg)),

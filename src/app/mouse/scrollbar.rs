@@ -9,7 +9,8 @@ use ratatui::layout::Position;
 /// Handle a mouse event against last-frame scrollbar hit targets.
 /// Returns `true` if a scrollbar consumed the event.
 pub fn handle_scrollbar_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
-    let mut targets = state.hits.scrollbars();
+    // Layers first (a dialog over a bar hides it), then the bar's own cells.
+    let mut targets = state.hits.scrollbars_for(mouse);
     // The bar only checks the row of a vertical track: a press counts only
     // on the bar's own cells, and a drag or release goes to the bar that
     // was pressed (never to another one in the same rows).
@@ -88,6 +89,7 @@ fn apply_scroll_offset(
             };
             let panel = state.panels.side_mut(side);
             let len = panel.entries.len();
+            panel.scroll_top.set(offset);
             clamp(&mut panel.cursor_index, len);
         }
         ScrollTargetId::TransferJobs | ScrollTargetId::TransferFiles => {

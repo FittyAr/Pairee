@@ -2,13 +2,28 @@
 //!
 //! Uses `unicode-width` for column counts and `unicode-segmentation` for
 //! grapheme-safe truncation so CJK / emoji names don't break panel columns.
+//! Graphemes holding a control character (ESC, newline in a file name…)
+//! count as zero columns, as ratatui skips them when drawing.
 
 use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthStr;
 
 /// Display width of `s` in terminal columns.
 pub fn display_width(s: &str) -> usize {
-    s.width()
+    if s.contains(char::is_control) {
+        s.graphemes(true).map(grapheme_width).sum()
+    } else {
+        s.width()
+    }
+}
+
+/// Columns of one grapheme as drawn (0 for one holding a control char).
+fn grapheme_width(g: &str) -> usize {
+    if g.contains(char::is_control) {
+        0
+    } else {
+        g.width()
+    }
 }
 
 /// Truncate `s` so its display width is at most `max_width`.
@@ -18,7 +33,7 @@ pub fn truncate_to_width(s: &str, max_width: usize) -> String {
     if max_width == 0 {
         return String::new();
     }
-    if s.width() <= max_width {
+    if display_width(s) <= max_width {
         return s.to_string();
     }
     if max_width == 1 {
@@ -30,7 +45,7 @@ pub fn truncate_to_width(s: &str, max_width: usize) -> String {
     let mut used = 0usize;
 
     for g in s.graphemes(true) {
-        let gw = g.width();
+        let gw = grapheme_width(g);
         if used + gw > budget {
             break;
         }
@@ -55,9 +70,24 @@ pub fn split_at_column(s: &str, col: usize) -> (&str, &str) {
         if used >= col {
             return s.split_at(i);
         }
-        used += g.width();
+        used += grapheme_width(g);
     }
     (s, "")
+}
+
+/// `s` followed by spaces up to `width` display columns (`{:<w$}` by
+/// columns instead of chars, so CJK names keep the next column aligned).
+pub fn pad_to_width(s: &str, width: usize) -> String {
+    let pad = width.saturating_sub(display_width(s));
+    let mut out = String::with_capacity(s.len() + pad);
+    out.push_str(s);
+    out.extend(std::iter::repeat_n(' ', pad));
+    out
+}
+
+/// `s` truncated (with `…`) and padded to exactly `width` columns.
+pub fn fit_to_width(s: &str, width: usize) -> String {
+    pad_to_width(&truncate_to_width(s, width), width)
 }
 
 const TAB: char = '\t';
@@ -71,14 +101,14 @@ pub fn expand_tabs(s: &str, tab_size: usize) -> String {
     let tab_size = tab_size.max(1);
     let mut out = String::with_capacity(s.len());
     let mut col = 0usize;
-    for c in s.chars() {
-        if c == TAB {
+    for g in s.graphemes(true) {
+        if g.starts_with(TAB) {
             let pad = tab_size - col % tab_size;
             out.extend(std::iter::repeat_n(' ', pad));
             col += pad;
         } else {
-            out.push(c);
-            col += UnicodeWidthChar::width(c).unwrap_or(0);
+            out.push_str(g);
+            col += grapheme_width(g);
         }
     }
     out
@@ -112,6 +142,30 @@ mod tests {
         assert_eq!(split_at_column("日本語", 3), ("日本", "語"));
         assert_eq!(split_at_column("ab", 9), ("ab", ""));
         assert_eq!(split_at_column("ab", 0), ("", "ab"));
+    }
+
+    #[test]
+    fn control_chars_take_no_columns() {
+        assert_eq!(display_width("a\x1b[31mb"), 6);
+        assert_eq!(display_width("a\nb"), 2);
+        assert_eq!(truncate_to_width("a\nb", 2), "a\nb");
+        assert_eq!(split_at_column("\x1bab", 1), ("\x1ba", "b"));
+    }
+
+    #[test]
+    fn expand_tabs_measures_graphemes() {
+        // A skin-toned emoji is one 2-column grapheme of two chars.
+        assert_eq!(expand_tabs("👍🏽\tx", 4), "👍🏽  x");
+    }
+
+    #[test]
+    fn pad_and_fit_count_columns() {
+        assert_eq!(pad_to_width("日本", 6), "日本  ");
+        assert_eq!(pad_to_width("abcdef", 3), "abcdef");
+        assert_eq!(fit_to_width("abcdef", 4), "abc…");
+        // A wide grapheme cut at the edge leaves a column to pad.
+        assert_eq!(fit_to_width("日本語", 4), "日… ");
+        assert_eq!(fit_to_width("ab", 0), "");
     }
 
     #[test]

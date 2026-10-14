@@ -1,7 +1,7 @@
 use super::detail::{field_line, pane_block, render_details, row_style, text_style};
 use super::{Pane, wrap_text};
 use crate::config::localization::t;
-use crate::ui::text_width::truncate_to_width;
+use crate::ui::text_width::fit_to_width;
 use ratatui::{
     Frame,
     style::{Color, Modifier as StyleModifier, Style},
@@ -35,15 +35,13 @@ impl Columns {
         }
     }
 
+    /// One row, each field fitted to its column's display width.
     fn row(&self, name: &str, author: &str, version: &str) -> String {
         format!(
-            " {:<name_w$}  {:<auth_w$}  {:<ver_w$}",
-            name,
-            author,
-            version,
-            name_w = self.name,
-            auth_w = self.author,
-            ver_w = self.version,
+            " {}  {}  {}",
+            fit_to_width(name, self.name),
+            fit_to_width(author, self.author),
+            fit_to_width(version, self.version),
         )
     }
 }
@@ -166,12 +164,7 @@ fn registry_page(
         dim_style.add_modifier(StyleModifier::UNDERLINED),
     )]))];
     for (i, (name, version, _, author)) in registry[slice_start..slice_end].iter().enumerate() {
-        // Truncate each column to its max width
-        let row = columns.row(
-            &truncate_to_width(display_name(name), columns.name),
-            &truncate_to_width(author, columns.author),
-            &truncate_to_width(version, columns.version),
-        );
+        let row = columns.row(display_name(name), author, version);
         let style = row_style(pane, slice_start + i == cursor_idx);
         list_items.push(ListItem::new(Line::from(vec![Span::styled(row, style)])));
     }
@@ -239,5 +232,14 @@ mod tests {
         // Byte slicing used to panic in the middle of a multi-byte char.
         let rows = registry_page(&pane, &[entry], 0);
         assert_eq!(rows.len(), 2);
+    }
+
+    #[test]
+    fn wide_registry_fields_keep_columns_aligned() {
+        use crate::ui::text_width::display_width;
+        let columns = Columns::for_width(60);
+        let wide = columns.row("日本語のプラグイン名前がとても長い", "日本語の作者", "1.0");
+        let narrow = columns.row("a", "b", "c");
+        assert_eq!(display_width(&wide), display_width(&narrow));
     }
 }

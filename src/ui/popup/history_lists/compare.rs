@@ -4,6 +4,7 @@ use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::text_width::pad_to_width;
 use ratatui::{
     Frame,
     style::{Color, Style},
@@ -23,7 +24,11 @@ impl DialogView for CompareFoldersResult {
                     CompareStatus::Equal => ("compare_status_equal", Color::DarkGray),
                 };
                 (
-                    format!(" {:<40} | {:<20} ", entry.name, t(status_key)),
+                    format!(
+                        " {} | {} ",
+                        pad_to_width(&entry.name, 40),
+                        pad_to_width(&t(status_key), 20)
+                    ),
                     Style::default().fg(color),
                 )
             })

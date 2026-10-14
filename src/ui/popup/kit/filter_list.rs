@@ -51,10 +51,18 @@ impl FilterListView<'_> {
             ])
             .split(inner);
 
-        let prompt = Line::from(vec![
-            Span::styled("> ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::raw(self.query.text().to_string()),
-        ]);
+        // The query with its cursor: a click moves it (PopupField below).
+        let mut prompt = vec![Span::styled(
+            "> ",
+            Style::default().add_modifier(Modifier::BOLD),
+        )];
+        prompt.extend(super::field_spans(
+            self.query,
+            normal,
+            theme.selection(),
+            true,
+        ));
+        let prompt = Line::from(prompt);
         f.render_widget(Paragraph::new(prompt).style(normal), chunks[0]);
         crate::ui::hit::register(
             chunks[0],
@@ -85,5 +93,38 @@ impl FilterListView<'_> {
         if let Some(hint) = self.hint {
             f.render_widget(Paragraph::new(hint).style(normal), chunks[2]);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    #[test]
+    fn the_query_shows_where_typing_goes() {
+        let theme = ResolvedTheme::default();
+        let mut query = TextField::new("abc");
+        query.set_cursor(1);
+        let mut terminal = Terminal::new(TestBackend::new(40, 10)).unwrap();
+        terminal
+            .draw(|f| {
+                FilterListView {
+                    max_width: 40,
+                    title: String::new(),
+                    query: &query,
+                    rows: Vec::new(),
+                    cursor: 0,
+                    hint: None,
+                }
+                .render(f, f.area(), &theme)
+            })
+            .unwrap();
+        let buf = terminal.backend().buffer();
+        // "> abc" inside the frame: the cursor cell is the "b".
+        let (b, c) = (&buf[(4, 1)], &buf[(5, 1)]);
+        assert_eq!(b.symbol(), "b");
+        assert_eq!(b.style().bg, theme.selection().bg);
+        assert_ne!(c.style().bg, theme.selection().bg);
     }
 }

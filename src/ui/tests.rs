@@ -310,3 +310,101 @@ fn draw_ui_palette_keeps_a_far_cursor_in_view_and_shows_keys() {
         "title shows the palette key: {painted:?}"
     );
 }
+
+#[test]
+fn help_keeps_a_far_document_in_view() {
+    use crate::app::state::popup::Help;
+    let (context, mut state) = test_app();
+    let docs: Vec<(String, PathBuf)> = (0..60)
+        .map(|i| (format!("doc{i:02}"), PathBuf::from(format!("{i}.md"))))
+        .collect();
+    state.dialogs.replace(Help {
+        mode: 0,
+        docs,
+        plugin_docs: Vec::new(),
+        active_tab: 0,
+        cursor_idx: 59,
+        scroll_y: 0,
+        active_content: None,
+    });
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).expect("test terminal");
+    terminal
+        .draw(|f| draw_ui(f, &context, &state))
+        .expect("draw help");
+    assert!(buffer_joined(&terminal).contains("doc59"));
+    // The key hint has a row of its own, under the panes' bottom borders.
+    let buf = terminal.backend().buffer();
+    let hint = crate::config::localization::t("help_hint");
+    let hint = hint.trim();
+    let row = (0..30u16)
+        .find(|&y| {
+            let line: String = (0..100u16).map(|x| buf[(x, y)].symbol()).collect();
+            line.contains(hint)
+        })
+        .expect("hint shown");
+    let above: String = (0..100u16).map(|x| buf[(x, row - 1)].symbol()).collect();
+    assert!(
+        above.contains('└'),
+        "pane borders above the hint: {above:?}"
+    );
+}
+
+#[test]
+fn menu_titles_under_the_clock_are_not_clickable() {
+    use crate::ui::hit::HitTarget;
+    let (mut context, mut state) = test_app();
+    context.config.settings.interface_always_show_menu_bar = true;
+    state.is_root = true;
+    let mut terminal = Terminal::new(TestBackend::new(30, 10)).expect("test terminal");
+    terminal
+        .draw(|f| draw_ui(f, &context, &state))
+        .expect("draw");
+    // 20 columns of titles; the ROOT badge and the clock take the rest.
+    let titles = state.hits.collect(|t| match t {
+        HitTarget::MenuTitle(_) => Some(()),
+        _ => None,
+    });
+    assert!(!titles.is_empty());
+    for x in 20..30 {
+        let hit = state.hits.at(x, 0).map(|h| h.target);
+        assert!(!matches!(hit, Some(HitTarget::MenuTitle(_))), "column {x}");
+    }
+}
+
+/// Entry rows the left panel registered in the last frame.
+fn left_rows_shown(context: &AppContext, state: &AppState) -> usize {
+    use crate::ui::hit::HitTarget;
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("test terminal");
+    terminal.draw(|f| draw_ui(f, context, state)).expect("draw");
+    state
+        .hits
+        .collect(|t| match t {
+            HitTarget::PanelRow {
+                side: crate::app::state::ActivePanel::Left,
+                index,
+            } => Some(*index),
+            _ => None,
+        })
+        .len()
+}
+
+#[test]
+fn brief_view_fills_every_row_of_both_columns() {
+    use crate::app::state::{ActivePanel, PanelViewMode};
+    let (context, mut state) = test_app();
+    let panel = state.panels.side_mut(ActivePanel::Left);
+    panel.entries = (0..200)
+        .map(|i| FileEntry {
+            name: format!("f{i}"),
+            path: PathBuf::from(format!("./f{i}")),
+            size: 0,
+            is_dir: false,
+            is_symlink: false,
+            modified: None,
+        })
+        .collect();
+    panel.view_mode = PanelViewMode::Wide;
+    let one_column = left_rows_shown(&context, &state);
+    state.panels.side_mut(ActivePanel::Left).view_mode = PanelViewMode::Brief;
+    assert_eq!(left_rows_shown(&context, &state), one_column * 2);
+}

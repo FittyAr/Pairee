@@ -7,6 +7,7 @@ use crate::config::localization::t;
 use crate::keybindings::{Action, KeybindingResolver};
 use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::text_width::pad_to_width;
 use ratatui::{Frame, layout::Rect, text::Line};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -23,7 +24,11 @@ pub fn render_hotlist(
         .iter()
         .map(|e| {
             (
-                format!(" {:<20} ->  {} ", e.name, e.path.to_string_lossy()),
+                format!(
+                    " {} ->  {} ",
+                    pad_to_width(&e.name, 20),
+                    e.path.to_string_lossy()
+                ),
                 style,
             )
         })

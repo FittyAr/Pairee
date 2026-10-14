@@ -7,8 +7,8 @@ use super::super::centered_rect_in;
 use crate::app::state::popup::Help;
 use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::scrollbar::ScrollTarget;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
-use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -44,6 +44,9 @@ fn render(
     let area = centered_rect_in(90, 85, size); // Expand to 90% width, 85% height
     f.render_widget(Clear, area);
 
+    // The key hint gets the bottom row, under both panes (not over them).
+    let [panes_area, hint_area] =
+        Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(area);
     // Split into Left (list) and Right (content viewer)
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -51,7 +54,7 @@ fn render(
             Constraint::Percentage(25), // 25% for document list
             Constraint::Percentage(75), // 75% for content
         ])
-        .split(area);
+        .split(panes_area);
 
     // 1. Render Left panel (document selection list)
     let current_docs = if *active_tab == 0 { docs } else { plugin_docs };
@@ -89,12 +92,6 @@ fn render(
     }
 
     // 3. Render help hint at the bottom
-    let hint_area = Rect {
-        x: area.x + 2,
-        y: area.y + area.height.saturating_sub(2),
-        width: area.width.saturating_sub(4),
-        height: 1,
-    };
     let hint_text = t("help_hint");
     f.render_widget(
         Paragraph::new(hint_text)
@@ -157,10 +154,18 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &ResolvedTheme, list: 
         .style(bg_style);
     f.render_widget(Paragraph::new(tabs_line).block(tab_block), left_chunks[0]);
 
+    let rows_area = left_block_inner(left_chunks[1]);
+    // Scrolled to keep the cursor in view on short screens.
+    let start = crate::ui::scrollbar::centered_scroll(
+        list.cursor_idx,
+        list.docs.len(),
+        rows_area.height as usize,
+    );
     let list_items: Vec<ListItem> = list
         .docs
         .iter()
         .enumerate()
+        .skip(start)
         .map(|(i, (doc_title, _))| {
             let style = if i == list.cursor_idx {
                 theme
@@ -180,9 +185,8 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &ResolvedTheme, list: 
         .border_style(border_style)
         .style(bg_style);
     let doc_list = List::new(list_items).block(left_block).style(bg_style);
-    let rows_area = left_block_inner(left_chunks[1]);
     f.render_widget(doc_list, left_chunks[1]);
-    register_doc_list(left_chunks[0], rows_area, list);
+    register_doc_list(left_chunks[0], (rows_area, start), list);
 }
 
 /// Inside of the list block (borders left, right and bottom).
@@ -197,7 +201,7 @@ fn left_block_inner(area: Rect) -> Rect {
 
 /// Mouse targets of the left pane: the two tabs (Left / Right switch
 /// them) and the documents (Tab first when the reader has the focus).
-fn register_doc_list(tabs_area: Rect, rows_area: Rect, list: &DocList) {
+fn register_doc_list(tabs_area: Rect, (rows_area, start): (Rect, usize), list: &DocList) {
     use crate::ui::popup::kit::mouse;
     use crossterm::event::{KeyCode, KeyEvent};
     let focus: Vec<KeyEvent> = if list.focused {
@@ -225,7 +229,7 @@ fn register_doc_list(tabs_area: Rect, rows_area: Rect, list: &DocList) {
         })
         .collect();
     mouse::span_buttons(tabs_row, &labels, (0, false), keys);
-    mouse::focused_list_rows(rows_area, (0, list.docs.len(), list.cursor_idx), &focus);
+    mouse::focused_list_rows(rows_area, (start, list.docs.len(), list.cursor_idx), &focus);
 }
 
 /// The document as wrapped Markdown, with a scrollbar when it overflows.
@@ -241,24 +245,13 @@ fn render_content(
     let parsed_lines = parse_markdown_to_lines(content);
     let inner_width = (right_area.width.saturating_sub(4)) as usize;
     let wrapped_lines = wrap_lines(parsed_lines, inner_width);
-    let total_lines = wrapped_lines.len();
-
-    let paragraph = Paragraph::new(wrapped_lines)
-        .block(right_block)
-        .scroll((scroll_y as u16, 0))
-        .style(Style::default().fg(theme.popup_fg));
-    f.render_widget(paragraph, right_area);
-
-    // Fractional scrollbar when content overflows the viewer pane
-    let inner_height = right_area.height.saturating_sub(2) as usize;
-    scrollbar::render_vertical_inside_block(
+    let inner = right_block.inner(right_area);
+    f.render_widget(right_block, right_area);
+    scrollbar::render_text_pane(
         f,
-        right_area,
-        ScrollView {
-            content_len: total_lines,
-            viewport_len: inner_height,
-            offset: scroll_y,
-        },
+        inner,
+        (wrapped_lines, Style::default().fg(theme.popup_fg)),
+        scroll_y,
         theme,
         ScrollTarget {
             surface: ScrollbarSurface::Popup,

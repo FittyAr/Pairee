@@ -2,14 +2,13 @@
 
 use crate::app::state::popup::OnboardingKeymap;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect_fixed;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    text::{Line, Text},
+    widgets::{Paragraph, Wrap},
 };
 
 /// The presets offered, in the order of the built-in list.
@@ -25,16 +24,14 @@ impl DialogView for OnboardingKeymap {
         let (theme, size) = (cx.theme, cx.area);
         let OnboardingKeymap { cursor_idx } = self;
 
-        let area = centered_rect_fixed(66, 4 + 3 * preset_ids().len() as u16 + 2, size);
-        f.render_widget(Clear, area);
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
-            .title(t("onboarding_title"))
-            .style(Style::default().bg(theme.popup_bg));
-        let inner = block.inner(area);
-        f.render_widget(block, area);
+        let inner = crate::ui::popup::kit::dialog_frame(
+            f,
+            size,
+            (66, 4 + 3 * preset_ids().len() as u16 + 2),
+            t("onboarding_title"),
+            crate::ui::popup::kit::fg(Color::Cyan),
+            theme,
+        );
 
         let ids = preset_ids();
         let constraints: Vec<Constraint> = std::iter::once(Constraint::Length(2))
@@ -64,20 +61,20 @@ impl DialogView for OnboardingKeymap {
             crate::ui::popup::kit::mouse::list_item(chunks[i + 1], (i, *cursor_idx), &[]);
             let selected = i == *cursor_idx;
             let style = if selected {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
+                theme.selection().add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(theme.popup_fg)
             };
             let mark = if selected { ">" } else { " " };
+            // Title and description on rows of their own (a newline
+            // inside a span is not drawn).
             f.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::raw(format!(" {mark} {title}\n")),
-                    Span::raw(format!("    {desc}")),
+                Paragraph::new(Text::from(vec![
+                    Line::from(format!(" {mark} {title}")),
+                    Line::from(format!("    {desc}")),
                 ]))
-                .style(style),
+                .style(style)
+                .wrap(Wrap { trim: false }),
                 chunks[i + 1],
             );
         }
@@ -92,6 +89,18 @@ impl DialogView for OnboardingKeymap {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_preset_description_gets_its_own_row() {
+        let h = crate::test_harness::Harness::builder()
+            .size(100, 40)
+            .settings(|s| s.onboarding_completed = false)
+            .build();
+        let (_, title_row) = h.locate(&t("onboarding_norton"));
+        let desc: String = t("onboarding_norton_desc").chars().take(20).collect();
+        let (_, desc_row) = h.locate(&desc);
+        assert_eq!(desc_row, title_row + 1);
+    }
 
     #[test]
     fn every_preset_has_a_title_and_description() {

@@ -1,3 +1,4 @@
+use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -18,19 +19,16 @@ pub fn render_controls(
     let method = crate::update::detect::detect_install_method();
     let is_managed = method.is_managed();
 
-    let buttons = if is_managed {
-        vec![
-            ("Copy command", 0),
-            ("Remind later", 1),
-            ("Ignore version", 2),
-        ]
+    let first = if is_managed {
+        "update_btn_copy"
     } else {
-        vec![
-            ("Update now", 0),
-            ("Remind later", 1),
-            ("Ignore version", 2),
-        ]
+        "update_btn_now"
     };
+    let buttons = [first, "update_btn_later", "update_btn_ignore"]
+        .into_iter()
+        .enumerate()
+        .map(|(idx, key)| (t(key), idx))
+        .collect::<Vec<_>>();
 
     let btn_constraints = vec![Constraint::Ratio(1, buttons.len() as u32); buttons.len()];
     let btn_cols = Layout::default()
@@ -74,7 +72,8 @@ pub fn render_controls(
     if let Some(progress) = install_progress {
         let gauge_area = layout[5];
         if gauge_area.height > 0 {
-            let label = format!("Downloading... {:.0}%", progress * 100.0);
+            let label =
+                t("update_downloading").replacen("{}", &format!("{:.0}", progress * 100.0), 1);
             let gauge = Gauge::default()
                 .block(Block::default().borders(Borders::NONE))
                 .gauge_style(Style::default().fg(Color::Cyan).bg(Color::DarkGray))
@@ -88,10 +87,10 @@ pub fn render_controls(
     if let Some(err) = error {
         let err_area = layout[6];
         if err_area.height > 0 {
-            let short_err: String = err
-                .chars()
-                .take((err_area.width as usize).saturating_sub(2))
-                .collect();
+            let short_err = crate::ui::text_width::truncate_to_width(
+                err,
+                (err_area.width as usize).saturating_sub(3),
+            );
             f.render_widget(
                 Paragraph::new(Line::from(Span::styled(
                     format!(" ⚠ {}", short_err),

@@ -34,6 +34,7 @@ pub fn handle(
             paths,
             cursor_idx: 0,
             to_trash,
+            ..
         })) if confirmed => {
             delete::submit_delete(state, context, paths, to_trash);
         }

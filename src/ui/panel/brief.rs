@@ -1,11 +1,13 @@
 use super::list_ctx::ListCtx;
+use crate::ui::scrollbar::ScrollView;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     widgets::{Block, Borders, Cell, Row, Table},
 };
 
-pub(crate) fn render_brief(f: &mut Frame, area: Rect, block: Block, ctx: &ListCtx) {
+/// Two columns of names filling the frame; returns the shown window.
+pub(crate) fn render_brief(f: &mut Frame, area: Rect, block: Block, ctx: &ListCtx) -> ScrollView {
     let panel = ctx.panel;
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -15,7 +17,8 @@ pub(crate) fn render_brief(f: &mut Frame, area: Rect, block: Block, ctx: &ListCt
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(inner);
 
-    let col_height = cols[0].height.saturating_sub(2) as usize;
+    // The columns are inside the frame already: every row holds a name.
+    let col_height = cols[0].height as usize;
     let (start, _) = ctx.range(col_height * 2);
 
     for col_idx in 0..2usize {
@@ -41,5 +44,10 @@ pub(crate) fn render_brief(f: &mut Frame, area: Rect, block: Block, ctx: &ListCt
             ..cols[col_idx]
         };
         ctx.register_rows(shown, col_start);
+    }
+    ScrollView {
+        content_len: panel.entries.len(),
+        viewport_len: col_height * 2,
+        offset: start,
     }
 }

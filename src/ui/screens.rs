@@ -84,7 +84,14 @@ fn render_side(
         && !is_active
         && let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top()
     {
-        quickview::draw_quick_view(f, rect, qv, &context.theme(), Some(&state.scrollbar));
+        quickview::draw_quick_view(
+            f,
+            rect,
+            qv,
+            &context.theme(),
+            Some(&state.scrollbar),
+            context.config.settings.viewer_tab_size as usize,
+        );
         return;
     }
     let tabs = state.panels.tabs(side);

@@ -1,7 +1,7 @@
 use super::layout::{block_inner, lengths, should_show, track_area_right};
 use super::types::{ScrollTargetId, ScrollbarHitTarget, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::resolved_theme::ResolvedTheme;
-use ratatui::{Frame, layout::Rect, style::Style};
+use ratatui::{Frame, layout::Rect, style::Style, text::Line, widgets::Paragraph};
 use tui_scrollbar::{GlyphSet, ScrollBar, ScrollBarArrows, TrackClickBehavior};
 
 /// Build a themed vertical [`ScrollBar`], or `None` when content fits the viewport.
@@ -48,17 +48,6 @@ pub struct ScrollTarget<'a> {
     pub id: ScrollTargetId,
 }
 
-/// Render a vertical scrollbar into `track` when content overflows the viewport.
-pub fn render_vertical(
-    f: &mut Frame,
-    track: Rect,
-    view: ScrollView,
-    theme: &ResolvedTheme,
-    target: ScrollTarget,
-) {
-    render_track(f, track, track, view, theme, target);
-}
-
 /// Render into `track`; the mouse wheel over `wheel_area` scrolls too.
 fn render_track(
     f: &mut Frame,
@@ -103,6 +92,32 @@ pub fn render_vertical_right(
 ) {
     let track = track_area_right(content_area);
     render_track(f, track, content_area, view, theme, target);
+}
+
+/// `lines` (already wrapped) in `content` from line `scroll`, clamped so
+/// the last screenful is the furthest one can go, with a scrollbar in the
+/// right column (leave it free when wrapping). The help, About and release
+/// notes panes.
+pub fn render_text_pane(
+    f: &mut Frame,
+    content: Rect,
+    (lines, style): (Vec<Line<'static>>, Style),
+    scroll: usize,
+    theme: &ResolvedTheme,
+    target: ScrollTarget,
+) {
+    let viewport_len = content.height as usize;
+    let offset = scroll.min(lines.len().saturating_sub(viewport_len));
+    let view = ScrollView {
+        content_len: lines.len(),
+        viewport_len,
+        offset,
+    };
+    let paragraph = Paragraph::new(lines)
+        .style(style)
+        .scroll((u16::try_from(offset).unwrap_or(u16::MAX), 0));
+    f.render_widget(paragraph, content);
+    render_vertical_right(f, content, view, theme, target);
 }
 
 /// Render into the right column inside a bordered block covering `block_area`.

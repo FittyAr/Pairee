@@ -44,7 +44,7 @@ pub(crate) fn render_tabs(
 
     let border_color = theme.popup_border;
     f.render_widget(
-        Paragraph::new("─".repeat(area.width as usize)).style(Style::default().fg(border_color)),
+        crate::ui::popup::kit::separator(area.width, crate::ui::popup::kit::fg(border_color)),
         tab_layout[1],
     );
 
@@ -137,12 +137,18 @@ pub(crate) fn render_options_tab(
         lines.push(ratatui::text::Line::from(""));
     }
 
-    let p = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(t("transfer_options_title"))
-            .border_type(BorderType::Rounded),
-    );
+    // A blank line, then two lines per option: keep the selected one shown.
+    let selected_line = 1 + 2 * ts.options_cursor;
+    let visible = area.height.saturating_sub(2) as usize;
+    let top = scrollbar::follow_scroll(selected_line, 0, visible);
+    let p = Paragraph::new(lines)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(t("transfer_options_title"))
+                .border_type(BorderType::Rounded),
+        )
+        .scroll((u16::try_from(top).unwrap_or(u16::MAX), 0));
     f.render_widget(p, area);
 }
 

@@ -1,12 +1,11 @@
 use crate::app::state::popup::ConfirmDelete;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect_fixed;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::Paragraph,
 };
 
 impl DialogView for ConfirmDelete {
@@ -16,42 +15,29 @@ impl DialogView for ConfirmDelete {
             paths,
             cursor_idx,
             to_trash,
+            folders,
         } = self;
-        let area = centered_rect_fixed(50, 8, size);
-        f.render_widget(Clear, area);
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Red))
-            .title(t(if *to_trash {
-                "prompt_trash_title"
-            } else {
-                "prompt_delete_title"
-            }))
-            .style(Style::default().bg(theme.popup_bg));
-
-        let inner = block.inner(area);
-        f.render_widget(block, area);
+        let title = t(if *to_trash {
+            "prompt_trash_title"
+        } else {
+            "prompt_delete_title"
+        });
+        let inner = crate::ui::popup::kit::dialog_frame(
+            f,
+            size,
+            (50, 8),
+            title,
+            crate::ui::popup::kit::fg(Color::Red),
+            theme,
+        );
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(4), Constraint::Length(2)])
             .split(inner);
 
-        let mut folders_count = 0;
-        let mut files_count = 0;
-        for p in paths {
-            if p.is_dir()
-                && !p
-                    .symlink_metadata()
-                    .map(|m| m.file_type().is_symlink())
-                    .unwrap_or(false)
-            {
-                folders_count += 1;
-            } else {
-                files_count += 1;
-            }
-        }
+        let folders_count = *folders;
+        let files_count = paths.len().saturating_sub(folders_count);
 
         let part_files = if files_count > 0 {
             Some(t("delete_confirm_files").replacen("{}", &files_count.to_string(), 1))
@@ -94,24 +80,8 @@ fn render_buttons(
     cursor_idx: usize,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
-    let active_style = Style::default().bg(Color::Cyan).fg(Color::Black);
-    let normal_style = Style::default().fg(theme.popup_fg);
-    let btn1 = if cursor_idx == 0 {
-        active_style
-    } else {
-        normal_style
-    };
-    let btn2 = if cursor_idx == 1 {
-        active_style
-    } else {
-        normal_style
-    };
     let labels = [t("btn_delete_bracket"), t("btn_cancel_bracket")];
-    let btns = ratatui::text::Line::from(vec![
-        ratatui::text::Span::styled(labels[0].clone(), btn1),
-        ratatui::text::Span::raw("  "),
-        ratatui::text::Span::styled(labels[1].clone(), btn2),
-    ]);
+    let styles = crate::ui::popup::kit::FocusStyles::from_theme(theme);
     {
         use crate::ui::popup::kit::mouse::{key, span_buttons};
         use crossterm::event::{KeyCode, KeyEvent};
@@ -123,7 +93,27 @@ fn render_buttons(
         span_buttons(area, &labels, (2, true), vec![delete, key(KeyCode::Esc)]);
     }
     f.render_widget(
-        Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
+        crate::ui::popup::kit::button_bar(&labels, Some(cursor_idx), styles),
         area,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::localization::t;
+    use crate::test_harness::Harness;
+
+    #[test]
+    fn folders_are_counted_once_from_the_listing() {
+        let mut h = Harness::new();
+        h.mkdir("work/left/sub");
+        h.reread().focus("sub").keys("@delete");
+        let folders = t("delete_confirm_folders").replacen("{}", "1", 1);
+        let shown: String = folders.chars().take(11).collect();
+        h.assert_screen(&shown);
+        // Redrawing does not look at the disk again.
+        std::fs::remove_dir(h.left().join("sub")).unwrap();
+        h.render();
+        h.assert_screen(&shown);
+    }
 }

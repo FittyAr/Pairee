@@ -5,10 +5,11 @@ pub use controls::render_controls;
 
 use super::centered_rect_fixed;
 use crate::app::state::popup::UpdateAvailable;
+use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::scrollbar::ScrollTarget;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
-use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::update::UpdateInfo;
 use crate::update::detect::InstallMethod;
 use ratatui::{
@@ -55,7 +56,9 @@ fn render(
     let method = crate::update::detect::detect_install_method();
     let size_str = download_size_suffix(info, &method);
 
-    let title = format!(" 🎉 New version available: v{}{} ", info.version, size_str);
+    let title = t("update_popup_title")
+        .replacen("{}", &info.version, 1)
+        .replacen("{}", &size_str, 1);
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(border_style)
@@ -96,9 +99,8 @@ fn render(
     render_notes(f, layout[2], info, theme, scroll_y, scrollbar);
 
     // Separator
-    let sep = "─".repeat(inner.width as usize);
     f.render_widget(
-        Paragraph::new(Line::from(Span::styled(sep, Style::default().fg(muted)))),
+        crate::ui::popup::kit::separator(inner.width, crate::ui::popup::kit::fg(muted)),
         layout[3],
     );
 
@@ -138,7 +140,7 @@ fn render_version_lines(
     let accent = Color::Cyan;
     let muted = Style::default().fg(Color::DarkGray);
     let ver_line = Line::from(vec![
-        Span::styled("Current: ", muted),
+        Span::styled(t("update_current"), muted),
         Span::styled(format!("v{}", env!("CARGO_PKG_VERSION")), muted),
         Span::raw("  →  "),
         Span::styled(
@@ -150,7 +152,7 @@ fn render_version_lines(
         Span::raw(")"),
     ]);
     let url_line = Line::from(vec![
-        Span::styled("Release info: ", muted),
+        Span::styled(t("update_release_info"), muted),
         Span::styled(info.html_url.as_str(), Style::default().fg(accent)),
     ]);
     for (line, area) in [(ver_line, layout[0]), (url_line, layout[1])] {
@@ -191,25 +193,11 @@ fn render_notes(
 
     let inner_width = (area.width as usize).saturating_sub(3);
     let wrapped_notes = wrap_lines(notes_lines, inner_width);
-    let total_lines = wrapped_notes.len();
-    let inner_height = area.height as usize;
-
-    let max_scroll = total_lines.saturating_sub(inner_height);
-    let clamped_scroll = scroll_y.min(max_scroll);
-
-    let paragraph = Paragraph::new(wrapped_notes)
-        .scroll((clamped_scroll as u16, 0))
-        .style(Style::default().bg(theme.popup_bg));
-    f.render_widget(paragraph, area);
-
-    scrollbar::render_vertical_right(
+    scrollbar::render_text_pane(
         f,
         area,
-        ScrollView {
-            content_len: total_lines,
-            viewport_len: inner_height,
-            offset: clamped_scroll,
-        },
+        (wrapped_notes, Style::default().bg(theme.popup_bg)),
+        scroll_y,
         theme,
         ScrollTarget {
             surface: ScrollbarSurface::Popup,
@@ -240,7 +228,7 @@ fn render_hint(f: &mut Frame, area: Rect, size: Rect, method: &InstallMethod) {
             ])
         }
         None => Line::from(Span::styled(
-            " ←/→ select  Enter confirm  Esc close",
+            t("update_hint"),
             Style::default().fg(Color::DarkGray),
         )),
     };

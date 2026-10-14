@@ -87,6 +87,15 @@ fn the_minimized_bar_shows_the_running_job_while_it_runs() {
 }
 
 #[test]
+fn the_minimized_bar_stays_while_its_job_is_paused() {
+    let mut h = Harness::new();
+    let job = with_status(running(&h, 3, 10), TransferJobStatus::Paused);
+    queue(&mut h, vec![job], TransferViewMode::Minimized);
+    assert!(h.screen_text().contains("3/10"));
+    assert!(bar_hit(&mut h), "a paused job can still be expanded");
+}
+
+#[test]
 fn the_minimized_bar_expands_on_click_and_minimizes_again_while_a_job_runs() {
     let mut h = Harness::new();
     h.without_waiting_for_transfers();
@@ -184,6 +193,38 @@ fn the_expanded_panel_lists_jobs_and_inspects_the_selected_one() {
 }
 
 #[test]
+fn the_selected_transfer_option_stays_in_view_on_a_short_screen() {
+    let mut h = Harness::builder().size(100, 30).build();
+    let job = running(&h, 0, 1);
+    queue(&mut h, vec![job], TransferViewMode::Expanded);
+    let ts = h.state.transfer.as_mut().unwrap();
+    ts.active_tab = TransferTab::Options;
+    ts.options_cursor = 11;
+    let last = t("transfer_opt_bandwidth").replace("{}", "");
+    h.assert_screen(last.trim_end());
+}
+
+#[test]
+fn the_jobs_scrollbar_counts_jobs_and_follows_the_list() {
+    use crate::ui::scrollbar::ScrollTargetId;
+    let mut h = Harness::builder().size(100, 30).build();
+    let jobs = (0..12).map(|_| running(&h, 0, 1)).collect();
+    queue(&mut h, jobs, TransferViewMode::Expanded);
+    h.state.transfer.as_mut().unwrap().queue_cursor = 11;
+    h.render();
+    let bar = h
+        .state
+        .hits
+        .scrollbars()
+        .into_iter()
+        .find(|b| b.id == ScrollTargetId::TransferJobs)
+        .expect("twelve jobs overflow the list");
+    let rows = bar.area.height as usize;
+    assert_eq!(bar.viewport_len, rows / 3, "three rows per job");
+    assert_eq!(bar.offset + bar.viewport_len, 12, "the last job is shown");
+}
+
+#[test]
 fn an_empty_queue_says_how_to_start_a_transfer() {
     let mut h = Harness::new();
     queue(&mut h, Vec::new(), TransferViewMode::Expanded);
@@ -214,6 +255,12 @@ fn a_conflict_names_the_file_and_offers_the_answers() {
     assert!(screen.contains("a.txt"), "{screen}");
     assert!(screen.contains("[o] Overwrite"), "{screen}");
     assert!(screen.contains("[x] Cancel job"), "{screen}");
+    // Clicks on the dialog stay in it, not on the job list underneath.
+    let (x, y) = h.locate("[x] Cancel job");
+    h.render();
+    let hit = h.state.hits.at(x, y).expect("the dialog is recorded");
+    assert_eq!(hit.target, HitTarget::PopupBody);
+    assert_eq!(hit.area.width, 60, "the conflict dialog's own body");
 }
 
 #[test]

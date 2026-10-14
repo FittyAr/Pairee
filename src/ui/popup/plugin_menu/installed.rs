@@ -13,6 +13,13 @@ use ratatui::{
 pub fn render_installed(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
     let installed = menu.installed.as_slice();
     let loading = menu.installed_loading && installed.is_empty();
+    // Scrolled to keep the cursor in view when there are more plugins than rows.
+    let rows = pane.list_area.inner(ratatui::layout::Margin::new(1, 1));
+    let start = crate::ui::scrollbar::centered_scroll(
+        menu.cursor_idx,
+        installed.len(),
+        rows.height as usize,
+    );
 
     let list_items = if loading {
         vec![ListItem::new(Line::from(vec![Span::styled(
@@ -23,18 +30,14 @@ pub fn render_installed(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
         installed
             .iter()
             .enumerate()
+            .skip(start)
             .map(|(i, plugin)| plugin_item(pane, plugin, i == menu.cursor_idx))
             .collect()
     };
     let list = List::new(list_items).block(pane_block(pane, t("plugin_title")));
     f.render_widget(list, pane.list_area);
     if !loading {
-        crate::ui::popup::kit::mouse::list_rows(
-            pane.list_area.inner(ratatui::layout::Margin::new(1, 1)),
-            0,
-            installed.len(),
-            menu.cursor_idx,
-        );
+        crate::ui::popup::kit::mouse::list_rows(rows, start, installed.len(), menu.cursor_idx);
     }
 
     if loading {

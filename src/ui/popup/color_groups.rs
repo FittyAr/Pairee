@@ -8,6 +8,7 @@ use crate::config::localization::t;
 use crate::config::theme::COLOR_PROPS;
 use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::text_width::{display_width, pad_to_width};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -58,7 +59,7 @@ impl DialogView for FilesHighlightingDialog {
             .map(|rule| {
                 let fg = parse_color(&rule.color);
                 ColorRow {
-                    label: format!("{:<30}", rule.mask),
+                    label: pad_to_width(&rule.mask, 30),
                     color: rule.color.clone(),
                     style: Style::default().bg(theme.popup_bg).fg(fg),
                     selected: Style::default()
@@ -122,6 +123,11 @@ fn register_rows(inner: Rect, rows: &[ColorRow], cursor: usize, editing: bool) {
     }
 }
 
+/// The edit cursor over a row drawn in `style`: its colors swapped.
+fn cursor_style(style: Style) -> Style {
+    style.add_modifier(ratatui::style::Modifier::REVERSED)
+}
+
 /// The visible rows, scrolled so the cursor stays near the middle.
 fn color_lines(
     rows: &[ColorRow],
@@ -136,15 +142,52 @@ fn color_lines(
         .take(height)
         .map(|(i, row)| {
             let focused = i == cursor;
-            let value = match edit {
-                Some(field) if focused => format!("{}_", field.text()),
-                _ => row.color.clone(),
-            };
             let style = if focused { row.selected } else { row.style };
-            Line::from(Span::styled(
-                format!(" {} < {:^15} >", row.label, value),
+            let value = match edit {
+                // The value being typed, with its real cursor.
+                Some(field) if focused => kit::field_spans(field, style, cursor_style(style), true),
+                _ => vec![Span::styled(row.color.clone(), style)],
+            };
+            // Centered in 15 columns, as `{:^15}` would.
+            let width: usize = value.iter().map(|s| display_width(&s.content)).sum();
+            let pad = 15usize.saturating_sub(width);
+            let mut spans = vec![Span::styled(
+                format!(" {} < {}", row.label, " ".repeat(pad / 2)),
                 style,
-            ))
+            )];
+            spans.extend(value);
+            spans.push(Span::styled(
+                format!("{} >", " ".repeat(pad - pad / 2)),
+                style,
+            ));
+            Line::from(spans)
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_edited_value_shows_its_real_cursor() {
+        let row = ColorRow {
+            label: "Panel".into(),
+            color: "Blue".into(),
+            style: Style::default(),
+            selected: Style::default(),
+        };
+        let mut field = TextField::new("Red");
+        field.set_cursor(0);
+        let lines = color_lines(std::slice::from_ref(&row), 0, Some(&field), 5);
+        let cursor = lines[0]
+            .spans
+            .iter()
+            .find(|s| s.style == cursor_style(row.selected))
+            .expect("a cursor cell");
+        assert_eq!(cursor.content, "R", "the cursor sits on the first letter");
+        // Still centered in the same columns as a plain value.
+        let plain = color_lines(std::slice::from_ref(&row), 0, None, 5);
+        assert_eq!(lines[0].width(), plain[0].width());
+    }
 }

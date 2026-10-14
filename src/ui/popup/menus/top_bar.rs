@@ -132,14 +132,30 @@ fn item_line(item: &MenuItemData, base: Style, is_cursor: bool) -> Line<'static>
         base,
         hotkey,
     ));
-    let label_len = crate::ui::hotkey::parse_hotkey(&item.label)
-        .clean_text
-        .chars()
-        .count();
+    let label_len = crate::ui::text_width::display_width(
+        &crate::ui::hotkey::parse_hotkey(&item.label).clean_text,
+    );
     spans.push(Span::styled(
         " ".repeat(25usize.saturating_sub(label_len)),
         base,
     ));
-    spans.push(Span::styled(format!("{:<7}", item.shortcut), base));
+    spans.push(Span::styled(
+        crate::ui::text_width::pad_to_width(&item.shortcut, 7),
+        base,
+    ));
     Line::from(spans)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shortcut_column_lines_up_with_wide_labels() {
+        let width = |label: &str| {
+            let item = MenuItemData::new(label.into(), "Ctrl+X", false);
+            item_line(&item, Style::default(), false).width()
+        };
+        assert_eq!(width("&Copiar"), width("&日本語メニュー"));
+    }
 }

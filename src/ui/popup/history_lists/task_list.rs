@@ -3,6 +3,7 @@ use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::text_width::pad_to_width;
 use ratatui::{
     Frame,
     style::{Color, Modifier, Style},
@@ -20,10 +21,10 @@ impl DialogView for TaskListDialog {
         } = self;
         let mut header = vec![Line::from(Span::styled(
             format!(
-                " {:<8} | {:<35} | {:<12} ",
-                t("col_pid"),
-                t("col_process_name"),
-                t("col_memory")
+                " {} | {} | {} ",
+                pad_to_width(&t("col_pid"), 8),
+                pad_to_width(&t("col_process_name"), 35),
+                pad_to_width(&t("col_memory"), 12)
             ),
             Style::default().add_modifier(Modifier::UNDERLINED),
         ))];
@@ -47,7 +48,12 @@ impl DialogView for TaskListDialog {
                 };
                 let mem_mb = (task.memory_kb as f64) / 1024.0;
                 (
-                    format!(" {:<8} | {:<35} | {:<12.1} ", task.pid, task.name, mem_mb),
+                    format!(
+                        " {:<8} | {} | {:<12.1} ",
+                        task.pid,
+                        pad_to_width(&task.name, 35),
+                        mem_mb
+                    ),
                     style,
                 )
             })

@@ -16,8 +16,22 @@ use ratatui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Width of the line-number gutter (`"1234 │ "`).
-const GUTTER_WIDTH: u16 = 7;
+/// Digits of the line numbers: at least 4, more for longer files.
+fn number_digits(line_count: usize) -> usize {
+    line_count.to_string().len().max(4)
+}
+
+/// Columns of the line-number gutter (`"1234 │ "`).
+fn gutter_width(line_count: usize) -> u16 {
+    (number_digits(line_count) + 3) as u16
+}
+
+/// Screen row of the cursor line, or `None` while it is scrolled out of
+/// the `height` rows shown from `scroll_y` (e.g. by the mouse wheel).
+fn cursor_row(cursor_y: usize, scroll_y: usize, height: u16) -> Option<u16> {
+    let row = cursor_y.checked_sub(scroll_y)?;
+    (row < height as usize).then_some(row as u16)
+}
 
 /// Display settings of the editor screen.
 #[derive(Debug, Clone, Copy)]
@@ -45,7 +59,7 @@ pub fn render_editor_widget(
 
     // Horizontal scroll: keep the cursor column inside the text area.
     let gutter = if view.show_line_numbers {
-        GUTTER_WIDTH
+        gutter_width(ed.lines.len())
     } else {
         0
     };
@@ -73,10 +87,10 @@ pub fn render_editor_widget(
 
     // Draw the terminal blinking cursor at the editing position
     let cursor_x = edit_area.x + gutter + (cursor_col - scroll_x) as u16;
-    let cursor_y = edit_area.y + ed.cursor_y.saturating_sub(ed.scroll_y) as u16;
-
-    if cursor_x < edit_area.x + edit_area.width && cursor_y < edit_area.y + edit_area.height {
-        f.set_cursor_position((cursor_x, cursor_y));
+    if let Some(row) = cursor_row(ed.cursor_y, ed.scroll_y, edit_area.height)
+        && cursor_x < edit_area.right()
+    {
+        f.set_cursor_position((cursor_x, edit_area.y + row));
     }
 }
 
@@ -117,6 +131,7 @@ fn text_lines(
         theme,
     };
     let region = ed.region();
+    let digits = number_digits(ed.lines.len());
     visible
         .map(|y| {
             let matches = matcher
@@ -132,7 +147,7 @@ fn text_lines(
             };
             let mut spans = Vec::new();
             if view.show_line_numbers {
-                spans.push(Span::raw(format!("{:>4} │ ", y + 1)));
+                spans.push(Span::raw(format!("{:>digits$} │ ", y + 1)));
             }
             spans.extend(line_spans(y, &ed.lines[y], &marks, &styles));
             Line::from(spans)
@@ -185,4 +200,30 @@ fn status_text(ed: &EditorState) -> String {
             1,
         )
         .replacen("{}", &flags, 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gutter_grows_with_the_line_numbers() {
+        assert_eq!(gutter_width(1), 7);
+        assert_eq!(gutter_width(9_999), 7);
+        assert_eq!(gutter_width(10_000), 8);
+        let digits = number_digits(10_000);
+        let label = format!("{:>digits$} │ ", 10_000);
+        assert_eq!(
+            crate::ui::text_width::display_width(&label),
+            gutter_width(10_000) as usize
+        );
+    }
+
+    #[test]
+    fn no_cursor_while_its_line_is_scrolled_away() {
+        assert_eq!(cursor_row(5, 3, 10), Some(2));
+        assert_eq!(cursor_row(2, 3, 10), None);
+        assert_eq!(cursor_row(13, 3, 10), None);
+        assert_eq!(cursor_row(0, 0, 0), None);
+    }
 }

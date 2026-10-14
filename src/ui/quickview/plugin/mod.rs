@@ -74,7 +74,7 @@ fn draw(f: &mut Frame, area: Rect, widget: &Renderable, cx: Paint, scroll: usize
         Renderable::Table(table) => draw_table(f, area, table, cx, scroll),
         Renderable::Gauge(g) => draw_gauge(f, area, g, cx),
         Renderable::Layout(l) => draw_layout(f, area, l, cx),
-        Renderable::Image(image) => draw_image(f, area, image, cx, scroll),
+        Renderable::Image(image) => draw_image(f, area, image, cx),
         Renderable::Placed(rect, child) => draw(f, place::placed(area, *rect), child, cx, 0),
         Renderable::Stack(children) => {
             for child in children {
@@ -171,11 +171,10 @@ fn draw_layout(f: &mut Frame, area: Rect, l: &WLayout, cx: Paint) {
     }
 }
 
-fn draw_image(f: &mut Frame, area: Rect, image: &PluginImage, cx: Paint, scroll: usize) {
+/// The picture fitted whole into `area` (nothing to scroll).
+fn draw_image(f: &mut Frame, area: Rect, image: &PluginImage, cx: Paint) {
     match &image.image {
-        Some(img) => {
-            super::render_quick_view_image(f, area, img, Block::default(), cx.theme, scroll)
-        }
+        Some(img) => super::render_quick_view_image(f, area, img, Block::default(), cx.theme),
         None => f.render_widget(
             Paragraph::new(t("quickview_plugin_image_error")).style(cx.base),
             area,

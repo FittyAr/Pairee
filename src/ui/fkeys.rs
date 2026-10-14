@@ -153,16 +153,20 @@ fn bar_modifiers(state: &AppState) -> KeyModifiers {
 }
 
 /// `Shift+F11` installs the plugin under the cursor in developer mode.
+/// Plugins are local folders: the current one is checked in its listing,
+/// the folder under the cursor on the disk (one lookup, local panels only).
 fn is_dev_plugin_dir(context: &AppContext, state: &AppState) -> bool {
     context.config.settings.plugins_developer_mode && {
         let active_panel = state.get_active_panel();
-        let current_dir = &active_panel.current_path;
-        current_dir.join("manifest.toml").exists()
-            || active_panel
+        active_panel.source.is_local()
+            && (active_panel
                 .entries
-                .get(active_panel.cursor_index)
-                .map(|e| e.path.is_dir() && e.path.join("manifest.toml").exists())
-                .unwrap_or(false)
+                .iter()
+                .any(|e| !e.is_dir && e.name == "manifest.toml")
+                || active_panel
+                    .entries
+                    .get(active_panel.cursor_index)
+                    .is_some_and(|e| e.is_dir && e.path.join("manifest.toml").exists()))
     }
 }
 
@@ -207,7 +211,7 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         let last_col = columns[11];
         // Build the badge text (fits in the 9-char fkey cell)
         let badge = Span::styled(
-            " ▲ UPDATE ",
+            t("fkey_update_badge"),
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)
@@ -256,6 +260,31 @@ mod tests {
         assert_eq!(label(&shifted, 2), t("fkey_ed_save_as"));
         assert_eq!(label(&shifted, 7), t("fkey_ed_next"));
         assert_eq!(label(&shifted, 1), "");
+    }
+
+    #[test]
+    fn shift_f11_installs_a_plugin_folder_in_developer_mode() {
+        let mut config = AppConfig::default();
+        config.settings.plugins_developer_mode = true;
+        let context = AppContext::new(config);
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        state.key_bar.pinned = Some(KeyModifiers::SHIFT);
+        let plain = label(&bar_cells(&context, &state), 11).to_string();
+        assert_ne!(plain, t("plugin_install_dev"));
+        // The plugin's manifest is in the listing of the current folder.
+        let panel = state.panels.side_mut(state.panels.active);
+        panel.entries.push(crate::fs::FileEntry {
+            name: "manifest.toml".into(),
+            path: PathBuf::from("./manifest.toml"),
+            size: 1,
+            is_dir: false,
+            is_symlink: false,
+            modified: None,
+        });
+        assert_eq!(
+            label(&bar_cells(&context, &state), 11),
+            t("plugin_install_dev")
+        );
     }
 
     #[test]

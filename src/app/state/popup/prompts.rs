@@ -78,6 +78,9 @@ pub struct ConfirmDelete {
     pub cursor_idx: usize,
     /// Goes to the recycle bin (else deleted for good).
     pub to_trash: bool,
+    /// How many of `paths` are folders (counted once, from the listing, so
+    /// drawing the dialog touches no disk and works for remote panels).
+    pub folders: usize,
 }
 
 /// Wipe (overwrite, then delete) confirmation.

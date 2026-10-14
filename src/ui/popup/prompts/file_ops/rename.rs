@@ -11,6 +11,25 @@ use ratatui::{
     widgets::Paragraph,
 };
 
+/// Whether `target` exists in `dir`: from the listing of a panel showing
+/// `dir` (no disk access while drawing, right for remote panels), else on
+/// the local disk.
+fn is_listed(
+    state: &crate::app::state::AppState,
+    dir: &std::path::Path,
+    target: &std::path::Path,
+) -> bool {
+    use crate::app::state::ActivePanel;
+    [ActivePanel::Left, ActivePanel::Right]
+        .into_iter()
+        .map(|side| state.panels.side(side))
+        .find(|panel| panel.current_path == dir)
+        .map_or_else(
+            || target.exists(),
+            |panel| panel.entries.iter().any(|e| e.path == target),
+        )
+}
+
 impl DialogView for RenamePrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let (theme, size) = (cx.theme, cx.area);
@@ -52,7 +71,7 @@ impl DialogView for RenamePrompt {
         // the original AND a sibling with that name already exists.
         let collision = *input != original.as_str() && {
             let target = parent_dir.join(input.text());
-            target != *src_path && target.exists()
+            target != *src_path && is_listed(cx.state, parent_dir, &target)
         };
         if collision {
             let warn_style = Style::default().fg(Color::Red).add_modifier(Modifier::BOLD);
@@ -81,5 +100,23 @@ impl DialogView for RenamePrompt {
             .alignment(Alignment::Center),
             chunks[5],
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::localization::t;
+    use crate::test_harness::Harness;
+
+    #[test]
+    fn the_collision_warning_comes_from_the_panel_listing() {
+        let mut h = Harness::new();
+        h.write("work/left/a.txt", "x");
+        h.write("work/left/b.txt", "y");
+        h.reread().focus("a.txt").keys("@rename");
+        h.keys("End Backspace*5").text("b.txt");
+        h.assert_screen(&t("prompt_rename_collision"));
+        h.keys("Backspace").text("x");
+        h.assert_no_screen(&t("prompt_rename_collision"));
     }
 }

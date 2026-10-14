@@ -39,14 +39,11 @@ pub fn calculate_layout(
     };
 
     let transfer_height = if let Some(ref ts) = state.transfer {
-        let any_running = ts.engine.queue.get_all().iter().any(|j| {
-            matches!(
-                j.status,
-                crate::fs::transfer::job::TransferJobStatus::Scanning
-                    | crate::fs::transfer::job::TransferJobStatus::Transferring
-                    | crate::fs::transfer::job::TransferJobStatus::Verifying
-            )
-        });
+        // Paused jobs keep the bar (and its click-to-expand) on screen.
+        let any_running = ts
+            .engine
+            .queue
+            .with_jobs(|jobs| jobs.iter().any(|j| j.is_active()));
         if ts.view_mode == crate::app::state::TransferViewMode::Minimized && any_running {
             3
         } else {

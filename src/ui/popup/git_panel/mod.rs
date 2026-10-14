@@ -66,8 +66,10 @@ impl DialogView for GitPanelState {
 
         render_tab_header(f, chunks[0], panel.active_tab, theme);
         f.render_widget(
-            Paragraph::new("─".repeat(inner.width as usize))
-                .style(Style::default().fg(Color::DarkGray)),
+            crate::ui::popup::kit::separator(
+                inner.width,
+                crate::ui::popup::kit::fg(Color::DarkGray),
+            ),
             chunks[1],
         );
         render_content(f, chunks[2], panel, loading, theme, scrollbar);
@@ -173,14 +175,8 @@ fn render_content(
     scrollbar: Option<&ScrollbarUiState>,
 ) {
     let height = area.height as usize;
-    let (cursor, scroll) = (panel.cursor_idx, panel.scroll);
-    let offset = if cursor < scroll {
-        cursor
-    } else if cursor >= scroll + height {
-        cursor.saturating_sub(height - 1)
-    } else {
-        scroll
-    };
+    let cursor = panel.cursor_idx;
+    let offset = crate::ui::scrollbar::follow_scroll(cursor, panel.scroll, height);
     let rows: Vec<Line> = match panel.active_tab {
         0 => lines::render_status_lines(&panel.status_entries, cursor, offset, height, theme),
         1 => lines::render_log_lines(&panel.log_entries, cursor, offset, height, theme),

@@ -17,7 +17,7 @@ use crate::app::state::tabs::TabId;
 use crate::app::state::{ActivePanel, ScreenId, SortField};
 use crate::keybindings::Action;
 use crate::ui::scrollbar::types::ScrollbarHitTarget;
-use crossterm::event::{KeyEvent, KeyModifiers};
+use crossterm::event::{KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::layout::{Position, Rect};
 use std::cell::RefCell;
 
@@ -123,16 +123,37 @@ impl HitMap {
         self.find(x, y, |_| true)
     }
 
-    /// `true` when `(x, y)` is inside something painted on `layer` or above.
-    pub fn covers(&self, x: u16, y: u16, layer: Layer) -> bool {
-        self.find(x, y, |hit| hit.layer >= layer).is_some()
-    }
-
     /// Scrollbars painted last frame, bottom to top.
     pub fn scrollbars(&self) -> Vec<ScrollbarHitTarget> {
         self.hits
             .borrow()
             .iter()
+            .filter_map(|hit| match &hit.target {
+                HitTarget::Scrollbar(target) => Some(target.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The scrollbars a mouse event can reach, bottom to top: a press or a
+    /// wheel notch skips those on a layer below something painted at the
+    /// pointer (a dialog over a panel's track or list), while drags and
+    /// releases keep reaching the bar a drag started on.
+    pub fn scrollbars_for(&self, mouse: MouseEvent) -> Vec<ScrollbarHitTarget> {
+        let reaches_through = !matches!(
+            mouse.kind,
+            MouseEventKind::Down(_) | MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+        );
+        let point = Position::new(mouse.column, mouse.row);
+        let hits = self.hits.borrow();
+        let top = hits
+            .iter()
+            .filter(|hit| hit.area.contains(point))
+            .map(|hit| hit.layer)
+            .max()
+            .unwrap_or_default();
+        hits.iter()
+            .filter(|hit| reaches_through || hit.layer >= top)
             .filter_map(|hit| match &hit.target {
                 HitTarget::Scrollbar(target) => Some(target.clone()),
                 _ => None,
@@ -261,8 +282,7 @@ mod tests {
             begin_layer(Layer::Popup);
             register(Rect::new(10, 5, 20, 10), HitTarget::PopupBody);
         });
-        assert!(map.covers(12, 6, Layer::Popup));
-        assert!(!map.covers(1, 1, Layer::Popup));
+        assert_eq!(map.at(1, 1).unwrap().layer, Layer::Base);
         assert_eq!(map.at(12, 6).unwrap().layer, Layer::Popup);
     }
 
@@ -280,6 +300,40 @@ mod tests {
         let map = record(|| register(bar.wheel_area, HitTarget::Scrollbar(bar.clone())));
         assert!(map.at(9, 1).is_none());
         assert_eq!(map.scrollbars(), vec![bar]);
+    }
+
+    #[test]
+    fn a_dialog_hides_the_scrollbars_under_it_from_clicks_and_wheel() {
+        use crate::ui::scrollbar::ScrollTargetId;
+        use crossterm::event::MouseButton;
+        let bar = ScrollbarHitTarget {
+            area: Rect::new(9, 0, 1, 10),
+            wheel_area: Rect::new(0, 0, 10, 10),
+            content_len: 50,
+            viewport_len: 10,
+            offset: 0,
+            id: ScrollTargetId::PanelLeft,
+        };
+        let map = record(|| {
+            register(bar.wheel_area, HitTarget::Scrollbar(bar.clone()));
+            begin_layer(Layer::Popup);
+            register(Rect::new(5, 2, 10, 4), HitTarget::PopupBody);
+        });
+        let event = |kind, column, row| MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        };
+        let press = MouseEventKind::Down(MouseButton::Left);
+        assert!(map.scrollbars_for(event(press, 9, 3)).is_empty());
+        assert!(
+            map.scrollbars_for(event(MouseEventKind::ScrollDown, 6, 3))
+                .is_empty()
+        );
+        assert_eq!(map.scrollbars_for(event(press, 9, 8)), vec![bar.clone()]);
+        let drag = MouseEventKind::Drag(MouseButton::Left);
+        assert_eq!(map.scrollbars_for(event(drag, 9, 3)), vec![bar]);
     }
 
     #[test]

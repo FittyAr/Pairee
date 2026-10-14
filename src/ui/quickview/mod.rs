@@ -34,6 +34,7 @@ pub fn draw_quick_view(
     qv: &crate::app::state::popup::QuickViewDialog,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     scrollbar: Option<&ScrollbarUiState>,
+    tab_size: usize,
 ) {
     let (path, content, scroll) = (&qv.path, qv.content.as_slice(), qv.scroll);
     let (image_data, plugin_widget) = (qv.image_data.as_deref(), qv.plugin.as_ref());
@@ -58,14 +59,15 @@ pub fn draw_quick_view(
     if let Some(widget) = plugin_widget {
         render_plugin_widget(f, area, &widget.widget, block, theme, scroll, scrollbar);
     } else if let Some(img) = image_data {
-        render_quick_view_image(f, area, img, block, theme, scroll);
+        render_quick_view_image(f, area, img, block, theme);
     } else {
         let visible_height = area.height.saturating_sub(2) as usize;
         let lines: Vec<Line> = content
             .iter()
             .skip(scroll)
             .take(visible_height)
-            .map(|l| Line::from(Span::raw(l.clone())))
+            // ratatui draws nothing for a tab: expand it like the viewer.
+            .map(|l| Line::from(Span::raw(crate::ui::text_width::expand_tabs(l, tab_size))))
             .collect();
 
         let para = Paragraph::new(lines)
@@ -90,5 +92,30 @@ pub fn draw_quick_view(
                 id: ScrollTargetId::QuickView,
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    #[test]
+    fn tabs_keep_their_indentation() {
+        let qv = crate::app::state::popup::QuickViewDialog {
+            path: "a.rs".into(),
+            content: vec!["\tx".into()],
+            scroll: 0,
+            image_data: None,
+            plugin: None,
+        };
+        let theme = crate::ui::resolved_theme::ResolvedTheme::default();
+        let mut terminal = Terminal::new(TestBackend::new(20, 5)).unwrap();
+        terminal
+            .draw(|f| draw_quick_view(f, f.area(), &qv, &theme, None, 4))
+            .unwrap();
+        let buf = terminal.backend().buffer();
+        // Inside the frame: four columns of indentation, then the text.
+        assert_eq!(buf[(5, 1)].symbol(), "x");
     }
 }

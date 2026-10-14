@@ -67,6 +67,18 @@ pub fn centered_scroll(cursor: usize, content_len: usize, viewport_len: usize) -
     ideal.min(max_scroll)
 }
 
+/// First visible index after the least scroll from `offset` that shows
+/// `cursor` in `viewport_len` rows (any offset when nothing is visible).
+pub fn follow_scroll(cursor: usize, offset: usize, viewport_len: usize) -> usize {
+    if cursor < offset {
+        cursor
+    } else if cursor >= offset + viewport_len {
+        cursor.saturating_sub(viewport_len.saturating_sub(1))
+    } else {
+        offset
+    }
+}
+
 /// Keep `cursor` inside the visible window starting at `offset`.
 pub fn clamp_cursor_to_offset(
     cursor: &mut usize,
