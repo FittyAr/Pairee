@@ -123,11 +123,6 @@ impl HitMap {
         self.find(x, y, |_| true)
     }
 
-    /// `true` when `(x, y)` is inside something painted on `layer` or above.
-    pub fn covers(&self, x: u16, y: u16, layer: Layer) -> bool {
-        self.find(x, y, |hit| hit.layer >= layer).is_some()
-    }
-
     /// Scrollbars painted last frame, bottom to top.
     pub fn scrollbars(&self) -> Vec<ScrollbarHitTarget> {
         self.hits
@@ -287,8 +282,7 @@ mod tests {
             begin_layer(Layer::Popup);
             register(Rect::new(10, 5, 20, 10), HitTarget::PopupBody);
         });
-        assert!(map.covers(12, 6, Layer::Popup));
-        assert!(!map.covers(1, 1, Layer::Popup));
+        assert_eq!(map.at(1, 1).unwrap().layer, Layer::Base);
         assert_eq!(map.at(12, 6).unwrap().layer, Layer::Popup);
     }
 
