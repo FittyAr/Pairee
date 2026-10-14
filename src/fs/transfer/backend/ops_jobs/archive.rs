@@ -74,13 +74,13 @@ where
     match handle.await {
         Ok((Ok(()), results)) => {
             if control.is_cancelled() {
-                return Err(anyhow!("Job cancelled"));
+                return Err(crate::fs::error::cancelled());
             }
             control.job_completed(results)
         }
         Ok((Err(e), _)) => {
             if control.is_cancelled() {
-                return Err(anyhow!("Job cancelled"));
+                return Err(crate::fs::error::cancelled());
             }
             let err_msg = t(err_key).replacen("{}", &e.to_string(), 1);
             control.emit(TransferEvent::JobFailed {

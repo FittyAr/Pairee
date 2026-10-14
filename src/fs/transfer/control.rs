@@ -52,7 +52,7 @@ impl JobControl {
     /// `Err` once the job was cancelled.
     pub fn ensure_running(&self) -> anyhow::Result<()> {
         if self.is_cancelled() {
-            Err(anyhow!("Job cancelled"))
+            Err(crate::fs::error::cancelled())
         } else {
             Ok(())
         }
@@ -70,7 +70,7 @@ impl JobControl {
 
     /// Blocking-thread version of [`Self::wait_if_paused`] (copy pipeline).
     pub fn wait_if_paused_blocking(&self) -> anyhow::Result<()> {
-        let cancelled = || anyhow!("Job cancelled");
+        let cancelled = crate::fs::error::cancelled;
         if self.is_cancelled() {
             return Err(cancelled());
         }

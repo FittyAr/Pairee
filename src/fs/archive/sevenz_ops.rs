@@ -4,6 +4,7 @@ use anyhow::{Result, anyhow};
 use std::path::Path;
 
 use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit, Visitor};
+use crate::config::localization::t_fill;
 
 pub struct SevenZReader;
 
@@ -30,14 +31,14 @@ fn meta(entry: &sevenz_rust2::ArchiveEntry) -> EntryMeta {
 impl ArchiveReader for SevenZReader {
     fn entries(&self, archive: &Path) -> Result<Vec<EntryMeta>> {
         let archive = sevenz_rust2::Archive::open(archive)
-            .map_err(|e| anyhow!("Failed to open 7z: {:?}", e))?;
+            .map_err(|e| anyhow!(t_fill("archive_7z_open_failed", &[&e.to_string()])))?;
         Ok(archive.files.iter().map(meta).collect())
     }
 
     fn visit(&self, archive: &Path, visit: &mut Visitor) -> Result<()> {
         let mut reader =
             sevenz_rust2::ArchiveReader::open(archive, sevenz_rust2::Password::empty())
-                .map_err(|e| anyhow!("Failed to open 7z: {:?}", e))?;
+                .map_err(|e| anyhow!(t_fill("archive_7z_open_failed", &[&e.to_string()])))?;
         // The callback must return a `sevenz_rust2::Error`; keep the real
         // cause here so the user sees why reading stopped.
         let mut failure: Option<anyhow::Error> = None;
@@ -62,7 +63,7 @@ impl ArchiveReader for SevenZReader {
         if let Some(e) = failure {
             return Err(e);
         }
-        result.map_err(|e| anyhow!("7z extraction failed: {:?}", e))
+        result.map_err(|e| anyhow!(t_fill("archive_7z_read_failed", &[&e.to_string()])))
     }
 
     fn count_hint(&self, archive: &Path) -> usize {

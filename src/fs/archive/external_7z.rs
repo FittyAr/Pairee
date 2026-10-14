@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use super::safe_extract::ExtractGuard;
+use crate::config::localization::{t, t_fill};
 use crate::fs::external_tools::get_external_7z_path;
 use crate::fs::progress::ArchiveReport;
 
@@ -23,7 +24,7 @@ fn parse_listing(stdout: &str) -> Result<Vec<ListedEntry>> {
     let text = stdout.replace("\r\n", "\n");
     let (_, body) = text
         .split_once("\n----------\n")
-        .ok_or_else(|| anyhow!("Unexpected 7z listing format"))?;
+        .ok_or_else(|| anyhow!(t("archive_7z_listing_unexpected")))?;
 
     let mut entries = Vec::new();
     for block in body.split("\n\n") {
@@ -63,10 +64,7 @@ fn preflight_listing(entries: &[ListedEntry], guard: &mut ExtractGuard) -> Resul
     }
     for (entry, rel) in entries.iter().zip(&rels) {
         if rel.ancestors().skip(1).any(|a| leaves.contains(a)) {
-            return Err(anyhow!(
-                "Refusing to extract archive: entry {} is nested under a non-directory entry",
-                entry.path
-            ));
+            return Err(anyhow!(t_fill("archive_entry_under_file", &[&entry.path])));
         }
         guard.preflight(rel, entry.size, entry.is_dir)?;
     }
@@ -78,11 +76,9 @@ pub fn extract_via_external_7z(
     dest_dir: &Path,
     report: &mut ArchiveReport,
 ) -> Result<()> {
-    let bin_path = get_external_7z_path().ok_or_else(|| anyhow!("Could not determine 7z path"))?;
+    let bin_path = get_external_7z_path().ok_or_else(|| anyhow!(t("archive_7z_path_unknown")))?;
     if !bin_path.exists() && cfg!(target_os = "windows") {
-        return Err(anyhow!(
-            "7z tool is not downloaded yet. Please wait for the background download to finish."
-        ));
+        return Err(anyhow!(t("archive_7z_not_downloaded")));
     }
 
     let mut guard = ExtractGuard::new(dest_dir)?;
@@ -95,9 +91,7 @@ pub fn extract_via_external_7z(
         .arg(archive_path)
         .output()?;
     if !list_output.status.success() {
-        return Err(anyhow!(
-            "Refusing to extract archive: 7z could not list its contents"
-        ));
+        return Err(anyhow!(t("archive_7z_list_failed")));
     }
     let entries = parse_listing(&String::from_utf8_lossy(&list_output.stdout))?;
     if let Err(e) = preflight_listing(&entries, &mut guard) {
@@ -124,7 +118,7 @@ pub fn extract_via_external_7z(
         if report.is_cancelled() {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(anyhow!("Job cancelled"));
+            return Err(crate::fs::error::cancelled());
         }
         match child.try_wait()? {
             Some(status) => break status,
@@ -133,7 +127,7 @@ pub fn extract_via_external_7z(
     };
 
     if !status.success() {
-        return Err(anyhow!("External 7z extraction failed"));
+        return Err(anyhow!(t("archive_7z_extract_failed")));
     }
 
     guard.report_skipped(report);

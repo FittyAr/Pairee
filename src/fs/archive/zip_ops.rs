@@ -90,7 +90,10 @@ pub fn compress_zip(
     report: &mut ArchiveReport,
 ) -> Result<()> {
     if fs::symlink_metadata(dest_archive).is_ok() {
-        anyhow::bail!("{} already exists", dest_archive.display());
+        anyhow::bail!(crate::config::localization::t_fill(
+            "archive_destination_exists",
+            &[&dest_archive.display().to_string()]
+        ));
     }
     crate::fs::transfer::part::write_atomically(
         dest_archive,

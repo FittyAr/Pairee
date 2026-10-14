@@ -1,5 +1,6 @@
 use crate::fs::entry::FileEntry;
-use anyhow::{Context, Result};
+use crate::fs::error::LocalizedResult;
+use anyhow::Result;
 use std::fs;
 use std::path::Path;
 
@@ -46,16 +47,12 @@ pub fn read_directory_ext(path: &Path, opts: &ListOptions) -> Result<Vec<FileEnt
     use crate::fs::vfs::{LocalVfs, Vfs, panel_listing, parent_entry};
     match LocalVfs.list(path) {
         Ok(children) => Ok(panel_listing(path, children, opts)),
-        Err(e) if !opts.req_admin => {
-            Err(anyhow::anyhow!(e)).context(format!("Failed to read directory: {:?}", path))
-        }
+        Err(e) if !opts.req_admin => Err(crate::fs::error::localized("fs_error_read_dir", path, e)),
         Err(_) => {
             let mut entries: Vec<FileEntry> =
                 parent_entry(path, opts.show_dotdot).into_iter().collect();
-            entries.extend(
-                admin::read_directory_as_admin(path)
-                    .context(format!("Failed to read directory: {:?}", path))?,
-            );
+            entries
+                .extend(admin::read_directory_as_admin(path).localized("fs_error_read_dir", path)?);
             opts.sort(&mut entries);
             Ok(entries)
         }

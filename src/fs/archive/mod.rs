@@ -35,6 +35,7 @@ pub use zip_ops::compress_zip;
 use anyhow::{Result, anyhow};
 use std::path::{Path, PathBuf};
 
+use crate::config::localization::t;
 use crate::fs::progress::ArchiveReport;
 use extract::{everything, extract_entries};
 
@@ -158,7 +159,7 @@ pub fn extract_archive(
         None if matches!(format, ArchiveFormat::Rar | ArchiveFormat::Iso) => {
             extract_via_external_7z(archive_path, dest_dir, report)
         }
-        None => Err(anyhow!("Unsupported archive format")),
+        None => Err(anyhow!(t("archive_unsupported_format"))),
     }
 }
 
@@ -172,7 +173,8 @@ pub fn extract_selected(
     dest_dir: &Path,
     report: &mut ArchiveReport,
 ) -> Result<()> {
-    let reader = browsable_reader(archive).ok_or_else(|| anyhow!("Unsupported archive format"))?;
+    let reader =
+        browsable_reader(archive).ok_or_else(|| anyhow!(t("archive_unsupported_format")))?;
     let select = |rel: &Path| {
         selected
             .iter()
@@ -184,7 +186,6 @@ pub fn extract_selected(
 }
 
 pub fn list_archive_files(path: &Path) -> Result<Vec<String>> {
-    let reader = browsable_reader(path)
-        .ok_or_else(|| anyhow!("Unsupported archive format or listing not supported"))?;
+    let reader = browsable_reader(path).ok_or_else(|| anyhow!(t("archive_unsupported_format")))?;
     Ok(reader.entries(path)?.into_iter().map(|e| e.name).collect())
 }

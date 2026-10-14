@@ -9,4 +9,4 @@ mod tests;
 // Re-exports
 pub use discovery::discover_languages;
 pub use loader::{get_active_language_code, load_language};
-pub use translator::t;
+pub use translator::{t, t_fill};

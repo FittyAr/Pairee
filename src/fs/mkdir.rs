@@ -1,4 +1,5 @@
-use anyhow::{Context, Result};
+use crate::fs::error::LocalizedResult;
+use anyhow::Result;
 use std::fs;
 use std::path::Path;
 
@@ -19,7 +20,7 @@ pub fn create_empty_file(path: &Path) -> std::io::Result<()> {
 }
 
 pub fn create_directory(path: &Path, req_admin: bool) -> Result<()> {
-    let res = fs::create_dir(path).context("Failed to create directory");
+    let res = fs::create_dir(path).localized("fs_error_create_dir", path);
     if res.is_err() && req_admin {
         run_as_admin_mkdir(path)
     } else {
