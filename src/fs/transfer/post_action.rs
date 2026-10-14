@@ -143,32 +143,16 @@ fn is_ejectable_name(drive: &str) -> bool {
     }
 }
 
-/// The drive letter is checked by [`is_ejectable_name`]. Even so it is
-/// never interpolated into a PowerShell `-Command` string: a static `.ps1`
-/// gets it as a typed parameter, so a future validation regression cannot
-/// turn it into code.
+/// The drive letter is checked by [`is_ejectable_name`]; it also reaches
+/// PowerShell as a quoted literal, never as code.
 #[cfg(target_os = "windows")]
 fn eject_windows_drive(drive_letter: &str) -> Result<(), std::io::Error> {
-    use std::io::Write;
-
-    let script_dir = std::env::temp_dir().join("pairee-eject");
-    std::fs::create_dir_all(&script_dir)?;
-    let script_path = script_dir.join("EjectDrive.ps1");
-    let script_body = "param(\r\n    [Parameter(Mandatory = $true)]\r\n    [string] $Drive\r\n)\r\n$ErrorActionPreference = 'Stop'\r\n(New-Object -ComObject Shell.Application).Namespace(17).ParseName($Drive).InvokeVerb('Eject')\r\n";
-    if !script_path.exists() {
-        let mut f = std::fs::File::create(&script_path)?;
-        f.write_all(script_body.as_bytes())?;
-    }
-
-    Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-ExecutionPolicy")
-        .arg("Bypass")
-        .arg("-File")
-        .arg(&script_path)
-        .arg("-Drive")
-        .arg(drive_letter)
-        .spawn()?;
+    crate::fs::privileges::powershell(
+        "$ErrorActionPreference = 'Stop'; (New-Object -ComObject Shell.Application).Namespace(17).ParseName($v0).InvokeVerb('Eject')",
+        &[std::ffi::OsStr::new(drive_letter)],
+    )
+    .map_err(std::io::Error::other)?
+    .spawn()?;
     Ok(())
 }
 

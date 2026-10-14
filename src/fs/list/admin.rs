@@ -67,10 +67,11 @@ try {
     }
     // `Start-Process` joins the arguments with spaces: each path is quoted
     // for the helper's command line, and `-File` passes them as plain text.
-    let status = crate::fs::privileges::run_powershell(
+    let status = crate::fs::privileges::powershell(
         "Start-Process powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('\"' + $v0 + '\"'),'-Path',('\"' + $v1 + '\"'),'-OutputFile',('\"' + $v2 + '\"')) -Verb RunAs -WindowStyle Hidden -Wait",
         &[script.as_os_str(), &listed, temp_file.as_os_str()],
-    )?;
+    )?
+    .status()?;
 
     if !(status.success() && temp_file.exists()) {
         anyhow::bail!("Failed to read directory as admin")

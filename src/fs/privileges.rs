@@ -103,15 +103,12 @@ pub(crate) fn ps_literal(value: &str) -> String {
     out
 }
 
-/// Runs the PowerShell `script` with `values` bound to `$v0`, `$v1`, ... as
-/// literals. The code goes in `-EncodedCommand`: whatever follows
-/// `-Command` on a command line is code, so paths passed there as
+/// A PowerShell process that runs `script` with `values` bound to `$v0`,
+/// `$v1`, ... as literals. The code goes in `-EncodedCommand`: whatever
+/// follows `-Command` on a command line is code, so paths passed there as
 /// "arguments" were run (and `$args` stayed empty).
 #[cfg(target_os = "windows")]
-pub(crate) fn run_powershell(
-    script: &str,
-    values: &[&std::ffi::OsStr],
-) -> Result<std::process::ExitStatus> {
+pub(crate) fn powershell(script: &str, values: &[&std::ffi::OsStr]) -> Result<Command> {
     use base64::Engine as _;
     let mut code = String::new();
     for (i, value) in values.iter().enumerate() {
@@ -123,23 +120,24 @@ pub(crate) fn run_powershell(
     code.push_str(script);
     let utf16: Vec<u8> = code.encode_utf16().flat_map(u16::to_le_bytes).collect();
     let encoded = base64::engine::general_purpose::STANDARD.encode(utf16);
-    Command::new("powershell")
+    let mut command = Command::new("powershell");
+    command
         .arg("-NoProfile")
         .arg("-NonInteractive")
         .arg("-EncodedCommand")
-        .arg(encoded)
-        .status()
-        .context("Failed to run PowerShell")
+        .arg(encoded);
+    Ok(command)
 }
 
 #[cfg(target_os = "windows")]
 fn run_helper_process(exe: &Path, temp_file: &Path) -> Result<()> {
     // `Start-Process` joins the argument list with spaces: the path is
     // quoted for the helper's own command line.
-    let status = run_powershell(
+    let status = powershell(
         "Start-Process -FilePath $v0 -ArgumentList @('--elevated-helper', ('\"' + $v1 + '\"')) -Verb RunAs -WindowStyle Hidden -Wait",
         &[exe.as_os_str(), temp_file.as_os_str()],
-    )
+    )?
+    .status()
     .context("Failed to run elevated helper via PowerShell")?;
 
     if !status.success() {
@@ -199,10 +197,12 @@ mod tests {
     #[test]
     fn powershell_values_arrive_unchanged() {
         let value = std::ffi::OsStr::new("a'b $(exit 7) \u{2018}c");
-        let status = run_powershell(
+        let status = powershell(
             "if ($v0 -ceq ('a''b $(exit 7) ' + [char]0x2018 + 'c')) { exit 0 } else { exit 3 }",
             &[value],
         )
+        .unwrap()
+        .status()
         .unwrap();
         assert_eq!(status.code(), Some(0));
     }
