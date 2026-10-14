@@ -178,7 +178,7 @@ Pairee edits files only with its built-in editor (`F4`); there is no external ed
 Both settings apply at once to the editors and viewers already open. After *Save as* with another extension, the editor highlights the file as the new language.
 
 ### Syntax highlighting definitions
-Pairee knows Rust, C, C++, C#, Go, Java, Kotlin, Swift, JavaScript, TypeScript, Python, Ruby, PHP, Lua, shell scripts (sh, bash, zsh), PowerShell, batch files, HTML, CSS, XML, JSON, YAML, TOML, INI, Markdown, SQL, Makefiles, Dockerfiles and diffs. Each language is a small TOML file. To add a language, or to change a built-in one, put a `<name>.toml` file in the `syntax` folder of the configuration directory (next to `config.toml`) and restart Pairee. A file whose `name` is the name of a built-in language replaces it. A file that cannot be read or whose patterns are not valid is skipped, and Pairee says why when it starts.
+Pairee knows Rust, C, C++, C#, Go, Java, Kotlin, Swift, JavaScript, TypeScript, Python, Ruby, PHP, Lua, shell scripts (sh, bash, zsh), PowerShell, batch files, HTML, CSS, XML, JSON, YAML, TOML, INI, Markdown, SQL, Makefiles, Dockerfiles and diffs. Each language is a small TOML file. To add a language, or to change a built-in one, put a `<name>.toml` file in the `syntax` folder of the configuration directory (next to `config.toml`). Pairee reads the folder again when a file in it changes, or with the *Reload syntax highlighting definitions* command (command palette), and highlights the open editors and viewers again. A file whose `name` is the name of a built-in language replaces it. A file that cannot be read or whose patterns are not valid is skipped and Pairee says why; if it worked before, its previous version stays in use until it is fixed.
 
 ```toml
 name = "Notes"                  # shown in the editor status line
@@ -208,8 +208,34 @@ kind = "constant"
 pattern = '\\.'
 ```
 
+Regions have three more options, for what plain patterns cannot say:
+
+```toml
+[[region]]                      # a heredoc: ends at the word that opened it
+kind = "string"
+start = '<<-?\s*([A-Za-z_]\w*)'
+end = '^\s*${1}$'              # ${1}: the text of group 1 of the start
+
+[[region]]                      # a regular expression literal, not a division
+kind = "string"
+start = '/'
+end = '/[a-z]*|$'
+after = '(?:^|[(,=:\[!&|?{};]|\breturn)\s*$'   # the text before the start must match
+
+[[region]]                      # the inner text is highlighted as another language
+kind = "tag"                    # with `include`, colors only the start and the end
+start = '<script\b[^>]*>'
+end = '</script\s*>'
+include = "JavaScript"          # a language name or extension; '${1}' takes it from the start
+```
+
+* **`${N}` in `end`** is replaced, when the region opens, by the text that capture group `N` of `start` matched, taken literally: heredocs, Rust raw strings (`r#"…"#`), Lua long brackets (`[==[…]==]`), Markdown fences of the same length. The group must exist in `start`.
+* **`after`** is a pattern tried on the text before the start on the same line (up to 256 bytes back); the region starts only where it matches, so it usually ends in `\s*$`.
+* **`include`** names a language (by name, else by extension or file name, any case) whose rules and regions apply inside; the region's own `end` still closes it, whatever the included language left open. With `'${1}'` the language comes from the start (the info string of a Markdown code block). When no such language exists the region's own rules apply. Languages nest at most 4 deep.
+* **`host`** (at the top of a file, e.g. `host = "HTML"`) makes files of the language start in another language that includes it: PHP files are HTML with PHP inside `<?php … ?>`.
+
 * **Kinds** are the theme's `[syntax]` colors: `comment`, `string`, `keyword`, `constant`, `function`, `type_name`, `operator` and `tag`.
-* **Patterns** use the syntax of the Rust `regex` crate (no look-around or back-references). Write them in single quotes (`'...'`) so backslashes are kept as they are.
+* **Patterns** use the syntax of the Rust `regex` crate (no look-around or back-references: use `${N}` and `after` above). Write them in single quotes (`'...'`) so backslashes are kept as they are.
 * **Rules** apply in order: a later rule paints over an earlier one. They only see the text outside regions, or inside the region they belong to.
 * **Regions** win over rules: where several regions could start, the earliest one wins (the first declared on a tie). Use `end = '$'` for a region that ends with the line (line comments), and an empty `end = ''` for a single token that nothing can split (a character literal such as `'"'`).
 * **Detection:** a file name in `names` wins over `filename`, which wins over the extension, which wins over the first line. Your files are tried before the built-in ones.
