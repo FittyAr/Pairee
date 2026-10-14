@@ -1,7 +1,8 @@
 //! Structured logging infrastructure built on `tracing` and `tracing-subscriber`.
 //!
 //! Replaces legacy `simplelog` while transparently capturing existing `log::*`
-//! macro invocations via [`tracing_log::LogTracer`]. All log records are
+//! macro invocations (the subscriber's `try_init` installs the `log`
+//! bridge). All log records are
 //! directed exclusively to `app.log` without ANSI color escape codes to avoid
 //! corrupting the terminal UI.
 //!
@@ -21,8 +22,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 /// Initializes the global tracing subscriber directing formatted logs to `log_file_path`.
 ///
-/// Also installs [`tracing_log::LogTracer`] so third-party crates and legacy code
-/// calling `log::info!`, `log::error!`, etc. route through this subscriber.
+/// `try_init` also bridges the `log` crate (tracing-subscriber's default
+/// `tracing-log` feature), so third-party crates and code calling
+/// `log::info!`, `log::error!`, etc. route through this subscriber.
 pub fn init_logging(log_file_path: &Path) -> Result<()> {
     if let Some(parent) = log_file_path.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -30,9 +32,6 @@ pub fn init_logging(log_file_path: &Path) -> Result<()> {
 
     let file = rotate::RotatingFile::open(log_file_path, rotate::MAX_LOG_BYTES)
         .with_context(|| format!("Failed to open log file at {}", log_file_path.display()))?;
-
-    // Bridge standard log records into tracing events
-    let _ = tracing_log::LogTracer::init();
 
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter()));
