@@ -11,7 +11,7 @@ pub fn run_wipe(
     control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
     control.run_each(&sources, |path| {
-        crate::fs::wipe::wipe_file(path)
+        crate::fs::wipe::wipe_path(path)
             .map(|()| PathBuf::new())
             .map_err(|e| {
                 t("error_wipe_failed_for")

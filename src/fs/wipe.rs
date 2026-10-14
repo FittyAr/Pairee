@@ -1,4 +1,5 @@
 use crate::fs::descriptions::forget_description;
+use crate::fs::vfs::LocalVfs;
 use anyhow::{Context, Result};
 use std::fs::{File, Metadata};
 use std::io::{Seek, SeekFrom, Write};
@@ -9,6 +10,23 @@ const WIPE_PASSES: usize = 3;
 
 /// Size of the pattern buffer written per `write_all` call.
 const WIPE_CHUNK: usize = 65536;
+
+/// Wipes `path`: a file (see [`wipe_file`]), or a folder with every file
+/// below it wiped and its folders removed. Links inside are removed, never
+/// followed.
+pub fn wipe_path(path: &Path) -> Result<()> {
+    let meta = std::fs::symlink_metadata(path)
+        .with_context(|| format!("Reading metadata for wipe: {:?}", path))?;
+    if !meta.is_dir() {
+        return wipe_file(path);
+    }
+    crate::fs::remove::remove_tree_with(&LocalVfs, path, |file| {
+        wipe_file(file).map_err(std::io::Error::other)
+    })
+    .with_context(|| format!("Wiping folder: {:?}", path))?;
+    forget_description(path);
+    Ok(())
+}
 
 /// Securely overwrites the file with random-like byte patterns across multiple passes,
 /// then truncates it to zero and removes it from the filesystem.
@@ -63,8 +81,24 @@ pub fn wipe_file(path: &Path) -> Result<()> {
     std::fs::remove_file(path).with_context(|| format!("Removing file after wipe: {:?}", path))
 }
 
-/// Opens `path` for writing without following a symlink in the final component.
+/// Opens `path` for writing without following a symlink in the final
+/// component; a read-only file is made writable first (it is about to be
+/// destroyed anyway).
 fn open_no_follow(path: &Path) -> Result<File> {
+    match open_for_wipe(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            let meta = std::fs::symlink_metadata(path)?;
+            crate::fs::remove::make_writable(path, &meta)
+                .ok()
+                .and_then(|()| open_for_wipe(path).ok())
+                .ok_or(e)
+        }
+        other => other,
+    }
+    .with_context(|| format!("Opening file for wipe: {:?}", path))
+}
+
+fn open_for_wipe(path: &Path) -> std::io::Result<File> {
     let mut opts = std::fs::OpenOptions::new();
     opts.write(true);
     #[cfg(unix)]
@@ -78,7 +112,6 @@ fn open_no_follow(path: &Path) -> Result<File> {
         opts.custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT);
     }
     opts.open(path)
-        .with_context(|| format!("Opening file for wipe: {:?}", path))
 }
 
 #[cfg(unix)]
@@ -142,6 +175,22 @@ mod tests {
 
         wipe_file(&path).expect("wipe of empty file should succeed");
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn wipes_folders_and_read_only_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let tree = dir.path().join("tree");
+        std::fs::create_dir_all(tree.join("sub")).unwrap();
+        std::fs::write(tree.join("a.txt"), b"secret").unwrap();
+        let locked = tree.join("sub").join("locked.txt");
+        std::fs::write(&locked, b"secret").unwrap();
+        let mut perms = std::fs::metadata(&locked).unwrap().permissions();
+        perms.set_readonly(true);
+        std::fs::set_permissions(&locked, perms).unwrap();
+
+        wipe_path(&tree).expect("wipe of a folder should succeed");
+        assert!(!tree.exists());
     }
 
     #[test]
