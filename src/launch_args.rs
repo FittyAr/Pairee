@@ -2,6 +2,7 @@
 //! `pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [<left> [<right>]]`.
 
 use crate::config::localization::t;
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 const CWD_FILE: &str = "--cwd-file";
@@ -42,36 +43,47 @@ impl ArgError {
 }
 
 impl LaunchArgs {
-    /// Parses the arguments after the program name.
-    pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Self, ArgError> {
+    /// Parses the arguments after the program name. Folders may be any OS
+    /// string (not necessarily UTF-8); options are matched as text.
+    pub fn parse<I, A>(args: I) -> Result<Self, ArgError>
+    where
+        I: IntoIterator<Item = A>,
+        A: Into<OsString>,
+    {
         let mut parsed = Self::default();
-        let mut args = args.into_iter();
+        let mut args = args.into_iter().map(Into::into);
         let mut options_done = false;
         while let Some(arg) = args.next() {
-            if options_done || !arg.starts_with("--") {
+            // A non-UTF-8 argument cannot be an option: it is a folder.
+            let Some(text) = arg
+                .to_str()
+                .filter(|a| !options_done && a.starts_with("--"))
+            else {
                 parsed.push_path(arg)?;
-            } else if arg == "--" {
+                continue;
+            };
+            if text == "--" {
                 options_done = true;
-            } else if arg == CWD_FILE {
+            } else if text == CWD_FILE {
                 let value = args.next().ok_or(ArgError::MissingValue(CWD_FILE))?;
                 parsed.cwd_file = Some(PathBuf::from(value));
-            } else if let Some(value) = arg.strip_prefix("--cwd-file=") {
+            } else if let Some(value) = text.strip_prefix("--cwd-file=") {
                 if value.is_empty() {
                     return Err(ArgError::MissingValue(CWD_FILE));
                 }
                 parsed.cwd_file = Some(PathBuf::from(value));
-            } else if arg == PRINT_CWD {
+            } else if text == PRINT_CWD {
                 parsed.print_cwd = true;
-            } else if arg == NO_MOUSE {
+            } else if text == NO_MOUSE {
                 parsed.no_mouse = true;
-            } else if arg != STANDALONE {
-                return Err(ArgError::UnknownOption(arg));
+            } else if text != STANDALONE {
+                return Err(ArgError::UnknownOption(text.to_string()));
             }
         }
         Ok(parsed)
     }
 
-    fn push_path(&mut self, arg: String) -> Result<(), ArgError> {
+    fn push_path(&mut self, arg: OsString) -> Result<(), ArgError> {
         if self.paths.len() == MAX_PATHS {
             return Err(ArgError::TooManyPaths);
         }
@@ -86,6 +98,15 @@ mod tests {
 
     fn parse(args: &[&str]) -> Result<LaunchArgs, ArgError> {
         LaunchArgs::parse(args.iter().map(|a| a.to_string()))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn non_utf8_folders_are_kept_byte_for_byte() {
+        use std::os::unix::ffi::OsStringExt;
+        let raw = OsString::from_vec(b"/tmp/caf\xe9".to_vec());
+        let args = LaunchArgs::parse([raw.clone()]).unwrap();
+        assert_eq!(args.paths, [PathBuf::from(raw)]);
     }
 
     #[test]
