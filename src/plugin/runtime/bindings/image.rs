@@ -125,7 +125,9 @@ fn info(lua: &Lua, path: &Path) -> Result<Table, LuaError> {
 
 fn precache(src: &Path, dst: &Target, (max_w, max_h): (u32, u32)) -> Result<bool, LuaError> {
     let image = reader(src)?.decode().map_err(image_error)?;
-    let thumb = image.thumbnail(max_w.max(1), max_h.max(1));
+    // `thumbnail` also enlarges: never past the source or the cap.
+    let side = |bound: u32, source: u32| bound.min(PRECACHE_MAX_SIDE).min(source).max(1);
+    let thumb = image.thumbnail(side(max_w, image.width()), side(max_h, image.height()));
     let mut png = std::io::Cursor::new(Vec::new());
     thumb
         .write_to(&mut png, image::ImageFormat::Png)

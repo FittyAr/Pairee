@@ -108,11 +108,13 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
     table.set(
         "sleep",
         lua.create_async_function(|_lua_ctx, secs: f64| async move {
-            if secs < 0.0 {
-                log::warn!("pairee.sleep received a negative duration ({secs}); ignoring");
+            // NaN, infinities and out-of-range values are refused as well
+            // (`Duration::from_secs_f64` would panic on them).
+            let Ok(duration) = std::time::Duration::try_from_secs_f64(secs) else {
+                log::warn!("pairee.sleep received an invalid duration ({secs}); ignoring");
                 return Ok(mlua::Value::Nil);
-            }
-            tokio::time::sleep(std::time::Duration::from_secs_f64(secs)).await;
+            };
+            tokio::time::sleep(duration).await;
             Ok(mlua::Value::Nil)
         })?,
     )?;
@@ -186,6 +188,17 @@ mod tests {
         let s = "abcXYZ0129-._~";
         let encoded = percent_encode(s.as_bytes(), FRAGMENT).to_string();
         assert_eq!(encoded, s);
+    }
+
+    #[tokio::test]
+    async fn sleep_ignores_invalid_durations() {
+        let lua = Lua::new();
+        lua.globals().set("u", bind(&lua).unwrap()).unwrap();
+        let f: mlua::Function = lua
+            .load("return function() u.sleep(0/0) u.sleep(math.huge) u.sleep(1e30) u.sleep(-1) return true end")
+            .eval()
+            .unwrap();
+        assert!(f.call_async::<bool>(()).await.unwrap());
     }
 
     #[test]

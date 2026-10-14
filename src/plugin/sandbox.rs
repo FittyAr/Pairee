@@ -75,13 +75,9 @@ fn keep_clock_os(lua: &mlua::Lua) -> mlua::Result<()> {
 /// `a.b` → `a/b`, or `None` for names that are not plain dotted
 /// identifiers (no separators, drive letters or empty / `..` segments).
 fn module_rel_path(module: &str) -> Option<String> {
-    let valid = !module.is_empty()
-        && module.split('.').all(|seg| {
-            !seg.is_empty()
-                && seg
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-        });
+    let valid = module
+        .split('.')
+        .all(crate::plugin::updater::is_identifier);
     valid.then(|| module.replace('.', "/"))
 }
 

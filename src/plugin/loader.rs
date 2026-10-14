@@ -48,6 +48,15 @@ impl PluginManifest {
         Ok(manifest)
     }
 
+    /// The `default_language` code (`en` when missing or not a plain
+    /// `[A-Za-z0-9_-]` code, which could name a file outside `lang/`).
+    pub fn default_language(&self) -> &str {
+        self.default_language
+            .as_deref()
+            .filter(|code| crate::plugin::updater::is_identifier(code))
+            .unwrap_or("en")
+    }
+
     /// The commands this plugin declares, in keymap form.
     pub fn keymap_commands(&self) -> Vec<crate::keybindings::plugin_commands::PluginCommand> {
         super::commands_decl::plugin_commands(&self.name, &self.commands, self.keybindings.as_ref())
@@ -190,6 +199,21 @@ pub(crate) fn check_version_compatibility(min_version: &str, current: &str) -> a
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_language_must_be_a_plain_code() {
+        let manifest = |lang: &str| {
+            PluginManifest::parse(&format!(
+                "name = \"x\"\nversion = \"1\"\ndefault_language = {lang:?}\n"
+            ))
+            .unwrap()
+        };
+        assert_eq!(manifest("es").default_language(), "es");
+        assert_eq!(manifest("pt-BR").default_language(), "pt-BR");
+        for bad in ["../../../home/u/.cargo/credentials", "/etc/x", "C:x", ""] {
+            assert_eq!(manifest(bad).default_language(), "en", "{bad}");
+        }
+    }
 
     #[test]
     fn version_check_accepts_newer_and_prerelease() {
