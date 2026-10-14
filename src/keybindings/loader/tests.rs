@@ -65,6 +65,20 @@ fn shipped_presets_load_without_errors_or_warnings() {
 }
 
 #[test]
+fn vim_presets_keep_the_norton_tools_their_paging_keys_took() {
+    for preset in ["norton", "neovim", "yazi"] {
+        let map = load(preset, &[]);
+        for action in [
+            Action::ToggleKeybar,
+            Action::InsertPathToCli,
+            Action::SwapPanels,
+        ] {
+            assert!(!chords_of(&map, action).is_empty(), "{preset}: {action:?}");
+        }
+    }
+}
+
+#[test]
 fn norton_loads_core_bindings() {
     let mut map = load("norton", &[]);
     assert_eq!(
