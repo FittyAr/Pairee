@@ -204,6 +204,8 @@ pub enum Action {
     SystemSettings,
     /// Manually check for available updates
     CheckForUpdates,
+    /// Read the user's syntax highlighting definitions again
+    ReloadSyntaxDefinitions,
 
     // ── General ─────────────────────────────────────────────────────────────
     /// Toggle visibility of dotfiles/hidden files (Ctrl+H)
