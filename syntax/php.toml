@@ -3,6 +3,8 @@ name = "PHP"
 extensions = ["php", "php3", "php4", "php5", "php7", "php8", "phtml", "phpt", "phps"]
 first_line = '^(?:#!.*\bphp\b|<\?php)'
 case_insensitive = true
+# A PHP file is HTML with PHP inside `<?php ... ?>` (see html.toml).
+host = "HTML"
 
 [[rule]]
 kind = "function"
@@ -55,6 +57,17 @@ pattern = '<\?(?:php|=)?|\?>'
 kind = "comment"
 start = '//|#(?:[^\[]|$)'
 end = '$|\?>'
+
+# Heredoc and nowdoc (`<<<EOT`, `<<<"EOT"`, `<<<'EOT'`); the closing word may
+# be indented and followed by `;` or `,`.
+[[region]]
+kind = "string"
+start = '''<<<\s*["']?([A-Za-z_][A-Za-z0-9_]*)["']?'''
+end = '^\s*${1}\b'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\{?\$[A-Za-z_][A-Za-z0-9_]*\}?'
 
 [[region]]
 kind = "comment"

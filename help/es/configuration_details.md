@@ -175,7 +175,7 @@ Pairee edita los archivos solo con su editor integrado (`F4`); no existe la opci
 Ambos ajustes se aplican de inmediato a los editores y visores ya abiertos. Tras *Guardar como* con otra extensión, el editor resalta el archivo según el nuevo lenguaje.
 
 ### Definiciones de resaltado de sintaxis
-Pairee conoce Rust, C, C++, C#, Go, Java, Kotlin, Swift, JavaScript, TypeScript, Python, Ruby, PHP, Lua, scripts de shell (sh, bash, zsh), PowerShell, archivos batch, HTML, CSS, XML, JSON, YAML, TOML, INI, Markdown, SQL, Makefiles, Dockerfiles y diffs. Cada lenguaje es un pequeño archivo TOML. Para agregar un lenguaje, o cambiar uno incorporado, coloque un archivo `<nombre>.toml` en la carpeta `syntax` del directorio de configuración (junto a `config.toml`) y reinicie Pairee. Un archivo cuyo `name` es el de un lenguaje incorporado lo reemplaza. Un archivo que no se puede leer o cuyos patrones no son válidos se omite, y Pairee indica el motivo al iniciar.
+Pairee conoce Rust, C, C++, C#, Go, Java, Kotlin, Swift, JavaScript, TypeScript, Python, Ruby, PHP, Lua, scripts de shell (sh, bash, zsh), PowerShell, archivos batch, HTML, CSS, XML, JSON, YAML, TOML, INI, Markdown, SQL, Makefiles, Dockerfiles y diffs. Cada lenguaje es un pequeño archivo TOML. Para agregar un lenguaje, o cambiar uno incorporado, coloque un archivo `<nombre>.toml` en la carpeta `syntax` del directorio de configuración (junto a `config.toml`). Pairee vuelve a leer la carpeta cuando cambia un archivo en ella, o con el comando *Recargar definiciones de resaltado de sintaxis* (paleta de comandos), y vuelve a resaltar los editores y visores abiertos. Un archivo cuyo `name` es el de un lenguaje incorporado lo reemplaza. Un archivo que no se puede leer o cuyos patrones no son válidos se omite y Pairee indica el motivo; si antes funcionaba, se sigue usando su versión anterior hasta que se corrija.
 
 ```toml
 name = "Notas"                  # se muestra en la línea de estado del editor
@@ -205,8 +205,34 @@ kind = "constant"
 pattern = '\\.'
 ```
 
+Las regiones tienen tres opciones más, para lo que los patrones solos no pueden expresar:
+
+```toml
+[[region]]                      # un heredoc: termina en la palabra que lo abrió
+kind = "string"
+start = '<<-?\s*([A-Za-z_]\w*)'
+end = '^\s*${1}$'              # ${1}: el texto del grupo 1 del inicio
+
+[[region]]                      # un literal de expresión regular, no una división
+kind = "string"
+start = '/'
+end = '/[a-z]*|$'
+after = '(?:^|[(,=:\[!&|?{};]|\breturn)\s*$'   # el texto anterior al inicio debe coincidir
+
+[[region]]                      # el texto interior se resalta como otro lenguaje
+kind = "tag"                    # con `include`, colorea solo el inicio y el final
+start = '<script\b[^>]*>'
+end = '</script\s*>'
+include = "JavaScript"          # nombre o extensión de un lenguaje; '${1}' lo toma del inicio
+```
+
+* **`${N}` en `end`** se reemplaza, al abrirse la región, por el texto que coincidió con el grupo de captura `N` de `start`, tomado literalmente: heredocs, cadenas raw de Rust (`r#"…"#`), corchetes largos de Lua (`[==[…]==]`), bloques de Markdown con cercas del mismo largo. El grupo debe existir en `start`.
+* **`after`** es un patrón que se prueba sobre el texto anterior al inicio en la misma línea (hasta 256 bytes hacia atrás); la región solo empieza donde coincide, por eso suele terminar en `\s*$`.
+* **`include`** nombra un lenguaje (por nombre, o si no por extensión o nombre de archivo, sin distinguir mayúsculas) cuyas reglas y regiones se aplican adentro; el `end` de la región la sigue cerrando, deje lo que deje abierto el lenguaje incluido. Con `'${1}'` el lenguaje se toma del inicio (la cadena de información de un bloque de código de Markdown). Si ese lenguaje no existe, se aplican las reglas propias de la región. Los lenguajes se anidan hasta 4 niveles.
+* **`host`** (al principio del archivo, p. ej. `host = "HTML"`) hace que los archivos del lenguaje empiecen en otro lenguaje que lo incluye: los archivos PHP son HTML con PHP dentro de `<?php … ?>`.
+
 * **Tipos** (`kind`): son los colores `[syntax]` del tema: `comment`, `string`, `keyword`, `constant`, `function`, `type_name`, `operator` y `tag`.
-* **Patrones:** usan la sintaxis del crate `regex` de Rust (sin look-around ni referencias hacia atrás). Escríbalos entre comillas simples (`'...'`) para que las barras invertidas se mantengan tal cual.
+* **Patrones:** usan la sintaxis del crate `regex` de Rust (sin look-around ni referencias hacia atrás: use `${N}` y `after`, arriba). Escríbalos entre comillas simples (`'...'`) para que las barras invertidas se mantengan tal cual.
 * **Reglas:** se aplican en orden: una regla posterior pinta encima de una anterior. Solo ven el texto fuera de las regiones, o dentro de la región a la que pertenecen.
 * **Regiones:** tienen prioridad sobre las reglas: donde podrían empezar varias, gana la que empieza antes (la primera declarada si empatan). Use `end = '$'` para una región que termina con la línea (comentarios de línea), y un `end = ''` vacío para un único token que nada puede partir (un literal de carácter como `'"'`).
 * **Detección:** un nombre de `names` gana sobre `filename`, que gana sobre la extensión, que gana sobre la primera línea. Sus archivos se prueban antes que los incorporados.

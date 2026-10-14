@@ -182,6 +182,8 @@ pub struct AppState {
     pub frecency: crate::config::frecency::FrecencyStore,
     /// Folder monitors that reread panels when their folder changes.
     pub auto_refresh: crate::app::auto_refresh::AutoRefresh,
+    /// Monitor of the user's syntax definitions folder (reloaded on change).
+    pub syntax_watch: crate::app::syntax_reload::SyntaxWatch,
 
     // ── Mouse (hits are recorded by each paint) ──────────────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
@@ -237,6 +239,7 @@ impl AppState {
             file_compare: Default::default(),
             frecency: Default::default(),
             auto_refresh: Default::default(),
+            syntax_watch: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
             hits: Default::default(),
             mouse_released: false,

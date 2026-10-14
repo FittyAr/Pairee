@@ -25,6 +25,7 @@ pub mod session;
 pub mod shortcuts;
 pub mod state;
 pub mod sync;
+pub mod syntax_reload;
 pub mod sys_helpers;
 pub mod text_filter;
 pub mod text_input;

@@ -51,6 +51,20 @@ impl Language {
         &self.definition.name
     }
 
+    /// The language files of this one are written in (`host`).
+    pub fn host(&self) -> Option<&str> {
+        self.definition.host.as_deref()
+    }
+
+    /// Whether `name` (from an `include`) names this language: its name,
+    /// one of its extensions or file names (any case).
+    pub fn answers_to(&self, name: &str) -> bool {
+        let lower = name.to_lowercase();
+        self.definition.name.to_lowercase() == lower
+            || self.extensions.contains(&lower)
+            || self.names.contains(&lower)
+    }
+
     /// The compiled grammar (`None` when a pattern does not compile; the
     /// error is logged once).
     pub fn grammar(&self) -> Option<&Grammar> {

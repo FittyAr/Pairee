@@ -198,3 +198,43 @@ fn sha256_file_junk_does_not_panic() {
         fuzz_api::sha256_file(&format!("{}  {s}", "a".repeat(64)));
     }
 }
+
+#[test]
+fn syntax_definition_junk_does_not_panic() {
+    const SEED: &str = r##"
+name = "Fuzz"
+extensions = ["fz"]
+[[rule]]
+kind = "keyword"
+words = ["if", "#x"]
+[[region]]
+kind = "string"
+start = '<<-?(\w*)'
+end = '^\s*${1}$'
+skip = '\\.'
+after = '(?:^|[=(])\s*$'
+[[region]]
+kind = "tag"
+start = '<(\w*)>'
+end = '</>'
+include = '${1}'
+[[region.rule]]
+kind = "constant"
+pattern = '(a*)*b'
+group = 1
+"##;
+    let text = "x = <<A\n\\A\nA\n<fz><fz><js>let r = /a/;</></> <html><script>\"\n";
+    let seeded = crate::syntax::highlight_with_definition(SEED, text);
+    assert!(seeded.is_ok_and(|lines| lines.len() == 4), "the seed works");
+    for data in mutations(SEED.as_bytes()) {
+        fuzz_api::syntax_definition(&String::from_utf8_lossy(&data), text);
+    }
+    for s in junk_strings(0x5A7, 40) {
+        fuzz_api::syntax_definition(SEED, &s);
+        let region = format!("name = \"J\"\n[[region]]\nstart = '{s}'\nend = '${{1}}{s}'");
+        fuzz_api::syntax_definition(&region, &s.repeat(20));
+        let include =
+            format!("{SEED}\n[[region]]\nstart = '(.)'\nend = 'x'\ninclude = '{s}${{1}}'");
+        fuzz_api::syntax_definition(&include, text);
+    }
+}

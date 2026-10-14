@@ -12,9 +12,9 @@
 //! cheap.
 
 use super::LineTokens;
-use super::highlight::LineState;
+use super::highlight::{Grammars, LineState};
 use super::language::Language;
-use super::registry;
+use super::registry::{self, Registry};
 use std::collections::BTreeMap;
 use std::ops::Range;
 use std::path::Path;
@@ -32,6 +32,10 @@ const RESYNC_LOOKBACK: usize = 200;
 #[derive(Debug, Clone)]
 pub struct SyntaxCache {
     language: Arc<Language>,
+    /// The grammar lines start in (the host's for an embedded language).
+    root: Arc<Language>,
+    /// The languages regions may embed.
+    registry: Arc<Registry>,
     /// Parser state before line `key`.
     checkpoints: BTreeMap<usize, LineState>,
     /// Tokens of the lines last asked for.
@@ -43,10 +47,14 @@ impl SyntaxCache {
     /// `None` when no language knows the file (or its grammar does not
     /// compile).
     pub fn detect(path: &Path, first_line: &str) -> Option<Self> {
-        let language = registry::active().detect(path, first_line)?;
+        let registry = registry::active();
+        let language = registry.detect(path, first_line)?;
         language.grammar()?;
+        let root = registry.root_of(&language);
         Some(Self {
             language,
+            root,
+            registry,
             checkpoints: BTreeMap::new(),
             window: None,
         })
@@ -94,8 +102,12 @@ impl SyntaxCache {
         S: AsRef<str>,
         F: FnOnce(Range<usize>) -> Vec<S>,
     {
-        let Some(grammar) = self.language.grammar() else {
+        let Some(root) = self.root.grammar() else {
             return Vec::new();
+        };
+        let grammars = Grammars {
+            root,
+            registry: &self.registry,
         };
         let (origin, mut state) = self.origin(range.start);
         let mut out = Vec::with_capacity(range.len());
@@ -104,7 +116,7 @@ impl SyntaxCache {
             if y > origin && y % CHECKPOINT_EVERY == 0 {
                 self.checkpoints.entry(y).or_insert_with(|| state.clone());
             }
-            let tokens = state.advance(grammar, line.as_ref());
+            let tokens = state.advance(grammars, line.as_ref());
             if y >= range.start {
                 out.push(tokens);
             }
@@ -178,6 +190,24 @@ mod tests {
             tokens.iter().all(|t| t[0].kind == SyntaxKind::Comment),
             "the new comment reaches the screen"
         );
+    }
+
+    #[test]
+    fn embedded_languages_carry_over_checkpoints() {
+        let mut lines = vec!["<script>".to_string()];
+        lines.extend(doc(300));
+        lines.push("</script><p>".into());
+        let mut cache = SyntaxCache::detect(Path::new("a.html"), "").unwrap();
+        let fetched = Cell::new(0);
+        run(&mut cache, &lines, 250..260, &fetched);
+        assert!(cache.checkpoints.contains_key(&192));
+        let tokens = run(&mut cache, &lines, 200..202, &fetched);
+        assert_eq!(fetched.get(), 260 + 202 - 192, "resumed at line 192");
+        assert_eq!(tokens[0][0].kind, SyntaxKind::Keyword, "still JavaScript");
+        let tokens = run(&mut cache, &lines, 300..302, &fetched);
+        assert_eq!(tokens[1][0].kind, SyntaxKind::Tag, "back in HTML");
+        let php = SyntaxCache::detect(Path::new("a.php"), "<p>").unwrap();
+        assert_eq!(php.language(), "PHP", "named after the file, HTML inside");
     }
 
     #[test]

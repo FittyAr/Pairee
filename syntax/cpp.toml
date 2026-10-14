@@ -62,8 +62,8 @@ end = '\*/'
 
 [[region]]
 kind = "string"
-start = '(?:L|u8|u|U)?R"\('
-end = '\)"'
+start = '(?:L|u8|u|U)?R"([^()\\\s]{0,16})\('
+end = '\)${1}"'
 
 [[region]]
 kind = "string"

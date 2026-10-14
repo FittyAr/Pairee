@@ -88,3 +88,26 @@ end = '\)'
 kind = "string"
 start = '%[qQwWiI]?\{'
 end = '\}'
+
+# A regular expression literal, only where an expression can start (so
+# `a / b / c` stays a division).
+[[region]]
+kind = "string"
+start = '/'
+end = '/[A-Za-z]*|$'
+skip = '\\.|\[(?:\\.|[^\]\\])*\]'
+after = '(?:^|[(,=\[!&|?{};~]|\b(?:if|elsif|unless|when|while|until|and|or|not|return|then))\s*$'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\.|#\{[^}]*\}'
+
+# Squiggly and dash heredocs (`<<~EOS`, `<<-'SQL'`).
+[[region]]
+kind = "string"
+start = '''<<[~-]["'`]?([A-Za-z_][A-Za-z0-9_]*)["'`]?'''
+end = '^\s*${1}\s*$'
+
+[[region.rule]]
+kind = "constant"
+pattern = '#\{[^}]*\}'

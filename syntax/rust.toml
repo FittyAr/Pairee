@@ -63,8 +63,8 @@ end = '\*/'
 
 [[region]]
 kind = "string"
-start = '\bb?r#+"'
-end = '"#+'
+start = '\bb?r(#+)"'
+end = '"${1}'
 
 [[region]]
 kind = "string"

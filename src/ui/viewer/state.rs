@@ -43,6 +43,9 @@ pub struct ViewerState {
     /// Syntax highlighter of text mode (`None`: plain text, off or too
     /// large). Painting fills its cache, hence the cell.
     pub syntax: RefCell<Option<SyntaxCache>>,
+    /// Highlighting limits changed while loading: applied to the content
+    /// once it arrives (the background job used the earlier ones).
+    pub pending_syntax: Option<SyntaxLimits>,
 }
 
 pub(crate) fn is_image_extension(path: &Path) -> bool {
@@ -149,6 +152,7 @@ impl ViewerState {
             loading: false,
             notice: None,
             syntax: RefCell::new(None),
+            pending_syntax: None,
         }
     }
 
