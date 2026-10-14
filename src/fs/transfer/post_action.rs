@@ -95,10 +95,9 @@ pub fn execute_post_action(
             }
             Ok(())
         }
-        PostAction::CloseApp => {
-            // Cerramos de forma limpia indicando salida exitosa
-            std::process::exit(0);
-        }
+        // The app quits through its event loop (terminal restored, session
+        // saved); exiting the process here would skip all of that.
+        PostAction::CloseApp => Ok(()),
     }
 }
 
