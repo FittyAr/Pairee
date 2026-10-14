@@ -19,6 +19,9 @@ mod deny;
 mod env;
 mod resolve;
 
+#[cfg(test)]
+pub(crate) use resolve::make_tool;
+
 pub use deny::normalize_command_name;
 use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
@@ -56,9 +59,41 @@ impl CommandPolicy {
         }
     }
 
+    /// The program to execute (an absolute path in Secure Mode) and its
+    /// arguments (with the hardening arguments Secure Mode puts before the
+    /// plugin's own, see `args`), or a security violation message.
+    pub fn authorize_command(
+        &self,
+        program: &str,
+        args: &[String],
+    ) -> Result<(PathBuf, Vec<String>), String> {
+        let path_var = std::env::var_os("PATH").unwrap_or_default();
+        self.authorize_command_with_path(program, args, &path_var)
+    }
+
+    /// [`Self::authorize_command`] with `path_var` as `PATH`.
+    pub(crate) fn authorize_command_with_path(
+        &self,
+        program: &str,
+        args: &[String],
+        path_var: &OsStr,
+    ) -> Result<(PathBuf, Vec<String>), String> {
+        let path = self.authorize_with_path(program, path_var)?;
+        self.authorize_args(program, args)?;
+        let mut argv: Vec<String> = match self {
+            Self::Allowlist(_) => args::prepended(&normalize_command_name(program))
+                .iter()
+                .map(|a| a.to_string())
+                .collect(),
+            _ => Vec::new(),
+        };
+        argv.extend_from_slice(args);
+        Ok((path, argv))
+    }
+
     /// Returns the program to execute (an absolute path in Secure Mode) or
     /// a security violation message.
-    pub fn authorize(&self, program: &str) -> Result<PathBuf, String> {
+    fn authorize(&self, program: &str) -> Result<PathBuf, String> {
         let path_var = std::env::var_os("PATH").unwrap_or_default();
         self.authorize_with_path(program, &path_var)
     }
@@ -77,7 +112,7 @@ impl CommandPolicy {
     /// `Ok` unless, in Secure Mode, `args` make `program` run another
     /// program (`git -c core.sshCommand=...`, `tar --to-command`, ...; see
     /// `args`).
-    pub fn authorize_args(&self, program: &str, args: &[String]) -> Result<(), String> {
+    fn authorize_args(&self, program: &str, args: &[String]) -> Result<(), String> {
         match self {
             Self::Allowlist(_) => args::check(&normalize_command_name(program), args),
             _ => Ok(()),

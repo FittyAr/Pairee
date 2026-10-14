@@ -32,9 +32,22 @@ struct ToolRule {
     /// Options that set configuration (`git -c key=value`); the key is
     /// checked against [`GIT_CONFIG`].
     config_options: &'static [&'static str],
-    /// Options refused only for these subcommands (Git `-u` means
-    /// `--upload-pack` for `clone` and `ls-remote` only).
+    /// Options (or operands) refused only for these subcommands (Git `-u`
+    /// means `--upload-pack` for `clone` and `ls-remote` only; `submodule
+    /// foreach` runs a shell command).
     scoped: &'static [(&'static [&'static str], &'static str)],
+    /// Subcommands refused outright (`git filter-branch` runs its filters
+    /// through the shell).
+    subcommands: &'static [&'static str],
+    /// The subcommand that writes configuration (`git config`): operands
+    /// naming a key that runs programs are refused, so the plugin cannot
+    /// store `core.fsmonitor` or an alias in a repository's config and
+    /// trigger it with the next command.
+    config_subcommand: Option<&'static str>,
+    /// Arguments put before the plugin's own (Git: no implicit bare
+    /// repositories, whose `config` a plugin could have written with
+    /// `pairee.fs`).
+    prepend: &'static [&'static str],
 }
 
 impl ToolRule {
@@ -48,6 +61,9 @@ impl ToolRule {
         bundle_first: false,
         config_options: &[],
         scoped: &[],
+        subcommands: &[],
+        config_subcommand: None,
+        prepend: &[],
     };
 }
 
@@ -62,10 +78,24 @@ const TOOL_RULES: &[ToolRule] = &[
             "--template",
             "--ext-diff",
             "--output",
+            "--git-dir",
         ],
         arg_prefixes: &["ext::", "fd::"],
         config_options: &["-c", "--config", "--config-env"],
-        scoped: &[(&["clone", "ls-remote"], "-u")],
+        scoped: &[
+            (&["clone", "ls-remote"], "-u"),
+            (&["rebase"], "-x"),
+            (&["difftool"], "-x"),
+            (&["difftool"], "--extcmd"),
+            (&["grep"], "-O"),
+            (&["grep"], "--open-files-in-pager"),
+            (&["submodule"], "foreach"),
+            (&["bisect"], "run"),
+            (&["config"], "--rename-section"),
+        ],
+        subcommands: &["filter-branch", "send-email", "instaweb", "daemon"],
+        config_subcommand: Some("config"),
+        prepend: &["-c", "safe.bareRepository=explicit"],
         ..ToolRule::EMPTY
     },
     ToolRule {
@@ -161,6 +191,9 @@ const GIT_CONFIG: ConfigRules = ConfigRules {
         "url.",
         "gpg.",
         "sendemail.",
+        "difftool.",
+        "mergetool.",
+        "safe.",
     ],
     suffixes: &[
         ".textconv",
@@ -176,13 +209,27 @@ const GIT_CONFIG: ConfigRules = ConfigRules {
     ],
 };
 
+/// Arguments Secure Mode puts before the plugin's own for `tool`.
+pub fn prepended(tool: &str) -> &'static [&'static str] {
+    rule_of(tool).map_or(&[], |rule| rule.prepend)
+}
+
+fn rule_of(tool: &str) -> Option<&'static ToolRule> {
+    TOOL_RULES.iter().find(|r| r.tools.contains(&tool))
+}
+
 /// Refuses `args` when they make the (normalized) `tool` run another
 /// program. Tools without a row pass.
 pub fn check(tool: &str, args: &[String]) -> Result<(), String> {
-    let Some(rule) = TOOL_RULES.iter().find(|r| r.tools.contains(&tool)) else {
+    let Some(rule) = rule_of(tool) else {
         return Ok(());
     };
     let subcommand = first_operand(args, rule);
+    if let Some(sub) = subcommand.filter(|s| rule.subcommands.contains(s)) {
+        return Err(format!(
+            "Security violation: '{tool} {sub}' can run other programs and is not allowed in Secure Mode"
+        ));
+    }
     for (i, arg) in args.iter().enumerate() {
         let next = args.get(i + 1).map(String::as_str);
         if let Some(reason) = refused(rule, arg, next, i == 0, subcommand) {
@@ -229,8 +276,14 @@ fn refused(
         }
     }
     for (subcommands, opt) in rule.scoped {
-        if subcommand.is_some_and(|s| subcommands.contains(&s)) && option_is(arg, opt) {
+        if subcommand.is_some_and(|s| subcommands.contains(&s)) && scoped_matches(arg, opt) {
             return Some("option");
+        }
+    }
+    if rule.config_subcommand.is_some() && subcommand == rule.config_subcommand {
+        let operand = !arg.starts_with('-') && Some(arg) != subcommand;
+        if operand && config_runs_code(arg) {
+            return Some("configuration");
         }
     }
     config_value(rule, arg, next)
@@ -251,6 +304,17 @@ fn option_is(arg: &str, opt: &str) -> bool {
     } else {
         arg == opt || (arg.starts_with(opt) && !arg.starts_with("--"))
     }
+}
+
+/// `opt` as [`option_is`], a single-letter option also inside a bundle
+/// (`git rebase -ix cmd`).
+fn scoped_matches(arg: &str, opt: &str) -> bool {
+    let mut letters = opt.strip_prefix('-').unwrap_or("").chars();
+    let short = match (letters.next(), letters.next()) {
+        (Some(c), None) if c != '-' => Some(c),
+        _ => None,
+    };
+    option_is(arg, opt) || short.is_some_and(|c| short_in_bundle(arg, &[c]))
 }
 
 /// A short-option bundle (`-xvI`) containing one of `letters`.
@@ -360,6 +424,21 @@ mod tests {
             ("fzf", &["--bind=ctrl-r:reload(sh)"]),
             ("less", &["+!sh", "f"]),
             ("less", &["--lesskey-src=f", "f"]),
+            ("git", &["config", "core.fsmonitor", "evil"]),
+            ("git", &["config", "--local", "alias.x", "!sh"]),
+            ("git", &["config", "set", "Core.Pager", "sh"]),
+            ("git", &["-C", "r", "config", "--add", "filter.x.clean", "evil"]),
+            ("git", &["config", "--rename-section", "x", "core"]),
+            ("git", &["-c", "safe.bareRepository=all", "status"]),
+            ("git", &["--git-dir=data/evil", "status"]),
+            ("git", &["rebase", "-x", "evil", "HEAD~1"]),
+            ("git", &["rebase", "-ix", "evil", "HEAD~1"]),
+            ("git", &["difftool", "--extcmd=evil"]),
+            ("git", &["grep", "-Oevil", "x"]),
+            ("git", &["submodule", "foreach", "evil"]),
+            ("git", &["bisect", "run", "evil"]),
+            ("git", &["filter-branch", "--tree-filter", "evil"]),
+            ("git", &["send-email", "--sendmail-cmd=evil"]),
         ];
         for (tool, list) in refused {
             let err = check(tool, &args(list)).unwrap_err();
@@ -393,6 +472,11 @@ mod tests {
             ("rg", &["--pre-glob", "*.pdf", "x"]),
             ("less", &["-R", "file"]),
             ("cargo", &["--version"]),
+            ("git", &["config", "--get", "user.name"]),
+            ("git", &["config", "user.email", "me@example.com"]),
+            ("git", &["submodule", "status"]),
+            ("git", &["rebase", "--continue"]),
+            ("git", &["grep", "-n", "x"]),
         ];
         for (tool, list) in allowed {
             assert!(check(tool, &args(list)).is_ok(), "{tool} {list:?}");

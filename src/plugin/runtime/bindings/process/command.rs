@@ -6,7 +6,7 @@ use super::stdio::StdioKind;
 use crate::plugin::command_policy::CommandPolicy;
 use crate::plugin::runtime::bindings::fs::{Access, FsPolicy, Target};
 use mlua::{AnyUserData, Lua, MetaMethod, Table, UserData, UserDataMethods, Value};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -69,21 +69,17 @@ impl LuaCommand {
         Ok(())
     }
 
-    /// The program to execute (absolute in Secure Mode) or a violation.
-    pub fn check_allowed(&self) -> mlua::Result<PathBuf> {
-        let program = self
-            .policy
-            .authorize(&self.program)
-            .map_err(mlua::Error::RuntimeError)?;
+    /// The program to execute (absolute in Secure Mode) and its arguments,
+    /// or a violation.
+    pub fn check_allowed(&self) -> mlua::Result<(PathBuf, Vec<String>)> {
         self.policy
-            .authorize_args(&self.program, &self.args)
-            .map_err(mlua::Error::RuntimeError)?;
-        Ok(program)
+            .authorize_command(&self.program, &self.args)
+            .map_err(mlua::Error::RuntimeError)
     }
 
-    fn tokio_cmd(&self, program: &Path) -> tokio::process::Command {
+    fn tokio_cmd(&self, (program, args): &(PathBuf, Vec<String>)) -> tokio::process::Command {
         let mut cmd = tokio::process::Command::new(program);
-        cmd.args(&self.args);
+        cmd.args(args);
         if let Some(cwd) = &self.cwd {
             cmd.current_dir(cwd);
         }
@@ -233,6 +229,7 @@ mod tests {
     }
 
     fn sandbox(trusted: bool, secure: bool) -> Arc<FsPolicy> {
+        use std::path::Path;
         Arc::new(FsPolicy::new(Path::new("demo"), trusted, secure))
     }
 
@@ -298,6 +295,21 @@ mod tests {
         let cmd = cmd("echo", false, false, &[]);
         let err = cmd.check_allowed().unwrap_err();
         assert!(err.to_string().contains("sandboxed"));
+    }
+
+    #[test]
+    fn secure_mode_git_runs_without_implicit_bare_repositories() {
+        let dir = tempfile::tempdir().unwrap();
+        crate::plugin::command_policy::make_tool(dir.path(), "git");
+        let path = std::env::join_paths([dir.path()]).unwrap();
+        let policy = Arc::new(CommandPolicy::new(true, true, &["git".to_string()]));
+        let (_, args) = policy
+            .authorize_command_with_path("git", &["status".to_string()], &path)
+            .unwrap();
+        assert_eq!(args, ["-c", "safe.bareRepository=explicit", "status"]);
+        let open = CommandPolicy::new(true, false, &[]);
+        let (_, args) = open.authorize_command("git", &["status".into()]).unwrap();
+        assert_eq!(args, ["status"]);
     }
 
     #[test]

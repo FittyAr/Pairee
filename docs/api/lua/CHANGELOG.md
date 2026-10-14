@@ -17,6 +17,13 @@ Policy:
   `loadfile` / `dofile` or the non-clock part of `os` (`execute`,
   `remove`, `rename`, `getenv`, `exit`, ...); they keep `coroutine` and
   `os.time` / `os.date` / `os.clock` / `os.difftime`.
+- Secure Mode refuses more Git arguments that run programs (`git config`
+  of such keys, `--git-dir`, `rebase -x`, `difftool -x`, `grep -O`,
+  `submodule foreach`, `bisect run`, `filter-branch`, `send-email`, ...)
+  and runs `git` with `-c safe.bareRepository=explicit`.
+- `pairee.fs` refuses writes inside any `.git` folder for jailed plugins.
+- `pairee.fs.spawn` runs through the same checks as `pairee.Command` and
+  no longer reads the terminal's input.
 
 ### Fixed
 

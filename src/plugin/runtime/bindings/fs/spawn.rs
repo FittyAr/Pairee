@@ -2,6 +2,7 @@
 
 use super::path::{Access, FsPolicy, validate_path};
 use crate::plugin::command_policy::CommandPolicy;
+use crate::plugin::runtime::bindings::process::{LuaCommand, StdioKind};
 use crate::plugin::manager::PluginRequest;
 use mlua::{Lua, Table};
 use std::sync::Arc;
@@ -14,33 +15,22 @@ pub fn bind_spawn(
     commands: Arc<CommandPolicy>,
     tx: mpsc::Sender<PluginRequest>,
 ) -> mlua::Result<()> {
+    // The legacy form of `pairee.Command(cmd):arg(args):output()`, with
+    // the same policy checks (no input from the terminal).
+    let sandbox = Arc::clone(policy);
     fs.set(
         "spawn",
         lua.create_async_function(move |lua_ctx, (cmd, args): (String, Vec<String>)| {
-            let commands = Arc::clone(&commands);
+            let mut command = LuaCommand::new(cmd, Arc::clone(&commands), Arc::clone(&sandbox));
+            command.args = args;
+            command.stdin = StdioKind::Null;
             async move {
-                let program = commands
-                    .authorize(&cmd)
-                    .map_err(mlua::Error::RuntimeError)?;
-                commands
-                    .authorize_args(&cmd, &args)
-                    .map_err(mlua::Error::RuntimeError)?;
-                let output = tokio::process::Command::new(&program)
-                    .args(&args)
-                    .output()
-                    .await;
-                match output {
-                    Ok(out) => {
-                        let t = lua_ctx.create_table()?;
-                        t.set("stdout", String::from_utf8_lossy(&out.stdout).to_string())?;
-                        t.set("stderr", String::from_utf8_lossy(&out.stderr).to_string())?;
-                        t.set("status", out.status.code().unwrap_or(0))?;
-                        Ok(t)
-                    }
-                    Err(e) => Err(mlua::Error::RuntimeError(format!(
-                        "Failed to spawn process: {e}"
-                    ))),
-                }
+                let out = command.output_inner().await?;
+                let t = lua_ctx.create_table()?;
+                t.set("stdout", out.stdout)?;
+                t.set("stderr", out.stderr)?;
+                t.set("status", out.status.code.unwrap_or(0))?;
+                Ok(t)
             }
         })?,
     )?;
