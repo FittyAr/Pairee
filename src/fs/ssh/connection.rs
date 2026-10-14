@@ -5,25 +5,29 @@ use crate::config::localization::t;
 use crate::credential_prompt::CredentialRequest;
 use anyhow::{Context, Result};
 use ssh2::Session;
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+/// Time allowed to reach the server.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub fn open_session(login: &SshLogin<'_>) -> Result<Session> {
     let (host, port) = (login.host, login.port);
-    let addr = format!("{}:{}", host, port);
-    let socket_addrs = addr
-        .to_socket_addrs()
-        .context(t("error_ssh_resolve_host"))?
-        .collect::<Vec<SocketAddr>>();
-
-    if socket_addrs.is_empty() {
-        anyhow::bail!(t("error_ssh_no_socket_addr").replace("{}", host));
-    }
-
-    // Connect with a 5 second timeout
-    let stream = TcpStream::connect_timeout(&socket_addrs[0], Duration::from_secs(5))
-        .context(t("error_ssh_connect_timeout"))?;
+    // Every address of the host is tried (an unreachable IPv6 address no
+    // longer hides a working IPv4 one); IPv6 literals work as hosts.
+    let stream = crate::fs::remote::connect_tcp(host, port, CONNECT_TIMEOUT).map_err(|e| {
+        use std::io::ErrorKind as K;
+        let key = match e.kind() {
+            K::AddrNotAvailable => "error_ssh_no_socket_addr",
+            K::TimedOut
+            | K::ConnectionRefused
+            | K::ConnectionReset
+            | K::HostUnreachable
+            | K::NetworkUnreachable => "error_ssh_connect_timeout",
+            _ => "error_ssh_resolve_host",
+        };
+        anyhow::Error::new(e).context(t(key).replace("{}", host))
+    })?;
 
     let mut sess = Session::new().context(t("error_ssh_create_session"))?;
     sess.set_tcp_stream(stream);

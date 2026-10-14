@@ -43,8 +43,10 @@ pub use webdav::WebDavVfs;
 use crate::config::localization::t;
 use crate::fs::vfs::{Capabilities, Vfs};
 use std::io;
+use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 /// A connected remote filesystem and the folder its URL names.
 #[derive(Debug, Clone)]
@@ -143,6 +145,20 @@ pub fn remote_path(path: &Path) -> String {
         }
     }
     format!("/{}", parts.join("/"))
+}
+
+/// A TCP connection to `host:port`, trying every address the name resolves
+/// to (a host with an IPv6 address the network cannot reach still connects
+/// over IPv4), each within `timeout`. IPv6 literals work as hosts.
+pub fn connect_tcp(host: &str, port: u16, timeout: Duration) -> io::Result<TcpStream> {
+    let mut last = io::Error::from(io::ErrorKind::AddrNotAvailable);
+    for addr in (host, port).to_socket_addrs()? {
+        match TcpStream::connect_timeout(&addr, timeout) {
+            Ok(stream) => return Ok(stream),
+            Err(e) => last = e,
+        }
+    }
+    Err(last)
 }
 
 /// The user name and password of `url`, percent-decoded (`None`: none).

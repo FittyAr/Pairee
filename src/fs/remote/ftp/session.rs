@@ -101,12 +101,8 @@ impl Config {
 
     /// A new logged-in connection in binary, passive mode.
     pub fn open(&self) -> io::Result<Conn> {
-        use std::net::ToSocketAddrs;
-        let addr = (self.host.as_str(), self.port)
-            .to_socket_addrs()?
-            .next()
-            .ok_or_else(|| io::Error::from(io::ErrorKind::AddrNotAvailable))?;
-        let mut conn = Conn::connect_timeout(addr, CONNECT_TIMEOUT).map_err(io_err)?;
+        let stream = crate::fs::remote::connect_tcp(&self.host, self.port, CONNECT_TIMEOUT)?;
+        let mut conn = Conn::connect_with_stream(stream).map_err(io_err)?;
         let _ = conn.get_ref().set_read_timeout(Some(IO_TIMEOUT));
         let _ = conn.get_ref().set_write_timeout(Some(IO_TIMEOUT));
         if let Some(tls) = &self.tls {

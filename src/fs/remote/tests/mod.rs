@@ -240,3 +240,14 @@ fn same_server_moves_respect_existing_targets() {
     assert_eq!(read(&kept), b"keep");
     assert_eq!(read(&f.root.join("a.txt")), b"alpha");
 }
+
+/// Every address of a name is tried: `localhost` often resolves to `::1`
+/// first, and a server listening on IPv4 only must still be reached.
+#[test]
+fn connections_try_every_address_of_the_host() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let timeout = std::time::Duration::from_secs(5);
+    assert!(super::connect_tcp("localhost", port, timeout).is_ok());
+    assert!(super::connect_tcp("127.0.0.1", port, timeout).is_ok());
+}
