@@ -22,7 +22,9 @@ use std::time::Instant;
 /// State of the copy phase of one job.
 pub(super) struct CopyJob<'a> {
     operation: TransferOperation,
-    options: &'a TransferOptions,
+    /// The job's options, with the changes made while it runs applied
+    /// before each file.
+    options: TransferOptions,
     ctl: &'a JobControl,
     fs: &'a Endpoints,
     conflicts: ConflictResolver<'a>,
@@ -43,7 +45,7 @@ impl<'a> CopyJob<'a> {
         let copied = Arc::new(AtomicU64::new(0));
         Self {
             operation,
-            options,
+            options: options.clone(),
             ctl,
             fs,
             conflicts: ConflictResolver {
@@ -95,6 +97,7 @@ impl<'a> CopyJob<'a> {
         (src, dst, size): FileMapping,
     ) -> anyhow::Result<()> {
         self.ctl.wait_if_paused().await?;
+        self.ctl.live.apply_to(&mut self.options);
         if self.ctl.take_user_skip(&src, &mut self.results) {
             return Ok(());
         }
@@ -136,11 +139,11 @@ impl<'a> CopyJob<'a> {
     }
 
     async fn transfer(&self, src: &Path, dst: &Path) -> anyhow::Result<TransferOutcome> {
-        file_copy::transfer_file(self.fs, src, dst, self.options, self.ctl, &self.copied).await
+        file_copy::transfer_file(self.fs, src, dst, &self.options, self.ctl, &self.copied).await
     }
 
     fn copy_metadata(&self, src: &Path, dst: &Path) {
-        file_copy::copy_metadata(self.fs, src, dst, self.options);
+        file_copy::copy_metadata(self.fs, src, dst, &self.options);
     }
 
     /// Where `src` is written: `None` when it is not copied (the user or the

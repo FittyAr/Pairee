@@ -23,6 +23,8 @@ pub struct JobControl {
     pub is_cancelled: Arc<AtomicBool>,
     pub skip_file_flag: Arc<AtomicBool>,
     pub event_tx: EventSender,
+    /// Option changes made while the job runs.
+    pub live: Arc<super::live::LiveOptions>,
 }
 
 impl JobControl {
@@ -34,6 +36,7 @@ impl JobControl {
             is_cancelled: Arc::clone(&job.is_cancelled),
             skip_file_flag: Arc::clone(&job.skip_file_flag),
             event_tx,
+            live: Arc::clone(&job.live),
         }
     }
 

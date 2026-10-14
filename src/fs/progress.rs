@@ -111,6 +111,7 @@ impl ArchiveReport {
             is_cancelled: Arc::new(AtomicBool::new(cancelled)),
             skip_file_flag: Arc::default(),
             event_tx,
+            live: Arc::default(),
         };
         Self::new(ctl, 0)
     }

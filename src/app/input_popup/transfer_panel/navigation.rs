@@ -1,6 +1,8 @@
 //! Navigation and options editing for transfer panel.
 
+use crate::app::state::transfer_options::OptionRow;
 use crate::app::state::{TransferTab, TransferUIState};
+use crate::fs::transfer::job::TransferJobStatus;
 use crossterm::event::KeyCode;
 
 pub fn handle_navigation(transfer: &mut TransferUIState, code: KeyCode) -> bool {
@@ -72,7 +74,9 @@ pub fn handle_navigation(transfer: &mut TransferUIState, code: KeyCode) -> bool 
                 if transfer.file_list_cursor < max_idx {
                     transfer.file_list_cursor += 1;
                 }
-            } else if transfer.active_tab == TransferTab::Options && transfer.options_cursor < 11 {
+            } else if transfer.active_tab == TransferTab::Options
+                && transfer.options_cursor + 1 < OptionRow::ALL.len()
+            {
                 transfer.options_cursor += 1;
             }
             true
@@ -81,56 +85,28 @@ pub fn handle_navigation(transfer: &mut TransferUIState, code: KeyCode) -> bool 
     }
 }
 
+/// Enter on an Options row: steps its value. A job that already started
+/// only takes the live rows ([`OptionRow::is_live`]): it shares them with
+/// its worker through `TransferJob::live`; the others are fixed then.
 pub fn handle_options_toggle(transfer: &mut TransferUIState) {
-    let jobs = transfer.engine.queue.get_all();
-    if let Some(job) = jobs.get(transfer.queue_cursor) {
-        let job_id = job.id;
-        transfer
-            .engine
-            .queue
-            .update_job(job_id, |j| match transfer.options_cursor {
-                0 => j.options.direct_io = !j.options.direct_io,
-                1 => j.options.verify_after_copy = !j.options.verify_after_copy,
-                2 => j.options.preserve_timestamps = !j.options.preserve_timestamps,
-                3 => j.options.preserve_attributes = !j.options.preserve_attributes,
-                4 => {}
-                5 => {
-                    j.options.buffer_size = match j.options.buffer_size {
-                        crate::fs::transfer::options::BufferSize::_64KB => {
-                            crate::fs::transfer::options::BufferSize::_256KB
-                        }
-                        crate::fs::transfer::options::BufferSize::_256KB => {
-                            crate::fs::transfer::options::BufferSize::_1MB
-                        }
-                        crate::fs::transfer::options::BufferSize::_1MB => {
-                            crate::fs::transfer::options::BufferSize::_4MB
-                        }
-                        crate::fs::transfer::options::BufferSize::_4MB => {
-                            crate::fs::transfer::options::BufferSize::_64KB
-                        }
-                    };
-                }
-                6 => {
-                    j.options.hash_algorithm = j.options.hash_algorithm.next();
-                }
-                7 => j.options.preserve_acl = !j.options.preserve_acl,
-                8 => j.options.preserve_streams = !j.options.preserve_streams,
-                9 => j.options.skip_symlinks = !j.options.skip_symlinks,
-                10 => j.options.follow_symlinks = !j.options.follow_symlinks,
-                11 => {
-                    j.options.limit_bandwidth_rate = match j.options.limit_bandwidth_rate {
-                        None => Some(1_048_576),
-                        Some(1_048_576) => Some(10_485_760),
-                        Some(10_485_760) => Some(52_428_800),
-                        Some(_) => None,
-                    };
-                }
-                _ => {}
-            });
-        if transfer.options_cursor == 4 {
-            transfer.post_action = next_post_action(&transfer.post_action);
-        }
+    let Some(row) = OptionRow::at(transfer.options_cursor) else {
+        return;
+    };
+    if row == OptionRow::PostAction {
+        transfer.post_action = next_post_action(&transfer.post_action);
+        return;
     }
+    let jobs = transfer.engine.queue.get_all();
+    let Some(job) = jobs.get(transfer.queue_cursor) else {
+        return;
+    };
+    if !row.is_live() && job.status != TransferJobStatus::Queued {
+        return;
+    }
+    transfer.engine.queue.update_job(job.id, |j| {
+        row.edit(&mut j.options);
+        j.live.publish(&j.options);
+    });
 }
 
 /// The post action after `current` in the Options row. "Eject drive" and

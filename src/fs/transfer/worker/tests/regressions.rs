@@ -354,3 +354,41 @@ async fn a_filtered_delete_keeps_what_the_mask_leaves_out() {
         results.failed_files
     );
 }
+
+/// APP2-44: the conflict policy and the speed limit changed in the panel
+/// reach a job whose worker already copied its options.
+#[tokio::test]
+async fn live_option_changes_reach_the_worker() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("src");
+    let dst = dir.path().join("dst");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::create_dir_all(&dst).unwrap();
+    std::fs::write(src.join("a.txt"), vec![7u8; 64 * 1024]).unwrap();
+    std::fs::write(dst.join("a.txt"), b"old").unwrap();
+    // Started as "skip" at one byte per second: it would never finish.
+    let started_with = TransferOptions {
+        conflict_resolution: "skip".into(),
+        limit_bandwidth_rate: Some(1),
+        ..TransferOptions::default()
+    };
+    let job = job(
+        TransferOperation::Copy,
+        &[&src.join("a.txt")],
+        &dst,
+        started_with.clone(),
+    );
+    let live = std::sync::Arc::clone(&job.live);
+    let edited = TransferOptions {
+        conflict_resolution: "overwrite".into(),
+        limit_bandwidth_rate: None,
+        ..started_with
+    };
+    live.publish(&edited);
+    let results = tokio::time::timeout(std::time::Duration::from_secs(20), run(job))
+        .await
+        .expect("the speed limit was lifted")
+        .unwrap();
+    assert_eq!(results.completed_files.len(), 1, "{results:?}");
+    assert_eq!(std::fs::read(dst.join("a.txt")).unwrap().len(), 64 * 1024);
+}

@@ -134,7 +134,7 @@ impl Reader {
             .verify_after_copy
             .then(|| create_hasher(self.options.hash_algorithm));
         let mut buf = vec![0u8; self.options.buffer_size.to_bytes()];
-        let throttle = Throttle::new(self.options.limit_bandwidth_rate);
+        let mut throttle = Throttle::new(self.options.limit_bandwidth_rate);
         let mut pos = self.start;
         loop {
             self.ctl.wait_if_paused_blocking()?;
@@ -152,6 +152,9 @@ impl Reader {
             }
             pos += read as u64;
             let paced = pos.saturating_sub(self.offset.max(self.start));
+            if let Some(rate) = self.ctl.live.bandwidth_rate() {
+                throttle.retarget(rate, paced);
+            }
             throttle.pace(paced, &|| self.ctl.is_cancelled());
         }
         Ok(hasher.map(|h| h.finalize()))

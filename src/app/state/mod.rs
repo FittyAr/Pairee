@@ -10,6 +10,7 @@ pub mod panel_pair;
 pub mod plugin_host;
 pub mod popup;
 pub mod prefs;
+pub mod transfer_options;
 pub mod transfer_state;
 pub mod types;
 pub mod update_state;

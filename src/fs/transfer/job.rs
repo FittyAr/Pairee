@@ -25,6 +25,9 @@ pub struct TransferJob {
     pub is_cancelled: Arc<std::sync::atomic::AtomicBool>,
     pub skip_file_flag: Arc<std::sync::atomic::AtomicBool>,
     pub active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
+    /// Option changes that reach the job while it runs (shared with its
+    /// worker; see [`super::live`]).
+    pub live: Arc<super::live::LiveOptions>,
     /// When `Some`, the engine runs the remote backend instead of the local worker.
     pub remote: Option<RemoteEndpoints>,
     /// Shell command template for [`TransferOperation::ApplyCommand`] (`%f` = path).
@@ -60,6 +63,7 @@ impl TransferJob {
             is_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             skip_file_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             active_conflict: Arc::default(),
+            live: Arc::default(),
             remote: None,
             shell_template: None,
             pairs: None,
