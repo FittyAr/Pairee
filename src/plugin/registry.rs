@@ -10,6 +10,7 @@ use crate::plugin::manager::{PluginOrigin, PluginRequest};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::{RwLock, mpsc, oneshot};
 
 /// What a previewer is asked to show: the file, the size of the preview
@@ -95,6 +96,21 @@ fn get_registry() -> &'static Registry {
     })
 }
 
+/// Bumped by every reload. A load remembers the value it started under and
+/// [`register_plugin`] refuses it once a newer reload has begun, so a slow
+/// stale load can never resurrect a plugin the user just disabled.
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// The current load generation (read when a load starts).
+pub fn generation() -> u64 {
+    GENERATION.load(Ordering::SeqCst)
+}
+
+/// Starts a new generation: loads begun earlier will not register.
+pub fn next_generation() -> u64 {
+    GENERATION.fetch_add(1, Ordering::SeqCst) + 1
+}
+
 /// A loaded plugin, ready to be registered.
 pub struct LoadedPlugin {
     pub manifest: PluginManifest,
@@ -107,10 +123,12 @@ pub struct LoadedPlugin {
 }
 
 /// Registers a loaded plugin and starts its worker task. `tx` is the
-/// plugin's channel to the main loop (for `--- @sync` refreshes).
+/// plugin's channel to the main loop (for `--- @sync` refreshes);
+/// `started_in` is the [`generation`] its load began under.
 pub async fn register_plugin(
     plugin: LoadedPlugin,
     tx: mpsc::Sender<PluginRequest>,
+    started_in: u64,
 ) -> anyhow::Result<()> {
     let name = plugin.manifest.name.clone();
     let registry = get_registry();
@@ -119,7 +137,13 @@ pub async fn register_plugin(
         path: plugin.path.clone(),
         methods: plugin.methods,
     };
-    registry.plugins.write().await.insert(name.clone(), info);
+    {
+        let mut plugins = registry.plugins.write().await;
+        if generation() != started_in {
+            anyhow::bail!("plugin {name}: a newer reload started; this load is discarded");
+        }
+        plugins.insert(name.clone(), info);
+    }
 
     // Its commands join the keymap (replacing those of an earlier load).
     crate::keybindings::plugin_commands::register(&name, plugin.manifest.keymap_commands());
@@ -230,4 +254,31 @@ pub async fn unregister_plugin(name: &str) {
     crate::keybindings::plugin_commands::unregister(name);
     registry.plugins.write().await.remove(name);
     registry.channels.write().await.remove(name);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_load_from_an_older_generation_never_registers() {
+        let lua = mlua::Lua::new();
+        let table = lua.create_table().unwrap();
+        let table_key = lua.create_registry_value(table).unwrap();
+        let manifest = PluginManifest::parse("name = \"stale-load\"\nversion = \"1\"\n").unwrap();
+        let plugin = LoadedPlugin {
+            manifest,
+            path: PathBuf::from("stale-load.pairee"),
+            lua,
+            table_key,
+            annotations: Annotations::parse(""),
+            methods: PluginMethods::default(),
+        };
+        let (tx, _rx) = mpsc::channel(1);
+        let err = register_plugin(plugin, tx, generation() + 1)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("newer reload"), "{err}");
+        assert!(plugin_info("stale-load").await.is_none());
+    }
 }

@@ -20,6 +20,11 @@ use super::dispatch_actions::compute_file_cache_path;
 /// Processes plugin requests in the main application loop.
 pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
     super::dialogs::settle_orphaned_plugin_dialogs(state);
+    let active = state.get_active_panel();
+    crate::plugin::workspace::set_active(
+        matches!(active.source, crate::fs::vfs::PanelSource::Local)
+            .then_some(active.current_path.as_path()),
+    );
 
     if let Some(rx_mutex) = super::lifecycle::PLUGIN_REQ_RX.get()
         && let Ok(mut rx) = rx_mutex.try_lock()

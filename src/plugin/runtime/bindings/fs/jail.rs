@@ -9,6 +9,9 @@
 //! * Trusted plugins in Secure Mode: reads are jailed to workspace, config,
 //!   cache, plugin and data directories; writes to workspace, cache and data
 //!   directories, never to the config directory outside the data directory.
+//!   The workspace is the active panel's folder (see
+//!   [`crate::plugin::workspace`]); the user's home or a filesystem root
+//!   never counts as one.
 //! * Trusted plugins otherwise: unrestricted (they already have `io`/`os`).
 //!
 //! Paths are normalized lexically and the nearest existing ancestor is
@@ -37,24 +40,45 @@ pub struct FsPolicy {
     pub data_dir: PathBuf,
     pub config_dir: PathBuf,
     pub cache_dir: PathBuf,
+    /// An explicit workspace root. Empty: the active panel's folder, which
+    /// changes as the user navigates (see [`crate::plugin::workspace`]).
     pub workspace: PathBuf,
 }
 
 impl FsPolicy {
     /// Build the policy for the plugin rooted at `plugin_dir`.
     pub fn new(plugin_dir: &Path, trusted: bool, secure_mode: bool) -> Self {
-        let name = plugin_dir
+        let folder = plugin_dir
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "unnamed".to_string());
+        let name = folder.strip_suffix(".pairee").unwrap_or(&folder);
+        let data_dir = crate::config::paths::get_plugin_data_dir(name);
+        if folder != name {
+            migrate_legacy_data_dir(
+                &crate::config::paths::get_plugin_data_dir(&folder),
+                &data_dir,
+            );
+        }
+        ensure_private_dir(&data_dir);
         Self {
             trusted,
             secure_mode,
             plugin_dir: plugin_dir.to_path_buf(),
-            data_dir: crate::config::paths::get_plugin_data_dir(&name),
+            data_dir,
             config_dir: crate::config::paths::get_config_dir(),
             cache_dir: crate::config::paths::get_cache_dir(),
-            workspace: std::env::current_dir().unwrap_or_default(),
+            workspace: PathBuf::new(),
+        }
+    }
+
+    /// The workspace root now: the explicit one, else the active panel's
+    /// folder; `None` when it is the home or a filesystem root.
+    pub fn workspace_root(&self) -> Option<PathBuf> {
+        if self.workspace.as_os_str().is_empty() {
+            crate::plugin::workspace::current()
+        } else {
+            crate::plugin::workspace::usable(&self.workspace)
         }
     }
 
@@ -68,7 +92,10 @@ impl FsPolicy {
         let absolute = if path.is_absolute() {
             path.clone()
         } else {
-            self.workspace.join(&path)
+            self.workspace_root()
+                .or_else(|| std::env::current_dir().ok())
+                .unwrap_or_default()
+                .join(&path)
         };
         let lexical = normalize_lexical(&absolute);
         let resolved = resolve_existing(&lexical)
@@ -76,7 +103,7 @@ impl FsPolicy {
 
         let matched = self
             .roots(access, &resolved)
-            .into_iter()
+            .iter()
             .find_map(|root| jailed_in(root, &resolved, &lexical));
         if access == Access::Write
             && let Some(Target::Jailed { rel, .. }) = &matched
@@ -104,24 +131,50 @@ impl FsPolicy {
     /// menu, plugins and `plugins.lock`) is read-only for every jailed
     /// plugin: a write there is only allowed inside the plugin's own data
     /// directory, so a plugin cannot switch Secure Mode off or trust itself.
-    fn roots(&self, access: Access, resolved: &Path) -> Vec<&PathBuf> {
+    fn roots(&self, access: Access, resolved: &Path) -> Vec<PathBuf> {
+        let workspace = self.workspace_root();
+        let mut roots = vec![self.data_dir.clone()];
         match access {
-            Access::Read if self.trusted => vec![
-                &self.plugin_dir,
-                &self.data_dir,
-                &self.workspace,
-                &self.config_dir,
-                &self.cache_dir,
-            ],
-            Access::Read => vec![&self.plugin_dir, &self.data_dir],
-            Access::Write if self.inside_config(resolved) => vec![&self.data_dir],
-            Access::Write if self.trusted => vec![&self.data_dir, &self.workspace, &self.cache_dir],
-            Access::Write => vec![&self.data_dir],
+            Access::Read if self.trusted => {
+                roots.extend([self.plugin_dir.clone(), self.config_dir.clone()]);
+                roots.extend(workspace);
+                roots.push(self.cache_dir.clone());
+            }
+            Access::Read => roots.push(self.plugin_dir.clone()),
+            Access::Write if self.inside_config(resolved) => {}
+            Access::Write if self.trusted => {
+                roots.extend(workspace);
+                roots.push(self.cache_dir.clone());
+            }
+            Access::Write => {}
         }
+        roots
     }
 
     fn inside_config(&self, resolved: &Path) -> bool {
         canonical_root(&self.config_dir).is_some_and(|cfg| resolved.starts_with(cfg))
+    }
+}
+
+/// Creates the per-plugin data folder (owner-only on Unix) so a jail rooted
+/// there can always be opened, even before the plugin writes anything.
+fn ensure_private_dir(dir: &Path) {
+    if std::fs::create_dir_all(dir).is_err() {
+        return;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
+    }
+}
+
+/// Earlier versions kept the data in `<name>.pairee`; the data folder is now
+/// the plain plugin name (as documented). Moves the old one over when the
+/// new one does not exist yet.
+fn migrate_legacy_data_dir(legacy: &Path, current: &Path) {
+    if legacy.is_dir() && !current.exists() {
+        let _ = std::fs::rename(legacy, current);
     }
 }
 
@@ -375,6 +428,39 @@ mod tests {
                 assert!(f.policy.check(&fine, Access::Write).is_ok());
             }
         }
+    }
+
+    #[test]
+    fn data_dir_is_the_plain_plugin_name_and_exists() {
+        let policy = FsPolicy::new(Path::new("plugins/zz-data-demo.pairee"), false, false);
+        assert_eq!(
+            policy.data_dir,
+            crate::config::paths::get_plugin_data_dir("zz-data-demo")
+        );
+        assert!(policy.data_dir.is_dir());
+        let _ = std::fs::remove_dir(&policy.data_dir);
+    }
+
+    #[test]
+    fn secure_mode_without_a_usable_workspace_only_reaches_its_own_folders() {
+        let mut f = fixture(true, true);
+        f.policy.workspace = PathBuf::new();
+        crate::plugin::workspace::set_active(None);
+        let work = f
+            .policy
+            .data_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("work");
+        assert!(
+            f.policy
+                .check(&s(&work.join("a.txt")), Access::Write)
+                .is_err()
+        );
+        let data = f.policy.data_dir.join("a.txt");
+        assert!(f.policy.check(&s(&data), Access::Write).is_ok());
     }
 
     #[test]

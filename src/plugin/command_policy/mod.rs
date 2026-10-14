@@ -22,6 +22,7 @@ mod resolve;
 #[cfg(test)]
 pub(crate) use resolve::make_tool;
 
+pub use args::PathUse;
 pub use deny::normalize_command_name;
 use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
@@ -109,6 +110,16 @@ impl CommandPolicy {
         match self {
             Self::Allowlist(_) => args::check(&normalize_command_name(program), args),
             _ => Ok(()),
+        }
+    }
+
+    /// The paths `args` make `program` write (or pack), each with how it is
+    /// used; empty outside Secure Mode. The caller jails them like
+    /// `pairee.fs` paths (see `args::path_arguments`).
+    pub fn path_arguments(&self, program: &str, args: &[String]) -> Vec<(String, PathUse)> {
+        match self {
+            Self::Allowlist(_) => args::path_arguments(&normalize_command_name(program), args),
+            _ => Vec::new(),
         }
     }
 
