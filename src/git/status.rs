@@ -86,7 +86,15 @@ pub fn get_status_scoped(
     Ok(statuses
         .iter()
         .filter_map(|entry| {
-            let path = entry.path().unwrap_or("").to_string();
+            // A rename's own `path()` is the old name; the file is now at
+            // the new one, which is what staging and discarding act on.
+            let path = [entry.head_to_index(), entry.index_to_workdir()]
+                .into_iter()
+                .flatten()
+                .find_map(|delta| delta.new_file().path()?.to_str())
+                .or_else(|| entry.path().ok())
+                .unwrap_or("")
+                .to_string();
             if path.is_empty() {
                 return None;
             }
