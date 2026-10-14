@@ -2,7 +2,9 @@
 //! `z`), Compare files and the duplicate finder.
 
 use crate::app::state::PopupType;
-use crate::app::state::popup::{CompareStatus, DuplicatesView, FileCompareView, FolderJump};
+use crate::app::state::popup::{
+    CompareStatus, DupeOptionsPrompt, DuplicatesView, FileCompareView, FolderJump,
+};
 use crate::config::localization::t;
 use crate::test_harness::Harness;
 use std::path::Path;
@@ -175,6 +177,12 @@ fn duplicate_finder_marks_and_deletes_copies() {
         h.state.dialogs.top(),
         Some(PopupType::DupeOptionsPrompt(_))
     ));
+    // The follow-links checkbox toggles (on and off again).
+    h.keys("Down Down Space");
+    let prompt = h.state.dialogs.top_as::<DupeOptionsPrompt>().unwrap();
+    assert!(prompt.follow_links);
+    h.assert_screen(&format!("[x] {}", t("dupes_follow_links")));
+    h.keys("Space Up Up");
     h.keys("Enter");
     h.settle();
     assert!(h.state.dialogs.top_as::<DuplicatesView>().is_some());

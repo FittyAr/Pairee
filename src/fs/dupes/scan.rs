@@ -16,8 +16,9 @@ pub(super) const REPORT_EVERY: Duration = Duration::from_millis(100);
 type BySize = BTreeMap<u64, Vec<PathBuf>>;
 
 /// Files of `roots` grouped by size (only sizes two files or more share).
-/// Links are left out, hard links of one file and paths reached from two
-/// roots count once.
+/// Links are left out unless `follow_links`; hard links of one file, a
+/// file reached through a link and its own path, and paths reached from
+/// two roots count once.
 pub(super) fn files_by_size(
     vfs: &dyn Vfs,
     roots: &[PathBuf],
@@ -28,6 +29,12 @@ pub(super) fn files_by_size(
     let mut sizes = BySize::new();
     let mut seen_paths = HashSet::new();
     let mut seen_links = HashSet::new();
+    let mut seen_files = HashSet::new();
+    let links = if options.follow_links {
+        LinkPolicy::Follow
+    } else {
+        LinkPolicy::Skip
+    };
     let mut progress = DupeProgress {
         stage: DupeStage::Scanning,
         done: 0,
@@ -36,8 +43,8 @@ pub(super) fn files_by_size(
     };
     let mut last_report = Instant::now();
     for root in roots {
-        let walker = Walker::new(vfs, root, WalkOptions::with_links(LinkPolicy::Skip))
-            .with_cancel(ctl.cancelled);
+        let walker =
+            Walker::new(vfs, root, WalkOptions::with_links(links)).with_cancel(ctl.cancelled);
         for item in walker {
             let found = match item {
                 Ok(found) => found,
@@ -45,6 +52,8 @@ pub(super) fn files_by_size(
                     report.partial = true;
                     return keep_shared(sizes);
                 }
+                // A followed link back into the walk: its files were seen.
+                Err(WalkError::Cycle { .. }) => continue,
                 Err(e) => {
                     report.partial = true;
                     report.unreadable.extend(e.path().map(PathBuf::from));
@@ -61,6 +70,14 @@ pub(super) fn files_by_size(
                 continue;
             }
             let first_link = entry.hard_link.is_none_or(|id| seen_links.insert(id));
+            // With links followed, one file can be reached by several paths.
+            let first_reach = !options.follow_links
+                || vfs
+                    .identity(&entry.path)
+                    .is_none_or(|id| seen_files.insert(id));
+            if !first_reach {
+                continue;
+            }
             if entry.size < options.min_size
                 || !first_link
                 || !seen_paths.insert(entry.path.clone())

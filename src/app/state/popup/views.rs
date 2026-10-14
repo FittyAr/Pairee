@@ -71,6 +71,8 @@ pub struct DupeOptionsPrompt {
     /// Smallest file size searched ("1", "4 KiB", "10MB"...).
     pub min_size: TextField,
     pub algorithm: HashAlgorithm,
+    /// Follow symbolic links while searching.
+    pub follow_links: bool,
     pub cursor_idx: usize,
 }
 
