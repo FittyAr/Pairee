@@ -12,8 +12,17 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::SystemTime;
 
+/// An SFTP error as an I/O error whose kind callers can test (a missing
+/// file is `NotFound`, as on the other adapters).
 fn io_err(e: ssh2::Error) -> io::Error {
-    io::Error::other(e)
+    // SSH_FX_* status codes of the SFTP protocol.
+    let kind = match e.code() {
+        ssh2::ErrorCode::SFTP(2 | 10) => io::ErrorKind::NotFound,
+        ssh2::ErrorCode::SFTP(3) => io::ErrorKind::PermissionDenied,
+        ssh2::ErrorCode::SFTP(11) => io::ErrorKind::AlreadyExists,
+        _ => io::ErrorKind::Other,
+    };
+    io::Error::new(kind, e)
 }
 
 /// A remote file whose `flush` also asks the server to sync it (where the

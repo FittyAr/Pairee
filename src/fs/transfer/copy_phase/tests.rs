@@ -224,3 +224,75 @@ async fn stream_copies_resume_matching_part_files() {
     assert_eq!(copy, data);
     assert!(appended.is_empty());
 }
+
+/// Uploads and downloads through a real SSH server resume the part files
+/// an interrupted copy left (opt-in, see `fs::ssh::server_tests`).
+#[cfg(pairee_sftp_test)]
+#[tokio::test(flavor = "multi_thread")]
+async fn sftp_server_copies_resume_part_files_both_ways() {
+    use crate::fs::ssh::server_tests::ServerFolder;
+    let data: Vec<u8> = (0..3_000_000u32).map(|i| (i % 249) as u8).collect();
+    let folder = ServerFolder::new();
+    let local = tempfile::tempdir().unwrap();
+    let src = local.path().join("big.bin");
+    std::fs::write(&src, &data).unwrap();
+    let options = || TransferOptions {
+        verify_after_copy: true,
+        ..TransferOptions::default()
+    };
+
+    // Upload over a part file holding the first million bytes.
+    let remote = folder.path.join("big.bin");
+    folder
+        .vfs
+        .write_file(&part_path(&remote), &mut &data[..1_000_000])
+        .unwrap();
+    let up = Endpoints {
+        dst: Arc::clone(&folder.vfs),
+        same_fs: false,
+        ..stream_endpoints()
+    };
+    let results = run_with(
+        up,
+        TransferOperation::Copy,
+        std::slice::from_ref(&src),
+        &folder.path,
+        options(),
+    )
+    .await;
+    assert_eq!(
+        results.completed_files.len(),
+        1,
+        "{:?}",
+        results.failed_files
+    );
+    assert!(!folder.vfs.exists(&part_path(&remote)));
+    let mut uploaded = Vec::new();
+    std::io::Read::read_to_end(&mut folder.vfs.open_read(&remote).unwrap(), &mut uploaded).unwrap();
+    assert_eq!(uploaded, data);
+
+    // Download over a local part file.
+    let back = local.path().join("back");
+    std::fs::create_dir(&back).unwrap();
+    std::fs::write(part_path(&back.join("big.bin")), &data[..2_000_000]).unwrap();
+    let down = Endpoints {
+        src: Arc::clone(&folder.vfs),
+        same_fs: false,
+        ..stream_endpoints()
+    };
+    let results = run_with(
+        down,
+        TransferOperation::Copy,
+        std::slice::from_ref(&remote),
+        &back,
+        options(),
+    )
+    .await;
+    assert_eq!(
+        results.completed_files.len(),
+        1,
+        "{:?}",
+        results.failed_files
+    );
+    assert_eq!(std::fs::read(back.join("big.bin")).unwrap(), data);
+}
