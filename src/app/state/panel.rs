@@ -271,6 +271,12 @@ impl PanelState {
         self.open_path(path);
     }
 
+    /// [`Self::open_path`] on the server of a new connection `conn`.
+    pub fn open_remote(&mut self, conn: crate::fs::remote::RemoteConn, path: PathBuf) {
+        self.source = crate::fs::vfs::PanelSource::Remote(conn);
+        self.open_path(path);
+    }
+
     /// Starts computing the size of the listed folders among `paths`
     /// (symbolic links to folders and `..` are skipped).
     pub fn calculate_dir_sizes(&mut self, paths: &[PathBuf]) {

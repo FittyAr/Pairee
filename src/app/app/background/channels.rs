@@ -36,11 +36,7 @@ pub fn process_remote_connect_updates(state: &mut AppState, context: &AppContext
             let Some((_, t)) = state.panels.find_tab_mut(tab) else {
                 return;
             };
-            let p = &mut t.panel;
-            p.source = crate::fs::vfs::PanelSource::Remote(conn);
-            p.current_path = start;
-            p.cursor_index = 0;
-            p.clear_selection();
+            t.panel.open_remote(conn, start);
             state.dialogs.clear();
             state.refresh_tab(tab, show_hidden, true);
         }

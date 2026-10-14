@@ -89,12 +89,8 @@ pub fn finish(
     match result {
         Ok((conn, _)) => {
             if let Some((_, tab)) = state.panels.find_tab_mut(id) {
-                let panel = &mut tab.panel;
-                panel.source = crate::fs::vfs::PanelSource::Remote(conn.clone());
-                panel.current_path = pending.path;
-                panel.pending_focus = pending.cursor;
-                panel.cursor_index = 0;
-                panel.clear_selection();
+                tab.panel.open_remote(conn.clone(), pending.path);
+                tab.panel.pending_focus = pending.cursor;
                 if pending.locked {
                     tab.lock_here();
                 }
