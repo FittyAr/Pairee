@@ -162,7 +162,7 @@ pub struct AppState {
 
     /// Background run of the multi-rename tool.
     pub multi_rename:
-        crate::app::jobs::JobSlot<crate::app::actions::fs_ops::multi_rename::RenameRun>,
+        crate::app::jobs::JobQueue<crate::app::actions::fs_ops::multi_rename::RenameRun>,
 
     /// Operation journal (undo/redo of file operations).
     pub journal: crate::fs::journal::Journal,

@@ -21,8 +21,7 @@ pub(super) fn run(
 ) {
     let result = match &command {
         FsCommand::Rename { steps, remote } => {
-            state.journal.begin_rename(direction);
-            run_steps(state, steps.clone(), remote.clone());
+            run_steps(state, steps.clone(), remote.clone(), Some(direction));
             return;
         }
         FsCommand::Move(batch) => {

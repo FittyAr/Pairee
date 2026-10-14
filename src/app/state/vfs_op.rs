@@ -7,58 +7,24 @@
 //! the application state (open the editor, record the journal entry, show
 //! a dialog) runs on the UI thread when the job finishes.
 //!
-//! Jobs run one at a time in the order they were started: none can be
-//! interrupted, so each one's follow-up or error must be delivered, and
-//! two rewrites of one archive must not race.
+//! Jobs run one at a time in the order they were started ([`JobQueue`]):
+//! none can be interrupted, so each one's follow-up or error must be
+//! delivered, and two rewrites of one archive must not race.
 
 use super::{AppState, PopupType};
-use crate::app::jobs::JobSlot;
+use crate::app::jobs::JobQueue;
 use crate::config::settings::Settings;
-use std::collections::VecDeque;
 use std::io;
 
 /// UI-thread continuation of a finished background change.
 pub type VfsFollowUp = Box<dyn FnOnce(&mut AppState, &Settings) + Send>;
 
-type VfsTask = Box<dyn FnOnce() -> io::Result<VfsFollowUp> + Send>;
+/// The running change and the ones waiting for it.
+pub type VfsOps = JobQueue<Result<VfsFollowUp, String>>;
 
 /// A follow-up that does nothing (the panels are reread anyway).
 pub fn no_follow_up() -> VfsFollowUp {
     Box::new(|_, _| {})
-}
-
-/// The running change and the ones waiting for it.
-#[derive(Default)]
-pub struct VfsOps {
-    running: JobSlot<Result<VfsFollowUp, String>>,
-    queued: VecDeque<VfsTask>,
-}
-
-impl std::fmt::Debug for VfsOps {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("VfsOps")
-            .field("running", &self.running)
-            .field("queued", &self.queued.len())
-            .finish()
-    }
-}
-
-impl VfsOps {
-    /// A change is running or waiting.
-    pub fn is_running(&self) -> bool {
-        self.running.is_running() || !self.queued.is_empty()
-    }
-
-    /// Starts the next waiting change once the running one is done.
-    fn start_next(&mut self) {
-        if self.running.is_running() {
-            return;
-        }
-        if let Some(task) = self.queued.pop_front() {
-            self.running
-                .start(move |_| task().map_err(|e| e.to_string()));
-        }
-    }
 }
 
 impl AppState {
@@ -75,16 +41,13 @@ impl AppState {
         &mut self,
         task: impl FnOnce() -> io::Result<VfsFollowUp> + Send + 'static,
     ) {
-        self.vfs_op.queued.push_back(Box::new(task));
-        self.vfs_op.start_next();
+        self.vfs_op.push(move || task().map_err(|e| e.to_string()));
     }
 
     /// Applies a finished operation: runs its follow-up or shows its error,
     /// and rereads both panels. Returns `true` when one finished.
     pub fn poll_vfs_op(&mut self, settings: &Settings) -> bool {
-        let result = self.vfs_op.running.poll();
-        self.vfs_op.start_next();
-        let Some(result) = result else {
+        let Some(result) = self.vfs_op.poll() else {
             return false;
         };
         match result {
@@ -96,7 +59,6 @@ impl AppState {
         true
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

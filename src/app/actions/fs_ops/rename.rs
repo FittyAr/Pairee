@@ -79,7 +79,7 @@ pub fn commit(
             from: src_path,
             to: target,
         };
-        super::multi_rename::run_steps(state, vec![step], Some(remote));
+        super::multi_rename::run_steps(state, vec![step], Some(remote), None);
         return;
     }
     // `rename` silently replaces an existing file: refuse instead (a
