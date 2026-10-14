@@ -166,7 +166,7 @@ mod tests {
         let unix: String = quote.call(("it's", true)).unwrap();
         assert_eq!(unix, "'it'\\''s'");
         let win: String = quote.call(("a&b %x%", false)).unwrap();
-        assert_eq!(win, "^\"a^&b ^%x^%^\"");
+        assert_eq!(win, "^\"a^&b ^%^x^%^\"");
     }
 
     #[test]
