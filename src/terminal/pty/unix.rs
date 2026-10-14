@@ -212,19 +212,29 @@ mod tests {
         let cmd = PtyCommand {
             program: "sh".into(),
             // Ignores SIGHUP, and so does `sleep`, which inherits that.
-            args: vec!["-c".into(), "trap '' HUP; sleep 30".into()],
+            args: vec!["-c".into(), "trap '' HUP; echo READY; sleep 30".into()],
             env: Vec::new(),
             cwd: None,
             size: PtySize::DEFAULT,
         };
         let SpawnedPty {
-            mut killer, waiter, ..
+            mut killer,
+            waiter,
+            mut reader,
+            ..
         } = spawn(&cmd).expect("spawn on pty");
+        // Signal only once the trap is set (a fixed sleep raced it on a
+        // loaded machine, so SIGHUP killed the shell).
+        let mut seen = Vec::new();
+        let mut byte = [0u8; 1];
+        while !String::from_utf8_lossy(&seen).contains("READY") {
+            assert_eq!(reader.read(&mut byte).expect("read"), 1, "{seen:?}");
+            seen.push(byte[0]);
+        }
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let _ = tx.send(waiter.wait());
         });
-        std::thread::sleep(Duration::from_millis(200));
         killer.kill().expect("SIGHUP to the group");
         assert!(
             rx.recv_timeout(Duration::from_millis(300)).is_err(),

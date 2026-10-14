@@ -28,8 +28,11 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 /// How long a save waits for another instance to release the lock before
-/// going ahead without it (a stopped process must not block saving).
-const LOCK_WAIT: Duration = Duration::from_secs(2);
+/// going ahead without it (a stopped process must not block saving). A
+/// process that exits or crashes releases its lock at once, so this only
+/// matters for a suspended one; it is generous because saves fsync, and on
+/// a slow disk a few queued writers can take seconds.
+const LOCK_WAIT: Duration = Duration::from_secs(10);
 const LOCK_RETRY: Duration = Duration::from_millis(10);
 
 /// The lock file of `path`: `.<name>.lock` next to it.
