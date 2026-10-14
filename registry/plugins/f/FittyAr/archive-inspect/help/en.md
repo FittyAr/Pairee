@@ -1,4 +1,4 @@
-# archive-inspect.pairee
+# archive-inspect
 
 A previewer plugin for Pairee that lists the contents of ZIP, TAR.GZ and 7Z
 archives directly in the preview pane — without extracting them.
@@ -15,15 +15,20 @@ following extensions:
 When you hover over an archive, the preview pane will show a table of the
 archive's contents (path, size, modification date).
 
-## Keybindings
+## Commands
 
-| Key | Action |
-|-----|--------|
-| `F2` | Show a quick summary notification for the hovered archive |
+| Command | Default keys | Action |
+|---------|--------------|--------|
+| Archive summary | `Ctrl+Alt+e a` (Neovim `<leader>pa`, yazi `Alt+p a`) | Show a quick summary notification for the hovered archive |
+
+The command is also in the command palette. Rebind it in `keybindings.toml`
+with its id, `plugin.archive-inspect.summary`.
+
+PgUp / PgDn scroll the listing in the preview pane.
 
 ## Settings
 
-You can tweak the plugin from the Pairee **Options** dialog (Plugins tab):
+Open the **Plugin Manager**, select the plugin and press `c` (or Enter):
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -59,9 +64,9 @@ The plugin implements the previewer contract:
 - `peek(job)` — detects the archive type, spawns the right listing tool,
   parses the output, sorts/truncates per the user settings, and returns a
   `pairee.ui.Table` widget.
-- `seek(job)` — re-emits the cached entries when the user scrolls.
-- `entry()` — invoked by `F2`; shows a popup with the entry count and total
-  uncompressed size.
+- `entry(args)` — the `summary` command; reads the hovered file from
+  `pairee.cx` (the `--- @sync entry` annotation refreshes it) and shows the
+  entry count and total uncompressed size.
 
 The listing output is parsed by a small per-format parser, so no external
 Lua dependencies are required.
@@ -83,12 +88,11 @@ will be replaced with a `pairee.ui.Table` widget like:
 └──────────────────────────────┴───────┴─────────────────────┘
 ```
 
-Use `seek(job)` (or scroll with the keyboard in the preview pane)
-to paginate through larger lists.
+Scroll larger lists with PgUp / PgDn in the preview pane.
 
-### `entry()` on a `.zip` file
+### The `summary` command on a `.zip` file
 
-Press `F2` while hovering over `release-0.7.0.zip` to get a quick
+Press `Ctrl+Alt+e a` while hovering over `release-0.7.0.zip` to get a quick
 summary toast like:
 
 ```text
@@ -104,7 +108,7 @@ Total size: 24.0 M
 |---------|--------------|-----|
 | The preview pane shows "Could not list archive contents" | The required tool (`unzip`, `tar`, or `7z`) is missing on `PATH` | Install it: `apt install unzip / p7zip`, `brew install p7zip`, etc. |
 | The `peek()` returns an empty table | The archive is password-protected | The plugin does not support encrypted archives; decrypt first or open in a tool that handles the password. |
-| `F2` shows "Not a supported archive: …" | The hovered file is not a `.zip` / `.tar(.gz)` / `.tgz` / `.7z` | This is expected; the plugin only inspects those four families. |
-| Listings look truncated past a few hundred entries | The `max_entries` setting is too low | Bump it from `Options → Plugins → archive-inspect` (default: `500`). |
+| The summary shows "Not a supported archive: …" | The hovered file is not a `.zip` / `.tar(.gz)` / `.tgz` / `.7z` | This is expected; the plugin only inspects those four families. |
+| Listings look truncated past a few hundred entries | The `max_entries` setting is too low | Raise it in the Plugin Manager settings of `archive-inspect` (default: `500`). |
 | Sort order seems wrong | The `sort_by` setting was changed from the default | Restore it to `path`, `size`, or `date` from the same dialog. |
-| Plugin fails to load | The `manifest.toml` [files] hash for `main.lua` no longer matches the on-disk file | The lockfile was tampered with; reinstall via `pairee plugin install archive-inspect.pairee`. |
+| Plugin fails to load | It needs Pairee 0.11.0 or newer (Lua API 1.3.0) | Update Pairee, then reinstall with `pairee plugin install archive-inspect`. |

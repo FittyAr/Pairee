@@ -46,7 +46,7 @@ generated_at = "2026-07-02T08:40:00Z"
 
 When working on this branch or generating tools to interact with it, ensure you comply with the following guidelines:
 
-1. **Plugin Location:** All plugin files must be packaged strictly into `registry/plugins/<author_initial_lowercase>/<author_name>/<plugin_name>/`.
+1. **Plugin Location:** All plugin files must be packaged strictly into `registry/plugins/<author_initial_lowercase>/<author_name>/<plugin_name>/`. `<plugin_name>` is the manifest `name` and `<author_name>` the manifest `author`, both `[A-Za-z0-9_-]` only: no `.pairee` suffix (Pairee installs the plugin as `<plugin_name>.pairee/` and refuses names with any other character).
 2. **Registry Index (`index.toml`):** Whenever a plugin is added or updated, the corresponding entry in `registry/index.toml` must be updated, adhering to the serialized `RegistryIndex` structure. Note that `index.toml` only holds metadata; the actual files list and their SHA-256 hashes must be appended to the copied `manifest.toml` under a `[files]` table.
 3. **License Handling:**
    - If the plugin workspace does not contain a license file, the packager must automatically assign the `"MIT"` license in the manifest and generate a default `LICENSE` file.

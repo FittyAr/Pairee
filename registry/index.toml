@@ -1,31 +1,28 @@
 schema_version = "1"
-generated_at = "2026-10-08T12:00:00Z"
+generated_at = "2026-10-14T18:37:21Z"
 
 [plugins]
 
-[plugins."archive-inspect.pairee"]
-name = "archive-inspect.pairee"
-version = "1.0.2"
+[plugins.archive-inspect]
+name = "archive-inspect"
+version = "1.1.0"
 description = "Preview the contents of ZIP, TAR.GZ and 7Z archives in the file panel without extracting them."
 author = "FittyAr"
 languages = ["en", "es"]
-hooks = ["preview"]
-min_pairee = "0.7.0"
+min_pairee = "0.11.0"
 
-[plugins."disk-usage.pairee"]
-name = "disk-usage.pairee"
-version = "1.1.1"
+[plugins.disk-usage]
+name = "disk-usage"
+version = "1.2.0"
 description = "Show a sorted breakdown of disk usage in the active panel. Find what is eating your space."
 author = "FittyAr"
 languages = ["en", "es"]
-hooks = ["ctrl-d"]
-min_pairee = "0.7.0"
+min_pairee = "0.11.0"
 
-[plugins."recent-files.pairee"]
-name = "recent-files.pairee"
-version = "1.0.0"
+[plugins.recent-files]
+name = "recent-files"
+version = "1.1.0"
 description = "Tracks recently visited files and directories in the background and lets you jump back to them with a single keypress."
 author = "FittyAr"
 languages = ["en", "es"]
-hooks = ["on_cd", "on_hover"]
-min_pairee = "0.7.0"
+min_pairee = "0.11.0"

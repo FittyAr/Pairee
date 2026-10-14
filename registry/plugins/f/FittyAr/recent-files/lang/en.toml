@@ -1,0 +1,7 @@
+[messages]
+empty        = "No recent files tracked yet — visit a few directories first."
+picker_title = "Recent files"
+opened       = "Jumped to: {path}"
+cd_failed    = "Cannot open {path}: {error}"
+kind_dir     = "[dir] "
+kind_file    = "[file]"

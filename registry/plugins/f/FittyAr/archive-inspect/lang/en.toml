@@ -1,0 +1,11 @@
+[messages]
+not_archive     = "Not a supported archive: {path}"
+listing_failed  = "Could not list archive contents."
+tool_hint       = "Tool: {tool}. Make sure it is installed and on PATH."
+summary_title   = "Archive summary"
+summary         = "{name}\n\n{count} entries\nTotal size: {size}"
+no_hovered      = "No file under the cursor."
+empty           = "Archive is empty."
+header_path     = "Path"
+header_size     = "Size"
+header_modified = "Modified"

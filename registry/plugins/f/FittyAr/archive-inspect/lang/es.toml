@@ -1,0 +1,11 @@
+[messages]
+not_archive     = "No es un archivo compatible: {path}"
+listing_failed  = "No se pudo listar el contenido del archivo."
+tool_hint       = "Herramienta: {tool}. Asegúrate de que esté instalada y en el PATH."
+summary_title   = "Resumen del archivo"
+summary         = "{name}\n\n{count} elementos\nTamaño total: {size}"
+no_hovered      = "No hay ningún archivo bajo el cursor."
+empty           = "El archivo está vacío."
+header_path     = "Ruta"
+header_size     = "Tamaño"
+header_modified = "Modificado"

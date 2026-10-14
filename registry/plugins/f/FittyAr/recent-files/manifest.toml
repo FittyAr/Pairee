@@ -1,0 +1,50 @@
+name = "recent-files"
+version = "1.1.0"
+description = "Tracks recently visited files and directories in the background and lets you jump back to them with a single keypress."
+author = "FittyAr"
+license = "MIT"
+homepage = "https://github.com/FittyAr/Pairee"
+tags = ["command", "hook", "navigation", "history", "recent"]
+
+# Plugin type: hook (setup subscriptions) + command (the picker)
+type = "mixed"
+
+# Lua API 1.3.0, `[[commands]]` and `pairee.state`
+min_pairee = "0.11.0"
+
+# Only uses pairee.state and panel events - no processes - so it runs
+# untrusted.
+requires_trust = false
+
+# Language support
+default_language = "en"
+languages = ["en", "es"]
+
+icon = "icon.png"
+screenshots = ["screenshots/picker.png"]
+
+# Settings users can tweak in the Plugin Manager (`c` or Enter)
+[settings_schema]
+max_entries  = { type = "integer", default = 50,    description = "Maximum number of recent entries to keep." }
+record_dirs  = { type = "bool",    default = true,  description = "Record folder changes (cd)." }
+record_hover = { type = "bool",    default = false, description = "Also record every file under the cursor (can be noisy; off by default)." }
+
+# Recent-files picker (keymap id: plugin.recent-files.pick)
+[[commands]]
+id = "pick"
+title = "Recent files"
+
+[commands.keys]
+default = "Ctrl+Alt+e r"
+neovim = "<leader>pr"
+yazi = "Alt+p r"
+
+[files]
+"LICENSE" = "a19d22e9b72a9ec16d50c7424d72b3d00d48549b50876bc6551fabab50cf5e11"
+"help/en.md" = "a3b17ec023649f64b3f8800056bdfb04263038c9bf69b0cdba1dab4c3b7e3f42"
+"help/es.md" = "4c68e8e2b83e6b0bad7870f6c754932b1b670c061bc0e9367353aa45f5c799c6"
+"icon.png" = "4c8ed2ebded26107238e6b75a45f241ad26736a56fb595ded6c2623ff6e09fb7"
+"lang/en.toml" = "4615cfcc985dc31484fe1ffcb9400055e93e5b5248807df16f3d72ba5001b747"
+"lang/es.toml" = "c5990b924cc83e884bd6b9da3a9f3bfe7673e471136e9c24a2b65d247257fac2"
+"main.lua" = "f5abc3af3b3bc569310531a4315e26d4027393586a83f79a4b2f7d54249434b3"
+"screenshots/picker.png" = "5c840f86e0967e5823198180f9e4f0c9fc6322e7d4874e2858ffa242f389db8a"

@@ -1,0 +1,9 @@
+[messages]
+no_cwd        = "No local folder to scan in the active panel."
+tool_missing  = "Required tool '{tool}' is not on PATH."
+scan_failed   = "Disk-usage scan failed. See the log for details."
+nothing_found = "No scannable entries were found in this directory."
+report_ready  = "Scanned {total} entries; showing the top {top} in the Quick View."
+summary       = "{cwd}\nScanned: {count} entries · Total: {total}\nLargest {top} entries:"
+header_size   = "Size"
+header_path   = "Path"

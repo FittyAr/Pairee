@@ -1,24 +1,30 @@
-# disk-usage.pairee
+# disk-usage
 
 A command plugin for Pairee that analyses the disk usage of the active
 panel's working directory and surfaces the largest offenders.
 
-## Keybinding
+## Command
 
-| Key | Action |
-|-----|--------|
-| `Ctrl+D` | Run the disk-usage analysis on the active panel's cwd |
+| Command | Default keys | Action |
+|---------|--------------|--------|
+| Disk usage report | `Ctrl+Alt+e d` (Neovim `<leader>pd`, yazi `Alt+p d`) | Run the disk-usage analysis on the active panel's folder |
 
-The result is rendered in the preview pane as a sorted table (largest
-first), and a toast notification reports how many entries were scanned.
+The command is also in the command palette. Rebind it in `keybindings.toml`
+with its id, `plugin.disk-usage.report`.
+
+The result is shown in the Quick View of the scanned folder as a sorted
+table (largest first), and a notification reports how many entries were
+scanned. Remote panels (SFTP, FTP, ...) are not scanned.
 
 ## Settings
 
+Open the **Plugin Manager**, select the plugin and press `c` (or Enter):
+
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `depth` | `2` | How deep to recurse when measuring each top-level entry (`1` = no recursion). |
+| `depth` | `2` | How deep `du` lists nested folders (`1` = only the top-level entries). Windows always lists the top level. |
 | `top_n` | `20` | How many of the largest entries to display. |
-| `include_hidden` | `false` | Include hidden files / dot-directories in the calculation. |
+| `include_hidden` | `false` | Include hidden files / dot-directories in the report. |
 | `extra_args` | `""` | Extra arguments appended to the `du` invocation (Linux / macOS only). |
 
 ## How it works
@@ -26,11 +32,10 @@ first), and a toast notification reports how many entries were scanned.
 - On **Linux / macOS** it spawns `du -k -d <depth> <cwd>` (`-d` works with both GNU and BSD `du`).
 - On **Windows** it walks the directory natively with `pairee.fs.read_dir`
   and sums file sizes per top-level entry (symlinks are not followed). No
-  shell is spawned, so it also works in Secure Mode.
+  process is spawned.
 
 The output is parsed, sorted by size, trimmed to the top N entries, and
-formatted as a `pairee.ui.Table` widget that is pushed into the preview
-pane.
+shown with `pairee.preview_widget` as a summary above a `pairee.ui.Table`.
 
 ## Why trusted?
 
@@ -48,35 +53,30 @@ commands = ["du"]
 
 ### Default run (depth=2, top_n=20)
 
-With the cursor parked on a typical project folder, press `Ctrl+D`.
-The preview pane will be replaced with a `pairee.ui.Table` widget
-similar to:
+Inside a typical project folder, press `Ctrl+Alt+e d`. The Quick View
+of the folder shows a report similar to:
 
 ```text
-┌──────────────────┬──────────────────────────┐
-│ Size             │ Path                     │
-├──────────────────┼──────────────────────────┤
-│ 1.4 G (48%)      │ node_modules/            │
-│ 820 M (28%)      │ target/                  │
-│ 240 M (8%)       │ .git/                    │
-│ 180 M (6%)       │ vendor/                  │
-│ …                │ …                        │
-└──────────────────┴──────────────────────────┘
-
 /home/me/projects/pairee
-Scanned: 18 entries · Total: 2.9 G · Depth: 2
+Scanned: 18 entries · Total: 2.9 GB
+Largest 18 entries:
 
-Largest 20 entries:
+Size              Path
+1.4 GB (48%)      /home/me/projects/pairee/node_modules
+820.0 MB (28%)    /home/me/projects/pairee/target
+240.0 MB (8%)     /home/me/projects/pairee/.git
+180.0 MB (6%)     /home/me/projects/pairee/vendor
+…                 …
 ```
 
-A toast notification at the bottom of the screen reports the
-total scanned count and the top-N limit.
+A notification reports the total scanned count and how many entries are
+shown.
 
 ### Tweak the recursion depth
 
-Set `depth = 1` in the dialog (`Options → Plugins → disk-usage`)
-to only measure the **top level** of the cwd (one level of
-recursion, no nested file counts). Useful for "which subdirectory
+Set `depth = 1` in the plugin settings (Plugin Manager → `disk-usage` → `c`)
+to only list the **top level** of the folder (each entry still counts
+everything below it). Useful for "which subdirectory
 should I delete to free the most space?".
 
 ### Include hidden files
@@ -102,5 +102,5 @@ extra_args = "--exclude=build-artifacts"
 | Toast says "Required tool 'du' is not on PATH" | The binary is missing or the `$PATH` doesn't include `/usr/bin` | Install `coreutils` (Linux) or `du` is preinstalled on macOS. Windows does not need `du` (native scan). |
 | Report is empty (`No scannable entries were found in this directory`) | The cwd is empty or you set `depth = 0` | Bump `depth` to at least `1`, or change to a folder with files. |
 | Permission-denied errors are silently dropped | The plugin ignores files it can't read (avoids spamming the report with system noise) | Re-run as administrator if you need those entries, or exclude the offending subtree with `extra_args`. |
-| Plugin fails to load | The `manifest.toml` [files] hash for `main.lua` no longer matches the on-disk file | Reinstall via `pairee plugin install disk-usage.pairee`. |
+| Plugin fails to load | It needs Pairee 0.11.0 or newer (Lua API 1.3.0) | Update Pairee, then reinstall with `pairee plugin install disk-usage`. |
 | Result is `0 B` for every entry | `depth` is too low for your layout, or the cwd is on a different filesystem (e.g. a network share) | Try `depth = 3` or higher; on remote FSes, run from a local copy. |

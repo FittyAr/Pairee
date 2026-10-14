@@ -1,0 +1,9 @@
+[messages]
+no_cwd        = "No hay una carpeta local para escanear en el panel activo."
+tool_missing  = "La herramienta '{tool}' requerida no está en el PATH."
+scan_failed   = "Falló el escaneo de uso de disco. Revisa el log para más detalles."
+nothing_found = "No se encontraron elementos escaneables en este directorio."
+report_ready  = "Se escanearon {total} elementos; la Vista rápida muestra los {top} más grandes."
+summary       = "{cwd}\nEscaneados: {count} elementos · Total: {total}\nLos {top} más grandes:"
+header_size   = "Tamaño"
+header_path   = "Ruta"
