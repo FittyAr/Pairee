@@ -125,3 +125,33 @@ fn rewriting_keeps_archive_and_entry_permissions() {
         assert_eq!(entry.mode.map(|m| m & 0o777), Some(0o750), "{name}");
     }
 }
+
+/// An archive opened through a link is edited where it really is: the
+/// link stays a link and the archive it points to gets the change.
+#[test]
+fn editing_through_a_link_changes_the_real_archive() {
+    let dir = tempfile::tempdir().unwrap();
+    let real = dir.path().join("real.zip");
+    write_zip(&real, SAMPLE_TREE);
+    let link = dir.path().join("link.zip");
+    #[cfg(unix)]
+    let made = std::os::unix::fs::symlink(&real, &link);
+    #[cfg(windows)]
+    let made = std::os::windows::fs::symlink_file(&real, &link);
+    if made.is_err() {
+        // Links need Developer Mode or an administrator on Windows.
+        return;
+    }
+    let edit = ArchiveEdit {
+        add: vec![(PathBuf::from("new.txt"), EntrySource::Bytes(b"n".to_vec()))],
+        ..ArchiveEdit::default()
+    };
+    rewrite(&link, &edit);
+    assert!(
+        std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    assert!(files(&real).contains(&"new.txt".to_string()));
+}
