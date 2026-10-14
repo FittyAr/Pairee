@@ -1,4 +1,5 @@
-use anyhow::{Context, Result};
+use crate::fs::error::LocalizedResult;
+use anyhow::Result;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -40,7 +41,7 @@ pub fn owner_of(meta: &std::fs::Metadata) -> Option<String> {
 
 /// Reads the file attributes for the given path.
 pub fn read_attrs(path: &Path) -> Result<FileAttrs> {
-    let meta = std::fs::metadata(path).with_context(|| format!("Reading metadata: {:?}", path))?;
+    let meta = std::fs::metadata(path).localized("fs_error_read_metadata", path)?;
 
     let readonly = meta.permissions().readonly();
     let size = meta.len();
@@ -112,12 +113,10 @@ impl AttrChange {
 // Expose set_readonly utility function for metadata changes.
 /// Sets the read-only flag on the file.
 pub fn set_readonly(path: &Path, readonly: bool) -> Result<()> {
-    let meta = std::fs::metadata(path)
-        .with_context(|| format!("Reading metadata for chmod: {:?}", path))?;
+    let meta = std::fs::metadata(path).localized("fs_error_read_metadata", path)?;
     let mut perms = meta.permissions();
     perms.set_readonly(readonly);
-    std::fs::set_permissions(path, perms)
-        .with_context(|| format!("Setting permissions on {:?}", path))
+    std::fs::set_permissions(path, perms).localized("fs_error_set_permissions", path)
 }
 
 // This utility function is prepared for the interactive chmod attributes dialog.
@@ -127,8 +126,7 @@ pub fn set_unix_mode(path: &Path, mode: u32) -> Result<()> {
     {
         use std::os::unix::fs::PermissionsExt;
         let perms = std::fs::Permissions::from_mode(mode);
-        std::fs::set_permissions(path, perms)
-            .with_context(|| format!("Setting UNIX mode {:o} on {:?}", mode, path))
+        std::fs::set_permissions(path, perms).localized("fs_error_set_permissions", path)
     }
     #[cfg(not(unix))]
     {

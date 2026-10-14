@@ -7,7 +7,7 @@
 //! archive inside an archive is browsed read-only from a temporary copy
 //! (see [`super::nested`]).
 
-use super::edit::{ArchiveEdit, EntrySource, OnAdded};
+use super::edit::{ArchiveEdit, EntrySource, OnAdded, PrivateTempFile};
 use super::format::{ArchiveReader, Visit};
 use super::index::{ArchiveIndex, Node};
 use super::nested::ArchiveData;
@@ -241,15 +241,13 @@ impl Vfs for ArchiveVfs {
     fn open_read(&self, path: &Path) -> io::Result<Box<dyn Read + Send>> {
         let entry = self.stat(path)?;
         if entry.size > MAX_ENTRY_READ_BYTES {
-            return Err(io::Error::other(
-                crate::config::localization::t("vfs_file_too_large")
-                    .replacen("{}", &bytesize::ByteSize::b(entry.size).to_string(), 1)
-                    .replacen(
-                        "{}",
-                        &bytesize::ByteSize::b(MAX_ENTRY_READ_BYTES).to_string(),
-                        1,
-                    ),
-            ));
+            return Err(io::Error::other(crate::config::localization::t_fill(
+                "vfs_file_too_large",
+                &[
+                    &bytesize::ByteSize::b(entry.size).to_string(),
+                    &bytesize::ByteSize::b(MAX_ENTRY_READ_BYTES).to_string(),
+                ],
+            )));
         }
         let bytes = self.read_entry(&self.inner(path)?, MAX_ENTRY_READ_BYTES)?;
         Ok(Box::new(io::Cursor::new(bytes)))
@@ -259,11 +257,17 @@ impl Vfs for ArchiveVfs {
         self.read_entry(&self.inner(path)?, max)
     }
 
+    /// The stream is staged in a private temporary file, never in memory
+    /// (it can be larger than RAM); the file goes away once the archive
+    /// is rewritten, or when reading or rewriting fails.
     fn write_file(&self, path: &Path, data: &mut dyn Read) -> io::Result<()> {
-        let mut bytes = Vec::new();
-        data.read_to_end(&mut bytes)?;
+        let inner = self.inner(path)?;
+        if !self.writable() {
+            return Err(unsupported());
+        }
+        let staged = PrivateTempFile::from_reader(&crate::fs::file_name_lossy(path), data)?;
         self.edit_one(ArchiveEdit {
-            add: vec![(self.inner(path)?, EntrySource::Bytes(bytes))],
+            add: vec![(inner, EntrySource::File(staged.path().to_path_buf()))],
             ..ArchiveEdit::default()
         })
     }

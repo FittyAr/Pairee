@@ -67,10 +67,6 @@ pub fn rewrite_zip(archive: &Path, edit: &ArchiveEdit, on_added: &mut OnAdded) -
         for (rel, source) in &edit.add {
             match source {
                 EntrySource::Dir => out.add_directory(entry_name(rel, true), file_options(0))?,
-                EntrySource::Bytes(bytes) => {
-                    out.start_file(entry_name(rel, false), file_options(bytes.len() as u64))?;
-                    io::Write::write_all(&mut out, bytes)?;
-                }
                 EntrySource::File(path) => {
                     let meta = fs::metadata(path)?;
                     if meta.is_dir() {

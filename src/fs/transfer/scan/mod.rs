@@ -28,7 +28,6 @@ use super::worker::is_destination_parent_dir;
 use crate::config::localization::t;
 use crate::fs::vfs::{Vfs, VfsEntry};
 use crate::fs::walk::{LinkPolicy, WalkEntry, WalkError, WalkOptions, Walker};
-use anyhow::anyhow;
 use std::path::{Component, Path, PathBuf};
 
 /// One file to transfer: source, destination (empty for a delete), size.
@@ -269,7 +268,7 @@ impl Scanner<'_> {
         let mut walker = Walker::new(self.req.src_fs, src, options).with_cancel(&cancelled);
         while let Some(item) = walker.next() {
             match item {
-                Err(WalkError::Cancelled) => return Err(anyhow!("Job cancelled during scan")),
+                Err(WalkError::Cancelled) => return Err(crate::fs::error::cancelled()),
                 Err(e) => {
                     let path = e.path().map(Path::to_path_buf).unwrap_or_default();
                     self.refuse(&path, e.to_string());

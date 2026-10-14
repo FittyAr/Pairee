@@ -16,10 +16,53 @@ use super::safe_extract::ExtractGuard;
 #[derive(Debug, Clone)]
 pub enum EntrySource {
     Dir,
-    Bytes(Vec<u8>),
     /// A local file (or folder), streamed into the archive with its
-    /// permissions and modification time.
+    /// permissions and modification time. Data that is not a local file
+    /// is copied to a [`PrivateTempFile`] first.
     File(PathBuf),
+}
+
+/// A file in a private temporary folder of its own (0700 on Unix), both
+/// removed on drop, whether the work done with it succeeded or not: a
+/// stream staged for an archive rewrite (which then adds it like any local
+/// file, without holding it in memory), or an archive extracted from
+/// another one.
+#[derive(Debug)]
+pub struct PrivateTempFile {
+    _dir: tempfile::TempDir,
+    path: PathBuf,
+}
+
+impl PrivateTempFile {
+    /// Copies `data` to a new private file named `name`; a failing (or
+    /// cancelled) read leaves nothing behind. On Unix the file gets the
+    /// usual mode of a new file (the entry added from it keeps it), not a
+    /// temporary file's private one.
+    pub fn from_reader(name: &str, data: &mut dyn io::Read) -> io::Result<Self> {
+        let staged = Self::new(name)?;
+        let mut out = fs::File::create(&staged.path)?;
+        io::copy(data, &mut out)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            const NEW_FILE_MODE: u32 = 0o644;
+            out.set_permissions(fs::Permissions::from_mode(NEW_FILE_MODE))?;
+        }
+        Ok(staged)
+    }
+
+    /// A new private folder for the file `name` (not created yet; its
+    /// extension tells archive formats apart).
+    pub fn new(name: &str) -> io::Result<Self> {
+        // Private: the shared temp folder would let other users read it.
+        let dir = crate::fs::privileges::private_temp_dir("pairee-archive-")?;
+        let path = dir.path().join(name);
+        Ok(Self { _dir: dir, path })
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
 }
 
 /// Changes applied by one rewrite. Paths are relative to the archive root.

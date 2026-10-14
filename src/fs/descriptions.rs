@@ -1,5 +1,6 @@
 use crate::config::write_atomic;
-use anyhow::{Context, Result};
+use crate::fs::error::LocalizedResult;
+use anyhow::Result;
 use std::path::Path;
 
 /// Filename used for per-directory file descriptions (Norton Commander style).
@@ -64,7 +65,7 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
     // would lose every other description); lines of other files are kept
     // byte for byte, whatever their encoding.
     let mut lines: Vec<Vec<u8>> = read_lines(&desc_path)
-        .with_context(|| format!("Reading {:?}", desc_path))?
+        .localized("fs_error_read_file", &desc_path)?
         .into_iter()
         .filter(|line| !describes(line, filename))
         .collect();
@@ -89,14 +90,13 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
 
     if lines.is_empty() {
         if desc_path.exists() {
-            std::fs::remove_file(&desc_path)
-                .with_context(|| format!("Removing empty description file {:?}", desc_path))?;
+            std::fs::remove_file(&desc_path).localized("fs_error_remove", &desc_path)?;
         }
         Ok(())
     } else {
         let mut output = lines.join(&b'\n');
         output.push(b'\n');
-        write_atomic(&desc_path, &output).with_context(|| format!("Writing {:?}", desc_path))
+        write_atomic(&desc_path, &output).localized("fs_error_write_file", &desc_path)
     }
 }
 

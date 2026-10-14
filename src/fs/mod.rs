@@ -6,6 +6,7 @@ pub mod du;
 pub mod dupes;
 pub mod elevated_helper;
 pub mod entry;
+pub mod error;
 pub mod external_tools;
 pub mod file_id;
 pub mod glob;

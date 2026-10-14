@@ -16,9 +16,8 @@ use tar::{Builder, EntryType, Header, HeaderMode};
 use super::edit::{ArchiveEdit, EntrySource, OnAdded, entry_name, replace_archive};
 use super::tar_ops::{TarCompression, TarReader};
 
-/// Mode of added folders and of added data without a source file.
+/// Mode of added folders without a source folder.
 const DIR_MODE: u32 = 0o755;
-const FILE_MODE: u32 = 0o644;
 /// xz preset of rewritten archives (the `xz` command's default).
 const XZ_PRESET: u32 = 6;
 
@@ -151,10 +150,6 @@ fn add_entry<W: Write>(out: &mut Builder<W>, rel: &Path, source: &EntrySource) -
         EntrySource::Dir => {
             let mut header = new_header(EntryType::Directory, DIR_MODE, 0);
             out.append_data(&mut header, &name, io::empty())?;
-        }
-        EntrySource::Bytes(bytes) => {
-            let mut header = new_header(EntryType::Regular, FILE_MODE, bytes.len() as u64);
-            out.append_data(&mut header, &name, bytes.as_slice())?;
         }
         EntrySource::File(path) => {
             let meta = fs::metadata(path)?;

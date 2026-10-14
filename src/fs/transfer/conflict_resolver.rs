@@ -10,7 +10,6 @@ use super::events::TransferEvent;
 use super::job::{SkippedFile, TransferResults};
 use super::options::TransferOptions;
 use crate::fs::vfs::Vfs;
-use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::time::SystemTime;
@@ -74,7 +73,7 @@ impl ConflictResolver<'_> {
             | ConflictResolution::KeepBoth => "rename",
             ConflictResolution::Cancel => {
                 self.ctl.is_cancelled.store(true, Ordering::SeqCst);
-                return Err(anyhow!("Job cancelled"));
+                return Err(crate::fs::error::cancelled());
             }
             _ => "skip",
         }
@@ -99,7 +98,7 @@ impl ConflictResolver<'_> {
             },
         });
         let Some(answer) = self.slot.wait(self.ctl.is_cancelled.as_ref()).await else {
-            return Err(anyhow!("Job cancelled"));
+            return Err(crate::fs::error::cancelled());
         };
         self.slot.reset();
         if matches!(

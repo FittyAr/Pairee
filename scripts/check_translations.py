@@ -29,8 +29,11 @@ ROOT = Path(__file__).resolve().parents[1]
 LANGS = ("en", "es")
 TOP_LEVEL = {"language_name", "translations"}
 PLACEHOLDER = re.compile(r"\{[A-Za-z0-9_]*\}")
-# `t("key")` / `tr("key")` with a literal key.
-LOOKUP = re.compile(r'\b(?:t|tr)\(\s*"([a-z][a-z0-9_.]*)"\s*\)')
+# `t("key")` / `tr("key")` with a literal key, and the helpers that take
+# the key first: `t_fill("key", ..)`, `localized("key", ..)`.
+LOOKUP = re.compile(
+    r'\b(?:(?:t|tr)\(\s*"([a-z][a-z0-9_.]*)"\s*\)|(?:t_fill|localized)\(\s*"([a-z][a-z0-9_.]*)"\s*,)'
+)
 # Keys built at run time: `format!("action_{}", id)` covers `action_*`.
 KEY_PREFIX = re.compile(r'format!\(\s*"([a-z][a-z0-9_]*_)\{')
 LITERAL = re.compile(r'"([a-z][a-z0-9_.]*)"')
@@ -69,7 +72,8 @@ def check_keys(en: dict[str, str], es: dict[str, str], errors: list[str]) -> Non
 
 
 def check_lookups(en: dict[str, str], source: str, errors: list[str]) -> None:
-    for key in sorted(set(LOOKUP.findall(source)) - set(en) - TEST_ONLY_KEYS):
+    used = {plain or first for plain, first in LOOKUP.findall(source)}
+    for key in sorted(used - set(en) - TEST_ONLY_KEYS):
         errors.append(f"en.toml: missing key {key} (used by t()/tr() in src/)")
 
 

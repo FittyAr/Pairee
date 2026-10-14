@@ -1,4 +1,5 @@
-use anyhow::{Context, Result};
+use crate::fs::error::LocalizedResult;
+use anyhow::Result;
 use std::path::Path;
 
 /// Kind of link the "create link" dialog makes.
@@ -23,22 +24,19 @@ pub fn create_link(src: &Path, dest: &Path, kind: LinkKind) -> Result<()> {
 pub fn create_symlink(src: &Path, dest: &Path) -> Result<()> {
     #[cfg(unix)]
     {
-        std::os::unix::fs::symlink(src, dest)
-            .with_context(|| format!("Creating symlink {:?} → {:?}", dest, src))
+        std::os::unix::fs::symlink(src, dest).localized("fs_error_create_link", dest)
     }
     #[cfg(windows)]
     {
         if src.is_dir() {
-            std::os::windows::fs::symlink_dir(src, dest)
-                .with_context(|| format!("Creating dir symlink {:?} → {:?}", dest, src))
+            std::os::windows::fs::symlink_dir(src, dest).localized("fs_error_create_link", dest)
         } else {
-            std::os::windows::fs::symlink_file(src, dest)
-                .with_context(|| format!("Creating file symlink {:?} → {:?}", dest, src))
+            std::os::windows::fs::symlink_file(src, dest).localized("fs_error_create_link", dest)
         }
     }
     #[cfg(not(any(unix, windows)))]
     {
-        anyhow::bail!("Symlinks are not supported on this platform")
+        anyhow::bail!(crate::config::localization::t("fs_error_links_unsupported"))
     }
 }
 
@@ -46,8 +44,7 @@ pub fn create_symlink(src: &Path, dest: &Path) -> Result<()> {
 ///
 /// Hard links only work for files (not directories) and within the same filesystem.
 pub fn create_hardlink(src: &Path, dest: &Path) -> Result<()> {
-    std::fs::hard_link(src, dest)
-        .with_context(|| format!("Creating hard link {:?} → {:?}", dest, src))
+    std::fs::hard_link(src, dest).localized("fs_error_create_link", dest)
 }
 
 #[cfg(test)]

@@ -1,6 +1,7 @@
 use crate::fs::descriptions::forget_description;
+use crate::fs::error::LocalizedResult;
 use crate::fs::vfs::LocalVfs;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::fs::{File, Metadata};
 use std::io::{Seek, SeekFrom, Write};
 use std::path::Path;
@@ -15,15 +16,14 @@ const WIPE_CHUNK: usize = 65536;
 /// below it wiped and its folders removed. Links inside are removed, never
 /// followed.
 pub fn wipe_path(path: &Path) -> Result<()> {
-    let meta = std::fs::symlink_metadata(path)
-        .with_context(|| format!("Reading metadata for wipe: {:?}", path))?;
+    let meta = std::fs::symlink_metadata(path).localized("fs_error_read_metadata", path)?;
     if !meta.is_dir() {
         return wipe_file(path);
     }
     crate::fs::remove::remove_tree_with(&LocalVfs, path, |file| {
         wipe_file(file).map_err(std::io::Error::other)
     })
-    .with_context(|| format!("Wiping folder: {:?}", path))?;
+    .localized("fs_error_wipe", path)?;
     forget_description(path);
     Ok(())
 }
@@ -37,30 +37,25 @@ pub fn wipe_path(path: &Path) -> Result<()> {
 /// This makes content recovery significantly harder, though not cryptographically
 /// guaranteed on SSDs with wear-leveling.
 pub fn wipe_file(path: &Path) -> Result<()> {
-    let link_meta = std::fs::symlink_metadata(path)
-        .with_context(|| format!("Reading metadata for wipe: {:?}", path))?;
+    let link_meta = std::fs::symlink_metadata(path).localized("fs_error_read_metadata", path)?;
 
     if link_meta.file_type().is_symlink() {
-        crate::fs::remove::remove_entry(path)
-            .with_context(|| format!("Removing link: {:?}", path))?;
+        crate::fs::remove::remove_entry(path).localized("fs_error_remove", path)?;
         forget_description(path);
         return Ok(());
     }
 
     if link_meta.is_dir() {
-        anyhow::bail!("wipe_file cannot wipe a directory: {:?}", path);
+        return Err(not_wipeable(path));
     }
 
     {
         let mut file = open_no_follow(path)?;
         // Re-check on the opened handle: the path may have been swapped
         // between `symlink_metadata` and `open`.
-        let meta = file.metadata().context("Reading metadata of opened file")?;
+        let meta = file.metadata().localized("fs_error_read_metadata", path)?;
         if !meta.is_file() || !same_file(&link_meta, &meta) {
-            anyhow::bail!(
-                "wipe_file target changed or is not a regular file: {:?}",
-                path
-            );
+            return Err(not_wipeable(path));
         }
 
         let file_size = meta.len();
@@ -68,17 +63,18 @@ pub fn wipe_file(path: &Path) -> Result<()> {
             // Overwrite with alternating patterns (0x00, 0xFF, 0x55)
             let patterns: &[u8] = &[0x00, 0xFF, 0x55];
             for pass in 0..WIPE_PASSES {
-                overwrite_with_byte(&mut file, file_size, patterns[pass % patterns.len()])?;
+                overwrite_with_byte(&mut file, file_size, patterns[pass % patterns.len()])
+                    .localized("fs_error_wipe", path)?;
             }
 
             // Final pass: zero-fill and truncate
-            overwrite_with_byte(&mut file, file_size, 0)?;
-            file.set_len(0).context("Truncating wiped file")?;
+            overwrite_with_byte(&mut file, file_size, 0).localized("fs_error_wipe", path)?;
+            file.set_len(0).localized("fs_error_wipe", path)?;
         }
     }
 
     forget_description(path);
-    std::fs::remove_file(path).with_context(|| format!("Removing file after wipe: {:?}", path))
+    std::fs::remove_file(path).localized("fs_error_remove", path)
 }
 
 /// Opens `path` for writing without following a symlink in the final
@@ -95,7 +91,7 @@ fn open_no_follow(path: &Path) -> Result<File> {
         }
         other => other,
     }
-    .with_context(|| format!("Opening file for wipe: {:?}", path))
+    .localized("fs_error_open_file", path)
 }
 
 fn open_for_wipe(path: &Path) -> std::io::Result<File> {
@@ -114,6 +110,14 @@ fn open_for_wipe(path: &Path) -> std::io::Result<File> {
     opts.open(path)
 }
 
+/// `path` is not a regular file (or was swapped while being opened).
+fn not_wipeable(path: &Path) -> anyhow::Error {
+    anyhow::anyhow!(crate::config::localization::t_fill(
+        "fs_error_wipe_not_file",
+        &[&path.display().to_string()]
+    ))
+}
+
 #[cfg(unix)]
 fn same_file(a: &Metadata, b: &Metadata) -> bool {
     use std::os::unix::fs::MetadataExt;
@@ -128,24 +132,22 @@ fn same_file(_a: &Metadata, b: &Metadata) -> bool {
 }
 
 /// Overwrites the entire contents of the open `file` with `byte`.
-fn overwrite_with_byte(file: &mut File, file_size: u64, byte: u8) -> Result<()> {
+fn overwrite_with_byte(file: &mut File, file_size: u64, byte: u8) -> std::io::Result<()> {
     let chunk = vec![byte; (file_size as usize).min(WIPE_CHUNK)];
-    file.seek(SeekFrom::Start(0))
-        .context("Seeking for wipe pass")?;
+    file.seek(SeekFrom::Start(0))?;
 
     let mut written: u64 = 0;
     while written < file_size {
         let to_write = ((file_size - written) as usize).min(chunk.len());
-        file.write_all(&chunk[..to_write])
-            .context("Writing wipe data")?;
+        file.write_all(&chunk[..to_write])?;
         written += to_write as u64;
     }
-    file.flush().context("Flushing wipe pass")?;
+    file.flush()?;
     // Force the kernel to flush the wipe data to disk before we move on to
     // the next pass. Without this, the OS may keep the overwrite in the page
     // cache and later writes (or even the unlink) could return success
     // before the bytes are actually on the storage, defeating the wipe.
-    file.sync_all().context("Syncing wipe pass to disk")?;
+    file.sync_all()?;
     Ok(())
 }
 

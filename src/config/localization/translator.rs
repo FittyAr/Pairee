@@ -97,9 +97,37 @@ pub fn t(key: &str) -> String {
     lookup(active, english(), key).map_or_else(|| key.to_string(), str::to_owned)
 }
 
+/// Fills each `{}` of `text`, in order, with the next of `args`; a `{}`
+/// left without an argument stays as it is. Arguments are inserted
+/// verbatim, so a `{}` inside one is never filled in turn.
+pub fn fill(text: &str, args: &[&str]) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    for arg in args {
+        let Some(at) = rest.find("{}") else { break };
+        out.push_str(&rest[..at]);
+        out.push_str(arg);
+        rest = &rest[at + 2..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// [`t`] with its `{}` placeholders filled by `args` (see [`fill`]).
+pub fn t_fill(key: &str, args: &[&str]) -> String {
+    fill(&t(key), args)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fill_replaces_positional_placeholders_once_each() {
+        assert_eq!(fill("{} of {}", &["a{}", "b"]), "a{} of b");
+        assert_eq!(fill("{} and {}", &["x"]), "x and {}");
+        assert_eq!(fill("none", &["x"]), "none");
+    }
 
     #[test]
     fn lookup_prefers_active_then_fallback() {

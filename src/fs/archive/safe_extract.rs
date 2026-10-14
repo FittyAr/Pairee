@@ -11,6 +11,7 @@
 //! * caps the number of entries and the total uncompressed bytes written,
 //!   aborting decompression bombs early.
 
+use crate::config::localization::{t, t_fill};
 use anyhow::{Result, anyhow, bail};
 use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
@@ -88,7 +89,7 @@ impl ExtractGuard {
                 Component::Normal(part) => rel.push(part),
                 Component::CurDir => {}
                 Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                    bail!("Refusing to extract entry with unsafe path: {name}");
+                    bail!(t_fill("archive_unsafe_entry_path", &[name]));
                 }
             }
         }
@@ -99,10 +100,10 @@ impl ExtractGuard {
     pub fn count_entry(&mut self) -> Result<()> {
         self.entries += 1;
         if self.entries > self.max_entries {
-            bail!(
-                "Archive has more than {} entries; refusing to extract (possible decompression bomb)",
-                self.max_entries
-            );
+            bail!(t_fill(
+                "archive_too_many_entries",
+                &[&self.max_entries.to_string()]
+            ));
         }
         Ok(())
     }
@@ -116,10 +117,10 @@ impl ExtractGuard {
     }
 
     fn size_error(&self) -> anyhow::Error {
-        anyhow!(
-            "Archive expands beyond {} bytes; refusing to extract (possible decompression bomb)",
-            self.max_bytes
-        )
+        anyhow!(t_fill(
+            "archive_expands_too_much",
+            &[&bytesize::ByteSize::b(self.max_bytes).to_string()]
+        ))
     }
 
     /// Creates `rel` (and its parents) as real directories under the root.
@@ -128,26 +129,15 @@ impl ExtractGuard {
         for part in rel.components() {
             current.push(part);
             match fs::symlink_metadata(&current) {
-                Ok(meta) if meta.file_type().is_symlink() => {
-                    bail!(
-                        "Refusing to extract through existing link: {}",
-                        current.display()
-                    );
-                }
+                Ok(meta) if meta.file_type().is_symlink() => bail!(through_link(&current)),
                 Ok(meta) if meta.is_dir() => {}
-                Ok(_) => bail!(
-                    "Cannot create directory, a file is in the way: {}",
-                    current.display()
-                ),
+                Ok(_) => bail!(file_in_the_way(&current)),
                 Err(e) if e.kind() == ErrorKind::NotFound => match fs::create_dir(&current) {
                     Ok(()) => {}
                     Err(e) if e.kind() == ErrorKind::AlreadyExists => {
                         // Lost a race: re-validate on the next pass.
                         if fs::symlink_metadata(&current)?.file_type().is_symlink() {
-                            bail!(
-                                "Refusing to extract through existing link: {}",
-                                current.display()
-                            );
+                            bail!(through_link(&current));
                         }
                     }
                     Err(e) => return Err(e.into()),
@@ -163,7 +153,7 @@ impl ExtractGuard {
     fn prepare_leaf(&mut self, rel: &Path) -> Result<Option<PathBuf>> {
         let file_name = rel
             .file_name()
-            .ok_or_else(|| anyhow!("Archive entry has an empty name"))?;
+            .ok_or_else(|| anyhow!(t("archive_entry_empty_name")))?;
         let parent = self.create_dir(rel.parent().unwrap_or(Path::new("")))?;
         let target = parent.join(file_name);
         match fs::symlink_metadata(&target) {
@@ -255,21 +245,13 @@ impl ExtractGuard {
         for part in rel.components() {
             current.push(part);
             match fs::symlink_metadata(&current) {
-                Ok(meta) if meta.file_type().is_symlink() => {
-                    bail!(
-                        "Refusing to extract through existing link: {}",
-                        current.display()
-                    );
-                }
+                Ok(meta) if meta.file_type().is_symlink() => bail!(through_link(&current)),
                 Ok(meta) if current.as_path() == self.root.join(rel) => {
                     if !(is_dir && meta.is_dir()) {
                         self.skipped.push(rel.to_path_buf());
                     }
                 }
-                Ok(meta) if !meta.is_dir() => bail!(
-                    "Cannot create directory, a file is in the way: {}",
-                    current.display()
-                ),
+                Ok(meta) if !meta.is_dir() => bail!(file_in_the_way(&current)),
                 Ok(_) => {}
                 Err(e) if e.kind() == ErrorKind::NotFound => break,
                 Err(e) => return Err(e.into()),
@@ -289,7 +271,7 @@ impl ExtractGuard {
         let mut written = 0u64;
         loop {
             if cancelled() {
-                bail!("Job cancelled");
+                return Err(crate::fs::error::cancelled());
             }
             let n = match reader.read(&mut buf) {
                 Ok(0) => break,
@@ -306,6 +288,19 @@ impl ExtractGuard {
         }
         Ok(written)
     }
+}
+
+/// An extraction would write through the existing link `path`.
+fn through_link(path: &Path) -> String {
+    t_fill(
+        "archive_extract_through_link",
+        &[&path.display().to_string()],
+    )
+}
+
+/// A folder entry would replace the existing file `path`.
+fn file_in_the_way(path: &Path) -> String {
+    t_fill("archive_file_in_the_way", &[&path.display().to_string()])
 }
 
 #[cfg(test)]
