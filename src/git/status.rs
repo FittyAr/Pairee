@@ -77,7 +77,9 @@ pub fn get_status_scoped(
     opts.include_untracked(true)
         .recurse_untracked_dirs(true)
         .include_ignored(false)
-        .include_unmodified(false);
+        .include_unmodified(false)
+        .renames_head_to_index(true)
+        .renames_index_to_workdir(true);
 
     let statuses = repo.statuses(Some(&mut opts))?;
 

@@ -117,6 +117,26 @@ fn failure_opens_localized_alert_over_the_panel() {
 }
 
 #[test]
+fn enter_on_a_stash_applies_it_instead_of_asking_to_pop() {
+    let dir = repo();
+    let mut state = state_with_panel(dir.path());
+    let stashes = [crate::git::stash::StashInfo {
+        index: 0,
+        message: "missing".into(),
+        oid: "0".repeat(40),
+    }];
+    assert!(handle_stash_tab(
+        &mut state,
+        KeyCode::Enter,
+        dir.path(),
+        &stashes,
+        0
+    ));
+    // Apply ran (and failed on the bogus oid); no pop confirmation opened.
+    assert!(top_error(&state).starts_with(&t("git_error_stash_apply_failed")));
+}
+
+#[test]
 fn missing_repository_is_reported() {
     let dir = TempDir::new().unwrap();
     let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
