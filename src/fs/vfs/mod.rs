@@ -21,7 +21,7 @@ mod source;
 #[cfg(test)]
 pub(crate) mod contract;
 
-pub use entry::{VfsEntry, panel_listing, parent_entry};
+pub use entry::{VfsEntry, is_plain_name, panel_listing, parent_entry};
 pub use local::LocalVfs;
 pub use source::PanelSource;
 

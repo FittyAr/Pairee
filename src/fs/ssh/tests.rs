@@ -2,7 +2,8 @@
 //! listing entry mapping, `..` handling, known_hosts path and verdicts.
 
 use super::connection::{host_key_verdict, known_hosts_path_in};
-use super::sftp_ops::{is_real_child, sftp_attrs, sftp_entry};
+use super::sftp_ops::{sftp_attrs, sftp_entry};
+use crate::fs::vfs::is_plain_name;
 use crate::fs::vfs::parent_entry;
 use ssh2::{CheckResult, FileStat};
 use std::ffi::OsString;
@@ -53,11 +54,15 @@ fn parent_entry_at_root_depends_on_setting() {
 
 #[test]
 fn real_children_exclude_dot_entries() {
-    assert!(is_real_child("file.txt"));
-    assert!(is_real_child(".hidden"));
-    assert!(is_real_child("..."));
-    for skip in ["", ".", ".."] {
-        assert!(!is_real_child(skip), "{skip:?}");
+    assert!(is_plain_name("file.txt"));
+    assert!(is_plain_name(".hidden"));
+    assert!(is_plain_name("..."));
+    for skip in ["", ".", "..", "a/b", "/abs", "a/."] {
+        assert!(!is_plain_name(skip), "{skip:?}");
+    }
+    #[cfg(windows)]
+    for skip in ["..\\evil", "a\\b", "C:evil", "C:\\evil"] {
+        assert!(!is_plain_name(skip), "{skip:?}");
     }
 }
 

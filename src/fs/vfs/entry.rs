@@ -2,7 +2,7 @@
 
 use crate::fs::FileEntry;
 use crate::fs::list::ListOptions;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
 /// One entry of a [`super::Vfs`] listing.
@@ -64,6 +64,19 @@ impl VfsEntry {
     }
 }
 
+/// `name` is one plain path component: not empty, `.` or `..`, without
+/// separators (`/`, and `\` on Windows) and no root or drive. Names a
+/// server sends are checked with it before they are joined to a folder,
+/// so a hostile listing can never lead a copy outside its destination.
+pub fn is_plain_name(name: &str) -> bool {
+    let mut components = Path::new(name).components();
+    !name.contains('/')
+        && matches!(
+            (components.next(), components.next()),
+            (Some(Component::Normal(part)), None) if part == name
+        )
+}
+
 /// The `..` entry shown at the top of the listing of `dir`, if any.
 ///
 /// Folders with a parent get one pointing at it; a root only gets one
@@ -95,4 +108,23 @@ pub fn panel_listing(dir: &Path, children: Vec<VfsEntry>, opts: &ListOptions) ->
     );
     opts.sort(&mut entries);
     entries
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_plain_name;
+
+    #[test]
+    fn plain_names_are_single_components() {
+        for ok in ["a.txt", ".hidden", "...", "a b", "ñandú"] {
+            assert!(is_plain_name(ok), "{ok:?}");
+        }
+        for bad in ["", ".", "..", "a/b", "/abs", "a/.", "../x"] {
+            assert!(!is_plain_name(bad), "{bad:?}");
+        }
+        #[cfg(windows)]
+        for bad in ["..\\x", "a\\b", "C:x", "C:\\x", "\\\\srv\\share"] {
+            assert!(!is_plain_name(bad), "{bad:?}");
+        }
+    }
 }

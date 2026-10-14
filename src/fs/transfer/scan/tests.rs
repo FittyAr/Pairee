@@ -146,3 +146,54 @@ fn missing_sources_are_refused_not_ignored() {
     );
     assert_eq!(out.refused.len(), 1);
 }
+
+/// A source that lists a hostile `..` entry in every folder (a server can
+/// send any name).
+#[derive(Debug)]
+struct HostileListing;
+
+impl Vfs for HostileListing {
+    fn capabilities(&self) -> crate::fs::vfs::Capabilities {
+        LocalVfs.capabilities()
+    }
+    fn list(&self, dir: &Path) -> std::io::Result<Vec<VfsEntry>> {
+        let mut entries = LocalVfs.list(dir)?;
+        entries.push(VfsEntry {
+            name: "..".into(),
+            path: dir.join("..").join("evil.txt"),
+            size: 1,
+            ..VfsEntry::default()
+        });
+        Ok(entries)
+    }
+    fn stat(&self, path: &Path) -> std::io::Result<VfsEntry> {
+        LocalVfs.stat(path)
+    }
+}
+
+#[test]
+fn names_that_climb_out_of_the_destination_are_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    tree(dir.path());
+    let src = dir.path().join("a");
+    let dst = dir.path().join("out").join("b");
+    let roots = [(src, dst.clone())];
+    let options = TransferOptions::default();
+    let request = ScanRequest {
+        roots: &roots,
+        operation: TransferOperation::Copy,
+        options: &options,
+        src_fs: &HostileListing,
+        dst_fs: &LocalVfs,
+        same_fs: false,
+        dst_links: false,
+    };
+    let out = scan(&request, &control()).unwrap();
+    assert!(out.mappings.iter().all(|(_, d, _)| {
+        d.starts_with(&dst)
+            && d.components()
+                .all(|c| !matches!(c, std::path::Component::ParentDir))
+    }));
+    assert_eq!(out.mappings.len(), 2);
+    assert!(!out.refused.is_empty());
+}

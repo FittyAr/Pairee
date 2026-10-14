@@ -7,7 +7,7 @@ mod propfind;
 use super::http::{self, BodyReader, Upload};
 use super::tls::{self, Handshake, TlsTrust};
 use super::{REMOTE, Remote, credentials, file_name, invalid, not_found, remote_path};
-use crate::fs::vfs::{Capabilities, Vfs, VfsEntry};
+use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name};
 use propfind::DavItem;
 use reqwest::{Method, StatusCode};
 use std::io::{self, Read, Write};
@@ -163,11 +163,16 @@ impl Vfs for WebDavVfs {
 
     fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
         let own = remote_path(dir);
+        // Only direct children with plain names (a hostile `href` can name
+        // any path on the server).
+        let child_of_dir =
+            |entry: &VfsEntry| entry.path.parent().is_some_and(|p| remote_path(p) == own);
         Ok(self
             .propfind(dir, "1")?
             .into_iter()
             .map(|item| self.entry(item))
             .filter(|entry| remote_path(&entry.path) != own)
+            .filter(|entry| is_plain_name(&entry.name) && child_of_dir(entry))
             .collect())
     }
 

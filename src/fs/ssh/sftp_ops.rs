@@ -1,7 +1,7 @@
 //! Mapping of SFTP `readdir` / `stat` results to [`VfsEntry`]s.
 
 use crate::fs::attrs::FileAttrs;
-use crate::fs::vfs::VfsEntry;
+use crate::fs::vfs::{VfsEntry, is_plain_name};
 use ssh2::FileStat;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
@@ -13,16 +13,12 @@ pub(super) fn entry_name(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// `readdir` may report `.`/`..` or nameless entries; those are skipped.
-pub(super) fn is_real_child(name: &str) -> bool {
-    !(name.is_empty() || name == "." || name == "..")
-}
-
-/// Maps one SFTP item to an entry (`None` for `.`, `..` and nameless items).
+/// Maps one SFTP item to an entry (`None` for `.`, `..`, nameless items and
+/// names that are not plain, see [`is_plain_name`]).
 /// `readdir` and `lstat` report link attributes, so links are not followed.
 pub(super) fn sftp_entry(path: PathBuf, stat: &FileStat) -> Option<VfsEntry> {
     let name = entry_name(&path);
-    if !is_real_child(&name) {
+    if !is_plain_name(&name) {
         return None;
     }
     Some(VfsEntry {

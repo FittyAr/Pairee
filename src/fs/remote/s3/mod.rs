@@ -13,7 +13,7 @@ mod upload;
 
 use super::http::{self, BodyReader};
 use super::{REMOTE, Remote, file_name, invalid, not_found, remote_path};
-use crate::fs::vfs::{Capabilities, Vfs, VfsEntry};
+use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name};
 use rusty_s3::{Bucket, Credentials, S3Action, UrlStyle};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -202,6 +202,9 @@ impl S3Vfs {
         self.store.list_all(&prefix, true, |page| {
             for folder in page.prefixes {
                 let name = file_name(&folder);
+                if !is_plain_name(&name) {
+                    continue;
+                }
                 entries.push(VfsEntry::dir(name.clone(), dir.join(name)));
             }
             for object in page.objects {
@@ -210,6 +213,9 @@ impl S3Vfs {
                     continue;
                 }
                 let name = file_name(&object.key);
+                if !is_plain_name(&name) {
+                    continue;
+                }
                 entries.push(VfsEntry {
                     hidden: name.starts_with('.'),
                     path: dir.join(&name),
