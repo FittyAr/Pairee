@@ -121,6 +121,40 @@ pub fn start_upload(state: &mut AppState, origin: RemoteOrigin, local: PathBuf, 
     });
 }
 
+/// Reload of a remote copy: downloads the original again over the local
+/// copy, then rereads it. Returns `false` when `local` is not one.
+pub fn reload_remote(state: &mut AppState, local: &Path) -> bool {
+    let Some(origin) = state.editor_of_mut(local).and_then(|ed| ed.remote.clone()) else {
+        return false;
+    };
+    let local = local.to_path_buf();
+    state.start_vfs_task(move || {
+        let entry = origin.vfs.stat(&origin.path)?;
+        io::copy(
+            &mut origin.vfs.open_read(&origin.path)?,
+            &mut File::create(&local)?,
+        )?;
+        let stamp = stamp_of(&entry);
+        let follow_up: VfsFollowUp = Box::new(move |state, _| {
+            let Some(ed) = state.editor_of_mut(&local) else {
+                return;
+            };
+            if let Err(e) = ed.reload() {
+                let text = crate::config::localization::t("error_reload_file_failed")
+                    .replace("{}", &super::open::load_error_message(&e));
+                state.dialogs.replace(PopupType::error(text));
+                return;
+            }
+            if let Some(origin) = ed.remote.as_mut() {
+                origin.stamp = Some(stamp);
+                origin.uploaded = true;
+            }
+        });
+        Ok(follow_up)
+    });
+    true
+}
+
 /// "Overwrite?" answered Yes for the remote copy `local`: uploads it
 /// again over whatever is there. Returns `false` when `local` is not an
 /// open remote copy.

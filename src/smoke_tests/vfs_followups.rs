@@ -85,6 +85,22 @@ fn f4_edits_a_zip_entry_and_saves_it_back() {
 }
 
 #[test]
+fn reload_of_a_zip_entry_reads_the_archive_again() {
+    let mut h = Harness::new();
+    let archive = h.left().join("bundle.zip");
+    write_zip(&archive, SAMPLE_TREE);
+    h.reread().focus("bundle.zip").keys("Enter");
+    h.focus("a.txt").keys("@edit");
+    h.wait_until("editor on the copy", |h| in_editor(h));
+    write_zip(&archive, &[("a.txt", b"theirs")]);
+    crate::app::editor::open::reload_active_editor(&mut h.state);
+    h.wait_until("the archive's text", |h| match h.state.screens.active() {
+        Screen::Editor(ed) => ed.lines == ["theirs"],
+        _ => false,
+    });
+}
+
+#[test]
 fn save_as_on_a_zip_entry_writes_a_new_entry_beside_it() {
     let mut h = Harness::new();
     let archive = h.left().join("bundle.zip");

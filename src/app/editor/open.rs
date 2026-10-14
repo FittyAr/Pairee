@@ -172,11 +172,17 @@ pub fn save_active_editor(state: &mut AppState, target: Option<PathBuf>, force: 
     }
 }
 
-/// Re-reads the active editor's file from disk.
+/// Re-reads the active editor's file from disk (a remote copy is first
+/// downloaded again from its server or archive).
 pub fn reload_active_editor(state: &mut AppState) {
     let Some(ed) = state.active_editor_mut() else {
         return;
     };
+    if ed.remote.is_some() {
+        let local = ed.path.clone();
+        super::remote::reload_remote(state, &local);
+        return;
+    }
     if let Err(e) = ed.reload() {
         state.dialogs.replace(PopupType::error(
             t("error_reload_file_failed").replace("{}", &load_error_message(&e)),
