@@ -151,7 +151,8 @@ impl Reader {
                 return Err(anyhow!("Writer thread disconnected"));
             }
             pos += read as u64;
-            throttle.pace(pos.saturating_sub(self.offset.max(self.start)));
+            let paced = pos.saturating_sub(self.offset.max(self.start));
+            throttle.pace(paced, &|| self.ctl.is_cancelled());
         }
         Ok(hasher.map(|h| h.finalize()))
     }
