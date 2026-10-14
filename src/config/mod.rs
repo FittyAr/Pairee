@@ -12,6 +12,7 @@ pub mod session;
 pub mod settings;
 pub mod theme;
 pub mod toml_store;
+pub use toml_store::StateFile;
 
 mod loading;
 

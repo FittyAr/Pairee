@@ -10,6 +10,7 @@ use crate::app::state::popup::SaveSetupConfirm;
 use crate::app::state::popup::ScreensMenu;
 use crate::app::state::popup::SearchPrompt;
 use crate::app::state::popup::TaskListDialog;
+use crate::config::StateFile;
 use crate::app::state::popup::TransferPanel;
 use crate::app::state::popup::UpdateAvailable;
 use crate::app::state::{AppState, PopupType};

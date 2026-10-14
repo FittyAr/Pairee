@@ -2,6 +2,7 @@ use super::{AppState, PopupType};
 use crate::app::state::popup::CommandHistoryList;
 use crate::app::state::popup::FileViewHistoryList;
 use crate::app::state::popup::FoldersHistoryList;
+use crate::config::StateFile;
 use crate::config::history::HistoryStore;
 use std::path::PathBuf;
 

@@ -1,4 +1,5 @@
-use anyhow::Result;
+use super::toml_store::Home;
+use super::toml_store::StateFile;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -30,17 +31,13 @@ fn push_front<T: PartialEq>(list: &mut Vec<T>, item: T) {
     list.truncate(MAX_HISTORY);
 }
 
+/// `<cache_dir>/history.toml`.
+impl StateFile for HistoryStore {
+    const FILE_NAME: &'static str = "history.toml";
+    const HOME: Home = Home::Cache;
+}
+
 impl HistoryStore {
-    /// Loads history from `<cache_dir>/history.toml`, returning a default on a missing or invalid file.
-    pub fn load() -> Self {
-        super::toml_store::load_or_default(&history_path())
-    }
-
-    /// Persists the history to `<cache_dir>/history.toml`.
-    pub fn save(&self) -> Result<()> {
-        super::toml_store::save(&history_path(), self)
-    }
-
     /// Clears the lists whose "save … history" setting is off, so only the
     /// categories the user opted into are restored or written to disk.
     /// The editor's search and replace lists go with the "view and edit"
@@ -87,10 +84,6 @@ impl HistoryStore {
             push_front(&mut self.replacements, replacement);
         }
     }
-}
-
-fn history_path() -> PathBuf {
-    crate::config::paths::get_cache_dir().join("history.toml")
 }
 
 #[cfg(test)]

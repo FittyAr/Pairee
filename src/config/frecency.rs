@@ -9,13 +9,12 @@
 //! configuration ([`super::toml_store`]), only when the folders history is
 //! saved.
 
-use anyhow::Result;
+use super::toml_store::StateFile;
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-const FILE_NAME: &str = "frecency.toml";
 /// Most folders kept.
 pub const MAX_FOLDERS: usize = 500;
 /// Sum of the ranks above which they all shrink (zoxide's `_ZO_MAXAGE`).
@@ -71,24 +70,11 @@ pub struct FrecencyStore {
     pub folders: Vec<FolderVisits>,
 }
 
+impl StateFile for FrecencyStore {
+    const FILE_NAME: &'static str = "frecency.toml";
+}
+
 impl FrecencyStore {
-    /// The saved store (empty when missing or unreadable).
-    pub fn load() -> Self {
-        Self::load_from(&default_path())
-    }
-
-    pub fn load_from(path: &Path) -> Self {
-        super::toml_store::load_or_default(path)
-    }
-
-    pub fn save(&self) -> Result<()> {
-        self.save_to(&default_path())
-    }
-
-    pub fn save_to(&self, path: &Path) -> Result<()> {
-        super::toml_store::save(path, self)
-    }
-
     /// Records a visit of `path` at `now` (seconds since the epoch).
     pub fn visit(&mut self, path: &Path, now: u64) {
         match self.folders.iter_mut().find(|f| f.path == path) {
@@ -190,10 +176,6 @@ pub fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs())
-}
-
-fn default_path() -> PathBuf {
-    super::paths::get_config_dir().join(FILE_NAME)
 }
 
 #[cfg(test)]

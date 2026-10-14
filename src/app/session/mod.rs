@@ -13,6 +13,7 @@ mod tests;
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
 use crate::config::history::HistoryStore;
+use crate::config::StateFile;
 use crate::config::session::SessionFile;
 use crate::config::settings::Settings;
 use std::path::PathBuf;
@@ -21,7 +22,7 @@ use std::path::PathBuf;
 /// session (when `restore_session` is on), then the command-line folders.
 /// Returns the notices to show once the interface is up.
 pub fn start(state: &mut AppState, settings: &Settings, cli_paths: &[PathBuf]) -> Vec<String> {
-    let session = settings.restore_session.then(SessionFile::load).flatten();
+    let session = settings.restore_session.then(SessionFile::read).flatten();
     start_with(state, settings, session.as_ref(), cli_paths)
 }
 
