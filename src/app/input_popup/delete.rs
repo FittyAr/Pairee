@@ -1,5 +1,6 @@
 //! Delete (F8) and wipe confirmations.
 
+use crate::app::actions::fs_ops::delete;
 use crate::app::context::AppContext;
 use crate::app::form::confirm_answer;
 use crate::app::state::popup::ConfirmDelete;
@@ -28,63 +29,28 @@ pub fn handle(
         return Err(());
     };
     match state.dialogs.pop() {
+        // Enter on [Cancel] cancels like Esc (the selection stays).
         Some(PopupType::ConfirmDelete(ConfirmDelete {
             paths,
-            cursor_idx,
+            cursor_idx: 0,
             to_trash,
         })) if confirmed => {
-            if cursor_idx == 0 {
-                let options = TransferOptions {
-                    delete_to_recycle_bin: to_trash,
-                    ..Default::default()
-                };
-                let remote = state.get_active_panel().source.remote().cloned();
-                submit(
-                    state,
-                    context,
-                    TransferOperation::Delete,
-                    paths,
-                    options,
-                    remote,
-                );
-            } else {
-                after_submit(state, context);
-            }
+            delete::submit_delete(state, context, paths, to_trash);
         }
         Some(PopupType::WipeConfirm(WipeConfirm { paths })) if confirmed => {
-            let options = TransferOptions::default();
-            submit(
+            delete::submit_keeping_dialogs(
                 state,
-                context,
                 TransferOperation::Wipe,
                 paths,
-                options,
+                TransferOptions::default(),
                 None,
             );
+            delete::after_delete_submitted(state, context);
         }
         // Cancelled: the dialog underneath, if any (disk usage view), returns.
         _ => {}
     }
     Ok(None)
-}
-
-fn submit(
-    state: &mut AppState,
-    context: &AppContext,
-    operation: TransferOperation,
-    paths: Vec<std::path::PathBuf>,
-    options: TransferOptions,
-    remote: Option<crate::fs::remote::RemoteConn>,
-) {
-    crate::app::actions::fs_ops::delete::submit_keeping_dialogs(
-        state, operation, paths, options, remote,
-    );
-    after_submit(state, context);
-}
-
-fn after_submit(state: &mut AppState, context: &AppContext) {
-    state.get_active_panel_mut().clear_selection();
-    state.refresh_both_panels(context.config.settings.show_hidden);
 }
 
 impl Dialog for ConfirmDelete {
