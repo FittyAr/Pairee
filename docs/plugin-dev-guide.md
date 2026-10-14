@@ -774,6 +774,7 @@ git checkout master
 5. Execute the "Submit" option. The wizard will prompt you for:
    - **Commit Description:** A detailed description of the changes or features.
    - **GitHub Token (Optional):** If supplied, Pairee will automatically fork the repository, push the branch, and create a Pull Request. If skipped, Pairee will perform a local git commit and print the manual commands for you to copy and run to push your branch and open the PR yourself.
+6. **Signatures are added by the registry, not by you.** Do not include `.minisig` files in your pull request. Once it is merged, the registry's signing workflow signs your `manifest.toml` and a new `index.toml` (with a serial and a timestamp that Pairee checks to refuse old or frozen copies of the index) with the Pairee key. Users can install your plugin once that signed index is published.
 
 ---
 
