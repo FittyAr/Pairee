@@ -143,6 +143,31 @@ fn list_rows_take_clicks_double_clicks_and_the_wheel() {
 }
 
 #[test]
+fn double_clicking_a_row_of_a_scrolling_list_opens_that_row() {
+    use crate::app::state::popup::FoldersHistoryList;
+    let mut h = Harness::new();
+    for i in 0..50 {
+        let dir = h.left().join(format!("d{i:02}"));
+        std::fs::create_dir(&dir).unwrap();
+        h.state.push_folders_history(dir);
+    }
+    h.keys("@folders_history");
+    // A row far below the cursor: the first click recenters the list.
+    let (x, y) = h.hit_cell(|t| matches!(t, HitTarget::PopupRow { steps: 8, .. }));
+    let Some(PopupType::FoldersHistoryList(FoldersHistoryList {
+        entries,
+        cursor_idx,
+        ..
+    })) = top(&h)
+    else {
+        panic!("folders history");
+    };
+    let expected = entries[cursor_idx + 8].clone();
+    h.double_click(x + 2, y);
+    assert_eq!(h.state.get_active_panel().current_path, expected);
+}
+
+#[test]
 fn double_clicking_a_list_row_runs_it() {
     let mut h = Harness::new();
     h.keys("@command_palette").text("about");

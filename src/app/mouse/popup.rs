@@ -52,9 +52,13 @@ pub async fn click(
         HitTarget::PopupKeys(keys) => keys.clone(),
         HitTarget::PopupRow { steps, focus } => {
             let mut keys = focus.clone();
-            keys.extend(presses(i64::from(*steps), KeyCode::Down, KeyCode::Up));
             if click.is_double() {
+                // The first click already put the cursor on the row; the
+                // list may have scrolled since, so the cell now shows
+                // another row: open the one the cursor is on.
                 keys.push(KeyEvent::from(KeyCode::Enter));
+            } else {
+                keys.extend(presses(i64::from(*steps), KeyCode::Down, KeyCode::Up));
             }
             keys
         }
