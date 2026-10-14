@@ -357,3 +357,31 @@ async fn a_destination_that_cannot_be_looked_up_is_not_overwritten() {
     assert_eq!(results.failed_files.len(), 1);
     assert_eq!(std::fs::read(&existing).unwrap(), b"keep");
 }
+
+/// A file copied onto a folder of the same name through an adapter fails
+/// and leaves the folder alone (WebDAV would delete it to replace it).
+#[tokio::test]
+async fn a_stream_copy_never_replaces_a_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("x");
+    std::fs::write(&src, b"file").unwrap();
+    let dst = dir.path().join("out");
+    std::fs::create_dir_all(dst.join("x")).unwrap();
+    std::fs::write(dst.join("x").join("keep.txt"), b"keep").unwrap();
+    let options = TransferOptions {
+        conflict_resolution: "overwrite".into(),
+        ..TransferOptions::default()
+    };
+    let results = run_stream(
+        TransferOperation::Copy,
+        std::slice::from_ref(&src),
+        &dst,
+        options,
+    )
+    .await;
+    assert_eq!(results.failed_files.len(), 1);
+    assert_eq!(
+        std::fs::read(dst.join("x").join("keep.txt")).unwrap(),
+        b"keep"
+    );
+}
