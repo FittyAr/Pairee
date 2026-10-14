@@ -230,30 +230,31 @@ pub fn serialize_settings(settings: &Settings) -> Result<String> {
 pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
     use std::io::Write;
 
-    if let Some(parent) = path.parent()
-        && !parent.exists()
+    // A symlinked file (dotfile managers) is updated where it points to;
+    // renaming over the link would replace it with a regular file.
+    let resolved;
+    let path = if path
+        .symlink_metadata()
+        .is_ok_and(|m| m.file_type().is_symlink())
     {
+        resolved = fs::canonicalize(path).context("Resolving symlinked target")?;
+        resolved.as_path()
+    } else {
+        path
+    };
+    let parent = path
+        .parent()
+        .context("Atomic write target has no parent directory")?;
+    if !parent.as_os_str().is_empty() && !parent.exists() {
         fs::create_dir_all(parent).context("Creating parent directory for atomic write")?;
     }
-    let tmp_path = if let Some(parent) = path.parent() {
-        let name = format!(
-            ".{}.{}.tmp",
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("pairee"),
-            uuid::Uuid::new_v4()
-        );
-        parent.join(name)
-    } else {
-        // No parent — fall back to writing the file in place. This path
-        // is only reachable for pathological inputs (a relative
-        // `config.toml` with no parent), which the rest of the app does
-        // not produce.
-        let mut f = create_private_file(path).context("Atomic write fallback (no parent dir)")?;
-        return f
-            .write_all(data)
-            .context("Atomic write fallback (no parent dir)");
-    };
+    let tmp_path = parent.join(format!(
+        ".{}.{}.tmp",
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("pairee"),
+        uuid::Uuid::new_v4()
+    ));
 
     // Write the data to the temp file, fsync to flush to disk, then
     // rename onto the target. If any step fails we try to remove the
@@ -316,6 +317,35 @@ mod tests {
         write_atomic(&path, b"secret").expect("atomic write");
         let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_atomic_keeps_a_symlinked_file_a_symlink() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let target = dir.path().join("dotfiles-config.toml");
+        fs::write(&target, b"old").unwrap();
+        let link = dir.path().join("config.toml");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        write_atomic(&link, b"new").expect("atomic write");
+
+        assert!(
+            fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(fs::read(&target).unwrap(), b"new");
+    }
+
+    #[test]
+    fn write_atomic_replaces_an_existing_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("plain.toml");
+        write_atomic(&path, b"a").expect("atomic write");
+        write_atomic(&path, b"b").expect("atomic overwrite");
+        assert_eq!(fs::read(&path).unwrap(), b"b");
     }
 
     #[test]

@@ -28,6 +28,7 @@ fn enabled_by_default() -> bool {
 /// `[security]` of `config.toml`: credential storage and how plugin
 /// registry downloads are authenticated.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct SecuritySettings {
     /// Keep connection passwords in `config.toml` (plain text) when the
     /// system keyring is unavailable. Off: such passwords are not saved.

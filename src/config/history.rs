@@ -6,6 +6,7 @@ const MAX_HISTORY: usize = 100;
 
 /// Persists the history lists between sessions.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct HistoryStore {
     /// CLI commands executed in the command-line bar.
     pub commands: Vec<String>,

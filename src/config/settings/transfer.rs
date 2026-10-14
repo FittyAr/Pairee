@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Defaults the Copy / Move dialog and the transfer engine start from.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TransferSettings {
     #[serde(rename = "transfer_default_hash", default = "default_transfer_hash")]
     pub default_hash: String,

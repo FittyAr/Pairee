@@ -103,3 +103,15 @@ fn mouse_mode_reads_the_old_boolean_and_the_new_names() {
     let written = toml::to_string(&Settings::default()).unwrap();
     assert!(written.contains("mouse = \"auto\""), "{written}");
 }
+
+#[test]
+fn a_file_missing_some_keys_keeps_the_others() {
+    let parsed: Settings = toml::from_str("show_hidden = true\ntheme = \"slate\"\n").unwrap();
+    assert!(parsed.show_hidden);
+    assert_eq!(parsed.theme, "slate");
+    let defaults = Settings::default();
+    assert_eq!(parsed.secure_mode, defaults.secure_mode);
+    assert_eq!(parsed.git_enabled, defaults.git_enabled);
+    // An existing file without the key is not a first run.
+    assert!(parsed.onboarding_completed);
+}
