@@ -14,6 +14,7 @@ pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<
         .or_else(|_| repo.find_branch(onto_branch_name, git2::BranchType::Remote))
         .map_err(|_| failed("git_error_branch_not_found", onto_branch_name))?;
 
+    crate::git::outcome::ensure_no_pending(repo)?;
     let onto_ref = onto_branch.get();
     let onto_annotated = repo.reference_to_annotated_commit(onto_ref)?;
 

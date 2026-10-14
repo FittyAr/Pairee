@@ -48,6 +48,41 @@ impl PendingOperation {
     }
 }
 
+/// Refuses to start a merge, cherry-pick, revert, rebase or pull while
+/// another one waits to be concluded: its state (`MERGE_HEAD`, ...) would
+/// leak into the new operation's commit.
+pub fn ensure_no_pending(repo: &git2::Repository) -> anyhow::Result<()> {
+    if PendingOperation::of(repo).is_some() {
+        anyhow::bail!(crate::config::localization::t(
+            "git_error_operation_pending"
+        ));
+    }
+    Ok(())
+}
+
+/// Refuses to start an operation that commits the index (a real merge,
+/// cherry-pick, revert) while it holds staged changes, like Git: they would
+/// be swept into its commit, and aborting it would discard them.
+pub fn ensure_nothing_staged(repo: &git2::Repository) -> anyhow::Result<()> {
+    let head_tree = match repo.head() {
+        Ok(head) => Some(head.peel_to_tree()?),
+        Err(e) if e.code() == git2::ErrorCode::UnbornBranch => None,
+        Err(e) => return Err(e.into()),
+    };
+    let index = repo.index()?;
+    let diff = repo.diff_tree_to_index(head_tree.as_ref(), Some(&index), None)?;
+    if diff.deltas().len() > 0 {
+        anyhow::bail!(crate::config::localization::t("git_error_staged_changes"));
+    }
+    Ok(())
+}
+
+/// Both checks above, for an operation that always commits the index.
+pub fn ensure_ready(repo: &git2::Repository) -> anyhow::Result<()> {
+    ensure_no_pending(repo)?;
+    ensure_nothing_staged(repo)
+}
+
 /// The conflicted paths of the index, sorted and deduplicated.
 pub fn conflicted_paths(repo: &git2::Repository) -> anyhow::Result<Vec<String>> {
     let index = repo.index()?;

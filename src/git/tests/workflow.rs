@@ -1,4 +1,6 @@
 use super::*;
+use crate::config::localization::t;
+use std::path::Path;
 
 #[test]
 fn test_repo_init_and_discover() {
@@ -104,10 +106,11 @@ fn test_stash() {
     assert!(stashes[0].message.contains("my stash"));
 
     // Apply stash
-    stash_apply(&mut repo, 0).unwrap();
+    let oid = stash_oid(&mut repo, 0);
+    stash_apply(&mut repo, &oid).unwrap();
 
     // Drop stash
-    stash_drop(&mut repo, 0).unwrap();
+    stash_drop(&mut repo, &oid).unwrap();
     let stashes_after = list_stashes(&mut repo).unwrap();
     assert_eq!(stashes_after.len(), 0);
 }
@@ -415,4 +418,81 @@ fn test_abort_merge() {
     assert_eq!(repo.state(), git2::RepositoryState::Clean);
     let content = std::fs::read_to_string(&conflict_file).unwrap();
     assert_eq!(content.trim(), "modified on default");
+}
+
+#[test]
+fn test_discard_refuses_an_untracked_nested_repository() {
+    let (dir, repo) = setup_temp_repo();
+    write_and_commit(&repo, "a.txt", "a", "base");
+    let nested = dir.path().join("nested");
+    init_repo(&nested).unwrap();
+    std::fs::write(nested.join("work.txt"), "unpushed").unwrap();
+
+    let err = discard_file_changes(&repo, "nested/").unwrap_err();
+
+    assert_eq!(err.to_string(), t("git_error_discard_nested_repo"));
+    assert!(nested.join("work.txt").exists());
+}
+
+#[test]
+fn test_unstage_and_discard_take_file_names_literally() {
+    let (_dir, repo) = setup_temp_repo();
+    for name in ["[id].txt", "i.txt", "d.txt"] {
+        write_and_commit(&repo, name, "v1", name);
+    }
+    for name in ["[id].txt", "i.txt", "d.txt"] {
+        write_file(&repo, name, "v2");
+        stage_file(&repo, name).unwrap();
+    }
+
+    unstage_file(&repo, "[id].txt").unwrap();
+    let staged = |name: &str| {
+        get_status(&repo)
+            .iter()
+            .any(|s| s.path == name && s.is_staged)
+    };
+    assert!(!staged("[id].txt"));
+    assert!(staged("i.txt") && staged("d.txt"), "siblings stay staged");
+
+    write_file(&repo, "i.txt", "v3");
+    discard_file_changes(&repo, "[id].txt").unwrap();
+    assert_eq!(read_file(&repo, "[id].txt"), "v1");
+    assert_eq!(
+        read_file(&repo, "i.txt"),
+        "v3",
+        "a sibling is not discarded"
+    );
+}
+
+#[test]
+fn test_unstage_a_new_file_removes_it_from_the_index_only() {
+    let (_dir, repo) = setup_temp_repo();
+    write_and_commit(&repo, "a.txt", "a", "base");
+    write_file(&repo, "new.txt", "new");
+    stage_file(&repo, "new.txt").unwrap();
+
+    unstage_file(&repo, "new.txt").unwrap();
+
+    assert!(
+        repo.index()
+            .unwrap()
+            .get_path(Path::new("new.txt"), 0)
+            .is_none()
+    );
+    assert_eq!(read_file(&repo, "new.txt"), "new");
+}
+
+#[test]
+fn test_amend_keeps_the_original_author() {
+    let (_dir, repo) = setup_temp_repo();
+    write_file(&repo, "a.txt", "a");
+    stage_file(&repo, "a.txt").unwrap();
+    commit(&repo, "by someone", "Original Author", "orig@example.com").unwrap();
+
+    let oid = commit_amend(&repo, "reworded", "", "").unwrap();
+
+    let amended = repo.find_commit(oid).unwrap();
+    assert_eq!(amended.author().email().ok(), Some("orig@example.com"));
+    assert_eq!(amended.committer().email().ok(), Some("test@example.com"));
+    assert_eq!(amended.message().ok(), Some("reworded"));
 }
