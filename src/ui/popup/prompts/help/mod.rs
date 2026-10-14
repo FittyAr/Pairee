@@ -44,6 +44,9 @@ fn render(
     let area = centered_rect_in(90, 85, size); // Expand to 90% width, 85% height
     f.render_widget(Clear, area);
 
+    // The key hint gets the bottom row, under both panes (not over them).
+    let [panes_area, hint_area] =
+        Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(area);
     // Split into Left (list) and Right (content viewer)
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -51,7 +54,7 @@ fn render(
             Constraint::Percentage(25), // 25% for document list
             Constraint::Percentage(75), // 75% for content
         ])
-        .split(area);
+        .split(panes_area);
 
     // 1. Render Left panel (document selection list)
     let current_docs = if *active_tab == 0 { docs } else { plugin_docs };
@@ -89,12 +92,6 @@ fn render(
     }
 
     // 3. Render help hint at the bottom
-    let hint_area = Rect {
-        x: area.x + 2,
-        y: area.y + area.height.saturating_sub(2),
-        width: area.width.saturating_sub(4),
-        height: 1,
-    };
     let hint_text = t("help_hint");
     f.render_widget(
         Paragraph::new(hint_text)
