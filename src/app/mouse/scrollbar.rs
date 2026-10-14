@@ -8,7 +8,7 @@ use crossterm::event::MouseEvent;
 /// Handle a mouse event against last-frame scrollbar hit targets.
 /// Returns `true` if a scrollbar consumed the event.
 pub fn handle_scrollbar_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
-    let targets = state.hits.scrollbars();
+    let targets = state.hits.scrollbars_for(mouse);
     let Some((id, offset)) =
         scrollbar::handle_mouse_on_targets(&targets, mouse, &mut state.scrollbar.interaction)
     else {
