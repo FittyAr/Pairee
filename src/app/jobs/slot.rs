@@ -134,6 +134,14 @@ where
         std::mem::take(&mut self.panicked)
     }
 
+    /// Asks the current job to stop but still delivers its result: a job
+    /// that had already done its work reports what really happened.
+    pub fn request_cancel(&self) {
+        if self.running {
+            self.cancel.cancel();
+        }
+    }
+
     /// Cancels the current job and makes sure its result is ignored.
     pub fn cancel(&mut self) {
         if self.running {
