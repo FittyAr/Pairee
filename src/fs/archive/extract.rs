@@ -26,6 +26,8 @@ pub fn extract_entries(
     let mut guard = ExtractGuard::new(dest)?;
     let total_files = reader.count_hint(archive);
     let mut files_copied = 0usize;
+    let cancel = report.cancel_flag();
+    let cancelled = || cancel.load(std::sync::atomic::Ordering::Relaxed);
     reader.visit(archive, &mut |meta, data| {
         report.ensure_running()?;
         guard.count_entry()?;
@@ -35,7 +37,7 @@ pub fn extract_entries(
         };
         report.entry(&crate::fs::file_name_lossy(&rel), files_copied, total_files);
         files_copied += 1;
-        write_entry(&mut guard, &rel, meta, data)?;
+        write_entry(&mut guard, &rel, meta, data, &cancelled)?;
         Ok(Visit::Continue)
     })?;
     report.ensure_running()?;
@@ -53,6 +55,7 @@ fn write_entry(
     rel: &Path,
     meta: &EntryMeta,
     data: &mut dyn Read,
+    cancelled: &dyn Fn() -> bool,
 ) -> Result<()> {
     match &meta.kind {
         EntryKind::Dir => {
@@ -60,14 +63,13 @@ fn write_entry(
         }
         EntryKind::File => {
             guard.check_declared_size(meta.size)?;
-            if let Some(mut out) = guard.create_file(rel)? {
-                guard.copy_limited(data, &mut out)?;
-                #[cfg(unix)]
-                if let Some(mode) = meta.mode {
-                    use std::os::unix::fs::PermissionsExt;
-                    // Drop setuid/setgid/sticky bits from archive modes.
-                    let _ = out.set_permissions(std::fs::Permissions::from_mode(mode & 0o777));
-                }
+            #[cfg_attr(not(unix), allow(unused_variables))]
+            let written = guard.write_file(rel, data, cancelled)?;
+            #[cfg(unix)]
+            if let (Some(out), Some(mode)) = (written, meta.mode) {
+                use std::os::unix::fs::PermissionsExt;
+                // Drop setuid/setgid/sticky bits from archive modes.
+                let _ = out.set_permissions(std::fs::Permissions::from_mode(mode & 0o777));
             }
         }
         #[cfg(unix)]
