@@ -1,7 +1,7 @@
 //! Folder jump (zoxide-like): the visited folders, best frecency first,
 //! filtered by a fuzzy query as it is typed. Enter goes there.
 
-use crate::app::input::cli_cd::go_to;
+use crate::app::input::cli_cd::go_to_local;
 use crate::app::state::popup::FolderJump;
 use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
@@ -46,5 +46,5 @@ pub fn go(state: &mut AppState, path: PathBuf) {
         return;
     }
     let current = state.get_active_panel().current_path.clone();
-    go_to(state, current, path);
+    go_to_local(state, current, path);
 }

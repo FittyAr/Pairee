@@ -76,7 +76,7 @@ fn choose(
 ) {
     match caller {
         TreeViewCaller::Panel(panel) => {
-            state.panels.side_mut(panel).open_path(target);
+            state.panels.side_mut(panel).open_local(target);
             state.dialogs.clear();
             state.refresh_both_panels(context.config.settings.show_hidden);
         }

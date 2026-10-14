@@ -263,6 +263,14 @@ impl PanelState {
         self.clear_selection();
     }
 
+    /// [`Self::open_path`] for a local folder (drives, tree, histories,
+    /// search results, frecency): a panel showing a server or an archive
+    /// goes back to the local disk (an archive path is reopened as one).
+    pub fn open_local(&mut self, path: PathBuf) {
+        self.source = crate::fs::vfs::PanelSource::Local;
+        self.open_path(path);
+    }
+
     /// Starts computing the size of the listed folders among `paths`
     /// (symbolic links to folders and `..` are skipped).
     pub fn calculate_dir_sizes(&mut self, paths: &[PathBuf]) {

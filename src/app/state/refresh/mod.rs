@@ -76,6 +76,9 @@ impl AppState {
         let path = panel.current_path.clone();
         // Entering or leaving an archive switches the panel's source.
         panel.source = panel.source.locate(&path);
+        let new_history = panel
+            .nav
+            .on_connection(panel.source.remote().map(|conn| conn.id()));
         let changed = path != panel.last_path;
         if changed {
             panel.quick_filter_mask = None;
@@ -83,7 +86,9 @@ impl AppState {
             // The branch view belongs to the folder it was opened on.
             panel.branch_view = false;
             let left = std::mem::replace(&mut panel.last_path, path.clone());
-            panel.nav.visited(left, &path);
+            if !new_history {
+                panel.nav.visited(left, &path);
+            }
             emit_on_cd(&path, side);
             if panel.source.is_local() {
                 self.frecency.visit(&path, crate::config::frecency::now());
