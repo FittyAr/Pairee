@@ -3,19 +3,29 @@ use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::AppState;
 use crate::app::state::popup::ContextMenu;
 use crate::app::state::popup::{Dialog, KeyHandler};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 
-/// Context-menu entries and the action each one runs (matched by label).
-const ITEM_ACTIONS: [(&str, Action); 7] = [
-    ("View", Action::View),
-    ("Edit", Action::Edit),
-    ("Copy", Action::Copy),
-    ("Move", Action::Move),
-    ("Delete", Action::Delete),
-    ("Compress", Action::CompressFiles),
-    ("Extract", Action::ExtractArchive),
+/// Context-menu entries (label keys) and the action each one runs; the
+/// last one is only offered for archives.
+pub const ITEM_ACTIONS: [(&str, Action); 7] = [
+    ("ctx_menu_view", Action::View),
+    ("ctx_menu_edit", Action::Edit),
+    ("ctx_menu_copy", Action::Copy),
+    ("ctx_menu_move", Action::Move),
+    ("ctx_menu_delete", Action::Delete),
+    ("ctx_menu_compress", Action::CompressFiles),
+    ("ctx_menu_extract", Action::ExtractArchive),
 ];
+
+/// The action of the entry labelled `item` (in the current language).
+fn action_of(item: &str) -> Option<Action> {
+    ITEM_ACTIONS
+        .iter()
+        .find(|(key, _)| t(key) == item)
+        .map(|(_, action)| *action)
+}
 
 pub fn handle(
     state: &mut AppState,
@@ -35,10 +45,7 @@ pub fn handle(
             let Some(item) = items.get(idx) else {
                 return Ok(None);
             };
-            let action = ITEM_ACTIONS
-                .iter()
-                .find(|(label, _)| item.contains(label))
-                .map(|(_, action)| *action);
+            let action = action_of(item);
             state.dialogs.clear();
             Ok(action)
         }
@@ -52,5 +59,18 @@ impl Dialog for ContextMenu {
     }
     fn closes_on_outside_click(&self) -> bool {
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_entry_runs_its_action_in_any_language() {
+        for (key, action) in ITEM_ACTIONS {
+            assert_eq!(action_of(&t(key)), Some(action), "{key}");
+        }
+        assert_eq!(action_of("Ver"), None, "labels are matched whole");
     }
 }

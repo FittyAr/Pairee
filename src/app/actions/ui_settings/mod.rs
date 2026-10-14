@@ -130,14 +130,6 @@ fn open_context_menu(state: &mut AppState) {
     if targets.is_empty() {
         return;
     }
-    let mut items = vec![
-        t("ctx_menu_view"),
-        t("ctx_menu_edit"),
-        t("ctx_menu_copy"),
-        t("ctx_menu_move"),
-        t("ctx_menu_delete"),
-        t("ctx_menu_compress"),
-    ];
     let has_archive = targets.iter().any(|p| {
         let ext = p
             .extension()
@@ -146,9 +138,14 @@ fn open_context_menu(state: &mut AppState) {
             .to_lowercase();
         ARCHIVE_EXTENSIONS.contains(&ext.as_str())
     });
-    if has_archive {
-        items.push(t("ctx_menu_extract"));
-    }
+    // Every entry but "Extract", which only archives get.
+    let entries = &crate::app::input_popup::context_menu::ITEM_ACTIONS;
+    let shown = if has_archive {
+        entries.len()
+    } else {
+        entries.len() - 1
+    };
+    let items = entries[..shown].iter().map(|(key, _)| t(key)).collect();
     state.dialogs.replace(ContextMenu {
         items,
         cursor_idx: 0,
