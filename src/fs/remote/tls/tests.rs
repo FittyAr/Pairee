@@ -63,6 +63,18 @@ fn fetched_certificates_can_be_pinned_and_are_then_trusted() {
 }
 
 #[test]
+fn ftp_replies_end_on_their_numbered_last_line_and_take_nothing_more() {
+    let mut from: &[u8] = b"220-Welcome\r\n 220 not the end\r\nabc def\r\n220 Ready\r\n\x16\x03";
+    assert_eq!(ftp_reply(&mut from).unwrap(), "220 Ready\r\n");
+    assert_eq!(from, b"\x16\x03");
+    let mut cut: &[u8] = b"234-Upgrading";
+    assert_eq!(
+        ftp_reply(&mut cut).unwrap_err().kind(),
+        io::ErrorKind::UnexpectedEof
+    );
+}
+
+#[test]
 fn a_bad_ca_file_is_an_error() {
     let dir = tempfile::tempdir().unwrap();
     let empty = dir.path().join("empty.pem");
