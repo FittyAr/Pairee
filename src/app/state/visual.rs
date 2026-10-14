@@ -2,6 +2,7 @@
 //! anchor and the cursor are selected on top of what was selected before.
 
 use super::panel::PanelState;
+use super::selection::takes_group;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -10,12 +11,15 @@ pub struct VisualSelection {
     anchor: PathBuf,
     /// Selection when visual mode started, in selection order.
     base: Vec<PathBuf>,
+    /// "Select folders" when visual mode started: the range is a group
+    /// selection (`state::selection::takes_group`).
+    select_folders: bool,
 }
 
 impl PanelState {
     /// Starts visual selection at the cursor, or leaves it (keeping what is
     /// selected).
-    pub fn toggle_visual(&mut self) {
+    pub fn toggle_visual(&mut self, select_folders: bool) {
         if self.visual.take().is_none() {
             let Some(anchor) = self.entries.get(self.cursor_index) else {
                 return;
@@ -23,9 +27,17 @@ impl PanelState {
             self.visual = Some(VisualSelection {
                 anchor: anchor.path.clone(),
                 base: self.selection_order.clone(),
+                select_folders,
             });
             self.extend_visual();
         }
+    }
+
+    /// Moves the cursor to entry `index` (a click), extending the visual
+    /// range like a cursor key would.
+    pub fn put_cursor(&mut self, index: usize) {
+        self.cursor_index = index;
+        self.extend_visual();
     }
 
     /// Re-applies the visual range after the cursor moved. An anchor that
@@ -46,7 +58,7 @@ impl PanelState {
         };
         let mut order = visual.base.clone();
         let range = self.entries.iter().skip(lo).take(hi + 1 - lo);
-        for entry in range.filter(|e| e.name != "..") {
+        for entry in range.filter(|e| takes_group(e, visual.select_folders)) {
             if !order.contains(&entry.path) {
                 order.push(entry.path.clone());
             }
@@ -73,6 +85,7 @@ mod tests {
                 is_dir: false,
                 is_symlink: false,
                 modified: None,
+                ..Default::default()
             })
             .collect();
         p
@@ -84,7 +97,7 @@ mod tests {
         p.selected_paths.insert(PathBuf::from("/d/d"));
         p.selection_order.push(PathBuf::from("/d/d"));
         p.cursor_index = 2;
-        p.toggle_visual();
+        p.toggle_visual(true);
         p.cursor_index = 3;
         p.extend_visual();
         assert_eq!(p.selected_paths.len(), 3, "d + b..c");
@@ -97,7 +110,7 @@ mod tests {
             .collect();
         names.sort();
         assert_eq!(names, ["a", "b", "d"], "`..` is never selected");
-        p.toggle_visual();
+        p.toggle_visual(true);
         assert!(p.visual.is_none());
         assert_eq!(p.selected_paths.len(), 3, "leaving keeps the selection");
     }
@@ -106,7 +119,7 @@ mod tests {
     fn the_anchor_follows_its_entry_when_the_listing_changes() {
         let mut p = panel(&["a", "b", "c", "d"]);
         p.cursor_index = 2;
-        p.toggle_visual();
+        p.toggle_visual(true);
         // A reread inserted two entries above the anchor ("c").
         p.entries = panel(&["0", "1", "a", "b", "c", "d"]).entries;
         p.cursor_index = 5;

@@ -165,7 +165,7 @@ fn plugin_quick_view(seekable: bool) -> AppState {
             scroll: 0,
             image_data: None,
             plugin: Some(PluginPreview {
-                widget: Renderable::text(WText::raw("x")),
+                widget: Renderable::text(WText::raw(&"x\n".repeat(100))),
                 plugin: "demo".into(),
                 skip: 0,
                 seekable,
@@ -176,6 +176,7 @@ fn plugin_quick_view(seekable: bool) -> AppState {
 
 fn page_down(state: &mut AppState) -> usize {
     use crossterm::event::{KeyCode, KeyEvent};
+    paint_quick_view(state);
     let mut context = crate::app::context::AppContext::new(crate::config::AppConfig::default());
     let handler = state.dialogs.top().unwrap().dialog().key_handler();
     let _ = handler(state, KeyEvent::from(KeyCode::PageDown), &mut context);
@@ -183,6 +184,22 @@ fn page_down(state: &mut AppState) -> usize {
         Some(PopupType::QuickViewPanel(qv)) => qv.scroll,
         _ => panic!("quick view closed"),
     }
+}
+
+/// Paints the quick view in a 40x20 frame, recording its scrollbar in
+/// `state.hits` as a real frame does.
+fn paint_quick_view(state: &AppState) {
+    let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top() else {
+        panic!("quick view closed");
+    };
+    let theme = crate::ui::resolved_theme::ResolvedTheme::default();
+    let bars = crate::ui::scrollbar::ScrollbarUiState::default();
+    let mut terminal =
+        ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 20)).expect("terminal");
+    let _recording = crate::ui::hit::Recording::start(&state.hits);
+    terminal
+        .draw(|f| crate::ui::quickview::draw_quick_view(f, f.area(), qv, &theme, Some(&bars), 4))
+        .expect("draw");
 }
 
 #[test]

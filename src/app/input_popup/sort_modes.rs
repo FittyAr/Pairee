@@ -7,13 +7,7 @@ use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
 /// Sort fields in dialog order; the row after them toggles reverse order.
-const FIELDS: [SortField; 5] = [
-    SortField::Name,
-    SortField::Extension,
-    SortField::Size,
-    SortField::Date,
-    SortField::Unsorted,
-];
+const FIELDS: [SortField; 9] = SortField::ALL;
 
 pub fn handle(
     state: &mut AppState,

@@ -20,6 +20,7 @@ fn entry(dir: &Path, name: &str) -> FileEntry {
         is_dir: false,
         is_symlink: false,
         modified: None,
+        ..Default::default()
     }
 }
 

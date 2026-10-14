@@ -48,12 +48,13 @@ impl DialogView for MkDirPrompt {
             height: 1,
             ..chunks[0]
         };
-        form.field(field_row, 0, field_row.x + 3);
+        let view = kit::FieldView::new(input, usize::from(field_row.width.saturating_sub(3)));
+        form.field(field_row, 0, view.hit(field_row.x + 3));
         form.option(chunks[1], 1);
         let focused = *cursor_idx == 0;
         let style = styles.pick(focused);
         let mut field = vec![ratatui::text::Span::styled(" > ", style)];
-        field.extend(kit::field_spans(input, style, styles.cursor(), focused));
+        field.extend(view.spans(style, styles.cursor(), focused));
         f.render_widget(
             Paragraph::new(vec![
                 Line::from(t(match kind {

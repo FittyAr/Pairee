@@ -37,11 +37,11 @@ pub fn dev_plugin_dir(context: &AppContext) -> PathBuf {
 }
 
 /// Compute the absolute path of the packaged plugin inside the temp
-/// registry clone (`cache_dir/temp_registry/registry/plugins/...`).
+/// registry clone (`cache_dir/temp_registry/registry/plugins/...`) for the
+/// plugin whose sources are in `plugin_dir` (see [`dev_plugin_dir`]).
 /// Returns `None` if the manifest cannot be parsed.
-pub fn packaged_plugin_dir(active_plugin: &str) -> Option<PathBuf> {
-    let plugin_path = PathBuf::from(active_plugin);
-    let manifest_path = plugin_path.join("manifest.toml");
+pub fn packaged_plugin_dir(plugin_dir: &Path) -> Option<PathBuf> {
+    let manifest_path = plugin_dir.join("manifest.toml");
     let content = std::fs::read_to_string(&manifest_path).ok()?;
     let manifest = crate::plugin::loader::PluginManifest::parse(&content).ok()?;
     crate::plugin::developer_tool::registry_plugin_dir(

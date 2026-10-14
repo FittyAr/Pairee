@@ -10,13 +10,16 @@ pub mod panel_pair;
 pub mod plugin_host;
 pub mod popup;
 pub mod prefs;
+pub mod transfer_options;
 pub mod transfer_state;
 pub mod types;
 pub mod update_state;
 
 pub mod quick_view;
 pub mod refresh;
+pub mod restore_check;
 pub mod screens;
+pub mod selection;
 mod tab_ops;
 pub mod tabs;
 pub mod terminal;
@@ -178,6 +181,8 @@ pub struct AppState {
     pub dupes: crate::app::dupes::DupesState,
     /// Comparison of two files (diff or hashes), computed in the background.
     pub file_compare: crate::app::file_compare::FileCompareState,
+    /// Dialog contents read in the background (folder tree, archive list).
+    pub dialog_loads: crate::app::dialog_loads::DialogLoads,
     /// Frecency of the visited folders (folder jump, `z`).
     pub frecency: crate::config::frecency::FrecencyStore,
     /// Folder monitors that reread panels when their folder changes.
@@ -237,6 +242,7 @@ impl AppState {
             disk_usage: Default::default(),
             dupes: Default::default(),
             file_compare: Default::default(),
+            dialog_loads: Default::default(),
             frecency: Default::default(),
             auto_refresh: Default::default(),
             syntax_watch: Default::default(),
@@ -347,13 +353,14 @@ mod tests {
             is_symlink: false,
             size: 0,
             modified: None,
+            ..Default::default()
         };
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         let panel = state.get_active_panel_mut();
         panel.entries = vec![entry("/a/x"), entry("/a/y")];
-        panel.toggle_selection_with_opts(true);
+        panel.toggle_selection();
         panel.cursor_index = 1;
-        panel.toggle_selection_with_opts(true);
+        panel.toggle_selection();
         state.snapshot_selection();
         let panel = state.get_active_panel_mut();
         panel.clear_selection();

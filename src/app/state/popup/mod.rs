@@ -33,7 +33,7 @@ mod views;
 pub use config_dialog::{ConfigDraft, ConfigurationDialogState};
 pub use confirm::{
     ConfirmClearHistory, ConfirmDiscardEditorChanges, ConfirmInterrupt, ConfirmQuit, ConfirmReload,
-    ConfirmRetryAsAdmin, ConfirmUndo, SaveSetupConfirm,
+    ConfirmRetryAsAdmin, ConfirmUndo, ConfirmUninstallPlugin, SaveSetupConfirm,
 };
 pub use connection::{ConnectionField, ConnectionPromptState};
 pub use credential::CredentialPrompt;
@@ -56,7 +56,8 @@ pub use git_prompts::{
 };
 pub use menus::{
     ArchiveCommandsMenu, CommandPalette, ContextMenu, DriveSelect, FolderShortcuts, Hotlist, Menu,
-    OnboardingKeymap, ScreensMenu, SortModesDialog, UserMenu, YaziSortPopup, YaziViewPopup,
+    OnboardingKeymap, ScreensMenu, SortModesDialog, UserMenu, UserMenuItem, YaziSortPopup,
+    YaziViewPopup,
 };
 pub use messages::{About, ErrorMessage, Help, InfoMessage, InfoPanel};
 pub use multi_rename::{MultiRenameState, RenameField};
@@ -114,6 +115,7 @@ macro_rules! dialog_list {
             ConfirmDiscardEditorChanges(ConfirmDiscardEditorChanges),
             ConfirmClearHistory(ConfirmClearHistory),
             ConfirmRetryAsAdmin(ConfirmRetryAsAdmin),
+            ConfirmUninstallPlugin(ConfirmUninstallPlugin),
             SaveSetupConfirm(SaveSetupConfirm),
             // File operations
             MkDirPrompt(MkDirPrompt),

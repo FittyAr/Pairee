@@ -85,37 +85,18 @@ pub(crate) fn render_options_tab(
     job: &crate::fs::transfer::job::TransferJob,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
+    use crate::app::state::transfer_options::OptionRow;
     let options = &job.options;
-
-    let bandwidth = match options.limit_bandwidth_rate {
-        Some(rate) => format!("{} /s", bytesize::ByteSize(rate)),
-        None => t("transfer_no_limit"),
-    };
-    let buffer = bytesize::ByteSize(options.buffer_size.to_bytes() as u64).to_string();
-    let opt_labels = [
-        ("transfer_opt_direct_io", yes_no(options.direct_io)),
-        ("transfer_opt_verify", yes_no(options.verify_after_copy)),
-        (
-            "transfer_opt_timestamps",
-            yes_no(options.preserve_timestamps),
-        ),
-        (
-            "transfer_opt_attributes",
-            yes_no(options.preserve_attributes),
-        ),
-        ("transfer_opt_post_action", post_action(&ts.post_action)),
-        ("transfer_opt_buffer", buffer),
-        (
-            "transfer_opt_hash",
-            options.hash_algorithm.as_str().to_string(),
-        ),
-        ("transfer_opt_acl", yes_no(options.preserve_acl)),
-        ("transfer_opt_streams", yes_no(options.preserve_streams)),
-        ("transfer_opt_skip_links", yes_no(options.skip_symlinks)),
-        ("transfer_opt_follow_links", yes_no(options.follow_symlinks)),
-        ("transfer_opt_bandwidth", bandwidth),
-    ]
-    .map(|(key, value)| t(key).replace("{}", &value));
+    // Once the job runs only the live rows still change it.
+    let started = job.status != crate::fs::transfer::job::TransferJobStatus::Queued;
+    let opt_labels = OptionRow::ALL.map(|row| {
+        let label = t(option_key(row)).replace("{}", &option_value(row, options, ts));
+        if started && !row.is_live() {
+            format!("{label}  {}", t("transfer_opt_fixed"))
+        } else {
+            label
+        }
+    });
 
     let mut lines = Vec::new();
     lines.push(ratatui::text::Line::from(""));
@@ -151,6 +132,61 @@ pub(crate) fn render_options_tab(
         )
         .scroll((u16::try_from(top).unwrap_or(u16::MAX), 0));
     f.render_widget(p, area);
+}
+
+/// Translation key of the label of an Options row.
+fn option_key(row: crate::app::state::transfer_options::OptionRow) -> &'static str {
+    use crate::app::state::transfer_options::OptionRow as R;
+    match row {
+        R::DirectIo => "transfer_opt_direct_io",
+        R::Verify => "transfer_opt_verify",
+        R::Timestamps => "transfer_opt_timestamps",
+        R::Attributes => "transfer_opt_attributes",
+        R::PostAction => "transfer_opt_post_action",
+        R::Buffer => "transfer_opt_buffer",
+        R::Hash => "transfer_opt_hash",
+        R::Acl => "transfer_opt_acl",
+        R::Streams => "transfer_opt_streams",
+        R::SkipLinks => "transfer_opt_skip_links",
+        R::FollowLinks => "transfer_opt_follow_links",
+        R::Bandwidth => "transfer_opt_bandwidth",
+        R::Conflict => "transfer_opt_conflict",
+    }
+}
+
+/// The value an Options row shows.
+fn option_value(
+    row: crate::app::state::transfer_options::OptionRow,
+    o: &crate::fs::transfer::options::TransferOptions,
+    ts: &TransferUIState,
+) -> String {
+    use crate::app::state::transfer_options::OptionRow as R;
+    match row {
+        R::DirectIo => yes_no(o.direct_io),
+        R::Verify => yes_no(o.verify_after_copy),
+        R::Timestamps => yes_no(o.preserve_timestamps),
+        R::Attributes => yes_no(o.preserve_attributes),
+        R::PostAction => post_action(&ts.post_action),
+        R::Buffer => bytesize::ByteSize(o.buffer_size.to_bytes() as u64).to_string(),
+        R::Hash => o.hash_algorithm.as_str().to_string(),
+        R::Acl => yes_no(o.preserve_acl),
+        R::Streams => yes_no(o.preserve_streams),
+        R::SkipLinks => yes_no(o.skip_symlinks),
+        R::FollowLinks => yes_no(o.follow_symlinks),
+        R::Bandwidth => match o.limit_bandwidth_rate {
+            Some(rate) => format!("{} /s", bytesize::ByteSize(rate)),
+            None => t("transfer_no_limit"),
+        },
+        R::Conflict => match o.conflict_resolution.as_str() {
+            "overwrite" => t("transfer_conflict_mode_overwrite"),
+            "overwrite_older" => t("transfer_conflict_mode_overwrite_older"),
+            "skip" => t("transfer_conflict_mode_skip"),
+            "rename" => t("transfer_conflict_mode_rename"),
+            "keep_both" => t("transfer_conflict_mode_keep_both"),
+            // Anything else asks (see `ConflictResolver`).
+            _ => t("transfer_conflict_mode_ask"),
+        },
+    }
 }
 
 pub(crate) fn render_status_tab(

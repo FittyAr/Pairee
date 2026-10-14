@@ -10,6 +10,9 @@ pub struct Throttle {
     /// Bytes per second; `None` (or 0) means unlimited.
     rate: Option<u64>,
     began: Instant,
+    /// Bytes already done when `began` was taken (a rate changed midway
+    /// paces only what follows).
+    base: u64,
 }
 
 impl Throttle {
@@ -17,6 +20,19 @@ impl Throttle {
         Self {
             rate: rate.filter(|&r| r > 0),
             began: Instant::now(),
+            base: 0,
+        }
+    }
+
+    /// Switches to `rate` (changed while copying) from `done` bytes on.
+    pub fn retarget(&mut self, rate: Option<u64>, done: u64) {
+        let rate = rate.filter(|&r| r > 0);
+        if rate != self.rate {
+            *self = Self {
+                rate,
+                began: Instant::now(),
+                base: done,
+            };
         }
     }
 
@@ -27,6 +43,7 @@ impl Throttle {
         let Some(rate) = self.rate else {
             return;
         };
+        let bytes = bytes.saturating_sub(self.base);
         let expected = Duration::from_secs_f64(bytes as f64 / rate as f64);
         while let Some(ahead) = expected.checked_sub(self.began.elapsed()) {
             if ahead.is_zero() || cancelled() {

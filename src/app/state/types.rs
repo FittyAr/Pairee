@@ -75,6 +75,59 @@ impl SortField {
     pub fn next(self) -> Self {
         next_of(&Self::ALL, self)
     }
+
+    /// Name shown in the sort modes dialog.
+    pub fn label(self) -> String {
+        crate::config::localization::t(match self {
+            Self::Name => "col_name",
+            Self::Extension => "col_extension",
+            Self::Size => "col_size",
+            Self::Date => "col_date",
+            Self::Unsorted => "col_unsorted",
+            Self::Created => "yazi_sort_creation",
+            Self::Accessed => "yazi_sort_access",
+            Self::Owner => "yazi_sort_owner",
+            Self::Description => "yazi_sort_description",
+        })
+    }
+
+    /// Letter shown in the panel title (as Far Manager's).
+    pub fn letter(self) -> &'static str {
+        match self {
+            Self::Name => "N",
+            Self::Extension => "X",
+            Self::Size => "S",
+            Self::Date => "D",
+            Self::Unsorted => "U",
+            Self::Created => "C",
+            Self::Accessed => "A",
+            Self::Owner => "O",
+            Self::Description => "Z",
+        }
+    }
+
+    /// The "sort by" action that picks this field.
+    pub fn action(self) -> crate::keybindings::Action {
+        use crate::keybindings::Action;
+        match self {
+            Self::Name => Action::SortByName,
+            Self::Extension => Action::SortByExtension,
+            Self::Size => Action::SortBySize,
+            Self::Date => Action::SortByWriteTime,
+            Self::Unsorted => Action::SortUnsorted,
+            Self::Created => Action::SortByCreationTime,
+            Self::Accessed => Action::SortByAccessTime,
+            Self::Owner => Action::SortByOwner,
+            Self::Description => Action::SortByDescription,
+        }
+    }
+
+    /// The field a "sort by" action picks.
+    pub fn for_action(action: &crate::keybindings::Action) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|field| field.action() == *action)
+    }
 }
 
 /// The element after `current` in `all`, wrapping to the first.

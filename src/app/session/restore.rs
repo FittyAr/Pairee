@@ -49,27 +49,17 @@ pub fn restore(state: &mut AppState, session: &SessionFile, settings: &Settings)
     notices
 }
 
-/// One saved tab. Missing folders fall back to their nearest existing
-/// ancestor; SSH tabs wait (at home) until they are shown.
+/// One saved tab. Its folder is not looked at here (it may be on an
+/// offline network share): the tab's background listing falls back to the
+/// nearest readable ancestor when it is gone (`state::restore_check`). SSH
+/// tabs wait (at home) until they are shown.
 fn restore_tab(spec: &TabSpec, settings: &Settings, notices: &mut Vec<String>) -> Tab {
     let mut spec = spec.clone();
     let remote = match spec.source {
         SourceKind::Remote => remote_target(&spec, settings, notices),
-        SourceKind::Archive if archive_exists(&spec.path) => None,
-        SourceKind::Archive | SourceKind::Local => {
-            let folder = nearest_existing_dir(&spec.path);
-            if folder != spec.path {
-                log::info!(
-                    "Session folder {} is gone; opening {}",
-                    spec.path.display(),
-                    folder.display()
-                );
-                spec.cursor = None;
-            }
-            spec.path = folder;
-            spec.source = SourceKind::Local;
-            None
-        }
+        // An archive tab is reopened as such (its listing falls back to the
+        // folder holding it when the archive is gone).
+        SourceKind::Archive | SourceKind::Local => None,
     };
     if spec.source == SourceKind::Remote {
         spec.path = home_dir();
@@ -79,6 +69,10 @@ fn restore_tab(spec: &TabSpec, settings: &Settings, notices: &mut Vec<String>) -
         spec.locked = false;
     }
     let mut tab = Tab::from_spec(&spec);
+    if spec.source != SourceKind::Remote {
+        let check = crate::app::state::restore_check::RestoreCheck::new(spec.path.clone());
+        tab.panel.restore_check = Some(check);
+    }
     tab.pending_remote = remote;
     tab
 }
@@ -103,11 +97,6 @@ fn remote_target(
     }
     notices.push(t("session_connection_missing").replace("{}", name));
     None
-}
-
-/// An archive tab can be reopened while the archive file itself exists.
-fn archive_exists(path: &Path) -> bool {
-    path.ancestors().any(Path::is_file)
 }
 
 /// Points the shown tab of the left (then right) side at the folders given

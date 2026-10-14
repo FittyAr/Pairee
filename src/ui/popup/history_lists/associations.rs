@@ -174,13 +174,12 @@ fn render_edit_box(
         _ => String::new(),
     };
     let style = theme.popup_fg();
-    let mut spans = vec![Span::styled(format!(" {} ", field_label), style)];
-    spans.extend(crate::ui::popup::kit::field_spans(
-        edit_buffer,
-        style,
-        theme.selection(),
-        true,
-    ));
+    let label = format!(" {} ", field_label);
+    let room = usize::from(area.width.saturating_sub(2))
+        .saturating_sub(crate::ui::text_width::display_width(&label));
+    let mut spans = vec![Span::styled(label, style)];
+    let view = crate::ui::popup::kit::FieldView::new(edit_buffer, room);
+    spans.extend(view.spans(style, theme.selection(), true));
     let edit_paragraph = Paragraph::new(Line::from(spans)).block(
         Block::default()
             .borders(Borders::ALL)

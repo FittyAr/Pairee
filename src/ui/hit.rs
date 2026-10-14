@@ -80,8 +80,11 @@ pub enum HitTarget {
     /// also presses Enter, the wheel moves it.
     PopupRow { steps: i32, focus: Vec<KeyEvent> },
     /// A text field: a click presses `keys` (to focus it), then puts the
-    /// cursor under the pointer, the text starting at column `text_x`.
-    PopupField { keys: Vec<KeyEvent>, text_x: u16 },
+    /// cursor under the pointer, as `field` says it was drawn.
+    PopupField {
+        keys: Vec<KeyEvent>,
+        field: crate::ui::popup::kit::FieldHit,
+    },
     /// A dialog's bottom-right corner: dragging it resizes the dialog.
     PopupResize,
     /// The output of a terminal screen: the wheel scrolls it.

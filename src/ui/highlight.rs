@@ -95,6 +95,7 @@ mod tests {
             is_symlink: false,
             size: 0,
             modified: None,
+            ..Default::default()
         }
     }
 

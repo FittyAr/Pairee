@@ -9,7 +9,6 @@ use crate::app::state::popup::ConfirmQuit;
 use crate::app::state::popup::ContextMenu;
 use crate::app::state::popup::InfoPanel;
 use crate::app::state::popup::Menu;
-use crate::app::state::popup::UserMenu;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::build_info_panel_lines;
 use crate::config::localization::t;
@@ -48,7 +47,7 @@ pub async fn handle_ui_settings_action(
 /// Menus, the context menu and quitting.
 fn menu_action(state: &mut AppState, action: &Action, context: &AppContext) -> bool {
     match action {
-        Action::UserMenu => state.dialogs.replace(UserMenu { cursor_idx: 0 }),
+        Action::UserMenu => crate::app::input_popup::user_menu::open(state),
         Action::Menu => toggle_main_menu(state, context),
         Action::ContextMenu => open_context_menu(state),
         // An editor with unsaved changes is shown instead of quitting.

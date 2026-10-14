@@ -22,7 +22,8 @@ pub fn render_input(
     let label = kit::items_label(&prompt.src_paths, labels.single, labels.plural);
     let focused = prompt.cursor_idx == Prompt::ROW_INPUT;
     let style = styles.pick(focused);
-    let mut spans = kit::field_spans(&prompt.input, style, styles.cursor(), focused);
+    let view = kit::FieldView::new(&prompt.input, usize::from(area.width));
+    let mut spans = view.spans(style, styles.cursor(), focused);
     if focused {
         let input = prompt.input.text();
         if let Some(suffix) = crate::fs::transfer::history::suggest_destination(input)
@@ -45,6 +46,6 @@ pub fn render_input(
     kit::mouse::FormFocus::new(Prompt::FORM, prompt.cursor_idx).field(
         field,
         Prompt::ROW_INPUT,
-        field.x,
+        view.hit(field.x),
     );
 }

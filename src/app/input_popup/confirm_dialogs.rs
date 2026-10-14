@@ -1,5 +1,6 @@
 //! Yes/No confirmations (quit, interrupt transfers, reload / discard editor
-//! changes, clear history, retry as administrator, undo/redo, save setup).
+//! changes, clear history, retry as administrator, undo/redo, save setup,
+//! uninstall a plugin).
 //! One generic key handler; each question says what its answers do.
 
 use crate::app::context::AppContext;
@@ -7,7 +8,8 @@ use crate::app::form::confirm_answer;
 use crate::app::state::history::HistoryKind;
 use crate::app::state::popup::{
     ConfirmClearHistory, ConfirmDiscardEditorChanges, ConfirmInterrupt, ConfirmQuit, ConfirmReload,
-    ConfirmRetryAsAdmin, ConfirmUndo, Dialog, DialogKind, KeyHandler, KeyOutcome, SaveSetupConfirm,
+    ConfirmRetryAsAdmin, ConfirmUndo, ConfirmUninstallPlugin, Dialog, DialogKind, KeyHandler,
+    KeyOutcome, SaveSetupConfirm,
 };
 use crate::app::state::{AdminOpKind, AppState, PopupType};
 use crate::config::localization::t;
@@ -19,6 +21,9 @@ use std::path::PathBuf;
 pub trait Confirmation: DialogKind {
     /// `y` / `n` answer too (besides Enter / Esc).
     const LETTERS: bool = false;
+    /// Asked over another dialog that stays open after the answer (only
+    /// the question closes); otherwise every dialog closes.
+    const NESTED: bool = false;
 
     fn confirm(self, state: &mut AppState, context: &mut AppContext);
 
@@ -37,7 +42,9 @@ pub fn handle<T: Confirmation>(
     let Some(question) = state.dialogs.pop_as::<T>() else {
         return Err(());
     };
-    state.dialogs.clear();
+    if !T::NESTED {
+        state.dialogs.clear();
+    }
     if confirmed {
         question.confirm(state, context);
     } else {
@@ -63,6 +70,7 @@ confirmation_dialogs!(
     ConfirmDiscardEditorChanges,
     ConfirmClearHistory,
     ConfirmRetryAsAdmin,
+    ConfirmUninstallPlugin,
     SaveSetupConfirm
 );
 
@@ -138,6 +146,16 @@ impl Confirmation for ConfirmRetryAsAdmin {
         } else {
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
+    }
+}
+
+/// Asked over the Plugin Manager, whose Installed rows are refreshed.
+impl Confirmation for ConfirmUninstallPlugin {
+    const LETTERS: bool = true;
+    const NESTED: bool = true;
+
+    fn confirm(self, state: &mut AppState, context: &mut AppContext) {
+        super::plugin_menu::installed::uninstall(state, context, &self.name);
     }
 }
 

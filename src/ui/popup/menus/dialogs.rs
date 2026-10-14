@@ -1,6 +1,6 @@
 //! Sorting modes and user menu dialog rendering.
 
-use super::super::{centered_rect_fixed, centered_rect_in};
+use super::super::centered_rect_fixed;
 use crate::app::state::{ActivePanel, SortField};
 use crate::config::localization::t;
 use crate::ui::resolved_theme::ResolvedTheme;
@@ -20,7 +20,9 @@ pub fn render_sort_modes_dialog(
     reverse: bool,
     cursor_idx: usize,
 ) {
-    let area = centered_rect_in(45, 35, size);
+    // Every field, a blank row and the reverse row, inside the borders.
+    let height = u16::try_from(SortField::ALL.len() + 4).unwrap_or(u16::MAX);
+    let area = centered_rect_fixed(40, height, size);
     f.render_widget(Clear, area);
 
     let block = Block::default()
@@ -29,13 +31,7 @@ pub fn render_sort_modes_dialog(
         .title(t("popup_sort_modes"))
         .style(Style::default().bg(theme.popup_bg));
 
-    let fields = [
-        SortField::Name,
-        SortField::Extension,
-        SortField::Size,
-        SortField::Date,
-        SortField::Unsorted,
-    ];
+    let fields = SortField::ALL;
 
     let mut lines = Vec::new();
     for (i, field) in fields.iter().enumerate() {
@@ -44,13 +40,7 @@ pub fn render_sort_modes_dialog(
         let active_marker = if is_selected { "√" } else { " " };
         let cursor_marker = if is_cursor { ">" } else { " " };
 
-        let name = match field {
-            SortField::Name => t("col_name"),
-            SortField::Extension => t("col_extension"),
-            SortField::Size => t("col_size"),
-            SortField::Date => t("col_date"),
-            SortField::Unsorted => t("col_unsorted"),
-        };
+        let name = field.label();
 
         let line_str = format!(" {} [{}] {} ", cursor_marker, active_marker, name);
         let style = if is_cursor {
@@ -105,13 +95,12 @@ pub fn render_user_menu_dialog(
     theme: &ResolvedTheme,
     (left_rect, right_rect): (Rect, Rect),
     active_panel: ActivePanel,
-    cursor_idx: usize,
+    (items, cursor_idx): (&[crate::app::state::popup::UserMenuItem], usize),
 ) {
     let panel_rect = match active_panel {
         ActivePanel::Left => left_rect,
         ActivePanel::Right => right_rect,
     };
-    let items = crate::app::input_popup::user_menu::get_user_menu_items();
     // Borders and the header row take three lines; the panel caps the height.
     let height = u16::try_from(items.len() + 3).unwrap_or(u16::MAX);
     let area = centered_rect_fixed(panel_rect.width * 4 / 5, height, panel_rect);

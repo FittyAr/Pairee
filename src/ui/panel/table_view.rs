@@ -347,6 +347,7 @@ mod tests {
             is_dir: false,
             is_symlink: false,
             modified: None,
+            ..Default::default()
         };
         let cells = Cells::new(&panel);
         assert_eq!(cells.description(&entry("A.TXT")), "First");

@@ -128,6 +128,9 @@ fn cursor_style(style: Style) -> Style {
     style.add_modifier(ratatui::style::Modifier::REVERSED)
 }
 
+/// Columns of the value between the arrows.
+const VALUE_WIDTH: usize = 15;
+
 /// The visible rows, scrolled so the cursor stays near the middle.
 fn color_lines(
     rows: &[ColorRow],
@@ -145,12 +148,14 @@ fn color_lines(
             let style = if focused { row.selected } else { row.style };
             let value = match edit {
                 // The value being typed, with its real cursor.
-                Some(field) if focused => kit::field_spans(field, style, cursor_style(style), true),
+                Some(field) if focused => {
+                    kit::FieldView::new(field, VALUE_WIDTH).spans(style, cursor_style(style), true)
+                }
                 _ => vec![Span::styled(row.color.clone(), style)],
             };
-            // Centered in 15 columns, as `{:^15}` would.
+            // Centered in VALUE_WIDTH columns, as `{:^15}` would.
             let width: usize = value.iter().map(|s| display_width(&s.content)).sum();
-            let pad = 15usize.saturating_sub(width);
+            let pad = VALUE_WIDTH.saturating_sub(width);
             let mut spans = vec![Span::styled(
                 format!(" {} < {}", row.label, " ".repeat(pad / 2)),
                 style,

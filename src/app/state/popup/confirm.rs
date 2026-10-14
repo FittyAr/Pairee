@@ -44,3 +44,10 @@ pub struct ConfirmRetryAsAdmin {
     pub paths: Vec<PathBuf>,
     pub op_kind: AdminOpKind,
 }
+
+/// Uninstall the plugin `name`? Asked over the Plugin Manager, which stays
+/// open underneath.
+#[derive(Debug, Clone)]
+pub struct ConfirmUninstallPlugin {
+    pub name: String,
+}

@@ -23,6 +23,7 @@ pub fn handle(state: &mut AppState, key: KeyEvent, _context: &mut AppContext) ->
 
 /// Keys of the quick view: Esc closes it, PgUp / PgDn scroll it.
 fn handle_quick_view(state: &mut AppState, key: KeyEvent, _context: &mut AppContext) -> KeyOutcome {
+    let last = quick_view_last_offset(state);
     let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top_mut() else {
         return Err(());
     };
@@ -45,10 +46,6 @@ fn handle_quick_view(state: &mut AppState, key: KeyEvent, _context: &mut AppCont
             }
         }
         KeyCode::PageUp | KeyCode::PageDown => {
-            let last = match &qv.image_data {
-                Some(img) => (img.height() as usize).div_ceil(2).saturating_sub(5),
-                None => qv.content.len().saturating_sub(QUICK_VIEW_ROWS),
-            };
             scroll_key(QUICK_VIEW_SCROLL, key.code, &mut qv.scroll, last);
         }
         _ => return Err(()),
@@ -56,8 +53,19 @@ fn handle_quick_view(state: &mut AppState, key: KeyEvent, _context: &mut AppCont
     Ok(None)
 }
 
-/// Visible text rows assumed when clamping the quick-view scroll.
-const QUICK_VIEW_ROWS: usize = 20;
+/// The furthest the quick view scrolls, from what the last frame painted:
+/// its scrollbar records the content length (text lines, or the rows of a
+/// plugin's paragraph, list or table) and the real viewport. Nothing
+/// recorded means everything fits (a scaled image, a short file, a widget
+/// that does not scroll), so the view stays at the top.
+fn quick_view_last_offset(state: &AppState) -> usize {
+    state
+        .hits
+        .scrollbars()
+        .into_iter()
+        .find(|bar| bar.id == ScrollTargetId::QuickView)
+        .map_or(0, |bar| bar.content_len.saturating_sub(bar.viewport_len))
+}
 
 const QUICK_VIEW_SCROLL: ScrollKeys = ScrollKeys {
     vim: false,

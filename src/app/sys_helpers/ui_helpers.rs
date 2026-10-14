@@ -100,9 +100,9 @@ pub fn build_tree_nodes(root: &Path, depth: usize, max_depth: usize) -> Vec<Tree
             });
 
             if is_dir && depth + 1 < max_depth {
-                let children = build_tree_nodes(&path, depth + 1, max_depth);
-                // Skip the root node of each recursive call (first element is the dir itself)
-                nodes.extend(children.into_iter().skip(1));
+                // Only the top call adds its root node, so the children
+                // are all entries (skipping one dropped each folder's first).
+                nodes.extend(build_tree_nodes(&path, depth + 1, max_depth));
             }
         }
     }

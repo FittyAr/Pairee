@@ -3,7 +3,7 @@
 use crate::app::state::AdminOpKind;
 use crate::app::state::popup::{
     ConfirmClearHistory, ConfirmInterrupt, ConfirmQuit, ConfirmReload, ConfirmRetryAsAdmin,
-    ConfirmUndo, SaveSetupConfirm,
+    ConfirmUndo, ConfirmUninstallPlugin, SaveSetupConfirm,
 };
 use crate::config::localization::t;
 use crate::ui::popup::kit;
@@ -101,6 +101,20 @@ impl DialogView for ConfirmClearHistory {
             (45, 7),
             "prompt_clear_history_title",
             cx.theme.ui.warning,
+            text,
+        );
+    }
+}
+
+impl DialogView for ConfirmUninstallPlugin {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let text = t("prompt_uninstall_plugin_text").replacen("{}", &self.name, 1);
+        question(
+            f,
+            cx,
+            (50, 7),
+            "prompt_uninstall_plugin_title",
+            cx.theme.ui.danger,
             text,
         );
     }

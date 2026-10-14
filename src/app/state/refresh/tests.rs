@@ -15,11 +15,13 @@ fn entry(name: &str, dir: &Path, is_dir: bool) -> FileEntry {
         is_symlink: false,
         size: 0,
         modified: None,
+        ..Default::default()
     }
 }
 
 fn listing(path: &Path, names: &[&str]) -> PanelListing {
     PanelListing {
+        fell_back_from: None,
         path: path.to_path_buf(),
         entries: Ok(names.iter().map(|n| entry(n, path, false)).collect()),
         git: None,

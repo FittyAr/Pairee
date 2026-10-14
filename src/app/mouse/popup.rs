@@ -54,11 +54,11 @@ pub async fn click(
             }
             keys
         }
-        HitTarget::PopupField { keys, text_x } => {
+        HitTarget::PopupField { keys, field } => {
             let mut keys = keys.clone();
             keys.push(KeyEvent::from(KeyCode::Home));
-            let column = i64::from(click.column.saturating_sub(*text_x));
-            keys.extend(presses(column, KeyCode::Right, KeyCode::Left));
+            let graphemes = field.graphemes_before(click.column) as i64;
+            keys.extend(presses(graphemes, KeyCode::Right, KeyCode::Left));
             keys
         }
         _ => return Ok(false),

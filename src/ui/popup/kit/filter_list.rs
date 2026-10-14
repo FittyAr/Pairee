@@ -56,19 +56,16 @@ impl FilterListView<'_> {
             "> ",
             Style::default().add_modifier(Modifier::BOLD),
         )];
-        prompt.extend(super::field_spans(
-            self.query,
-            normal,
-            theme.selection(),
-            true,
-        ));
+        let query =
+            super::FieldView::new(self.query, usize::from(chunks[0].width.saturating_sub(2)));
+        prompt.extend(query.spans(normal, theme.selection(), true));
         let prompt = Line::from(prompt);
         f.render_widget(Paragraph::new(prompt).style(normal), chunks[0]);
         crate::ui::hit::register(
             chunks[0],
             crate::ui::hit::HitTarget::PopupField {
                 keys: Vec::new(),
-                text_x: chunks[0].x + 2,
+                field: query.hit(chunks[0].x + 2),
             },
         );
 

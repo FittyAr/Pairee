@@ -97,6 +97,7 @@ try {
             is_dir: mode.contains('d') || mode.contains('D'),
             is_symlink: mode.contains('l') || mode.contains('L'),
             modified,
+            ..Default::default()
         });
     }
     Ok(entries)
@@ -144,6 +145,7 @@ for e in os.scandir(path):
             is_dir: fields[1] == "1",
             is_symlink: fields[2] == "1",
             modified: (mtime > 0).then(|| SystemTime::UNIX_EPOCH + Duration::from_secs(mtime)),
+            ..Default::default()
         });
     }
     Ok(entries)

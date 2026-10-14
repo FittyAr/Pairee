@@ -27,14 +27,13 @@ impl DialogView for CredentialPrompt {
             t("credential_prompt_hint")
         );
         let shown = kit::masked(&self.input);
-        TextBox {
+        kit::PromptBox {
             size: (64, 8),
             title: t("credential_prompt_title"),
             border: kit::fg(cx.theme.ui.warning),
-            body: kit::prompt_text(&template, &shown, cx.theme),
-            body_style: cx.theme.popup_fg(),
+            template: &template,
+            field: &shown,
         }
-        .with_field(kit::field_at(&template))
         .render(f, cx.area, cx.theme);
     }
 }

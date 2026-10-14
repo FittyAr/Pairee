@@ -179,6 +179,7 @@ mod tests {
             is_dir: false,
             is_symlink: false,
             modified: None,
+            ..Default::default()
         };
         let snap = FileEntrySnapshot::from_file_entry(&entry);
         assert_eq!(snap.name, "test.txt");

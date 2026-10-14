@@ -17,6 +17,9 @@ pub struct VfsEntry {
     /// Size in bytes (meaningless for folders; walkers ignore it).
     pub size: u64,
     pub modified: Option<SystemTime>,
+    /// Creation and last access times, where the adapter knows them.
+    pub created: Option<SystemTime>,
+    pub accessed: Option<SystemTime>,
     /// Dot-file, or hidden by a platform attribute.
     pub hidden: bool,
     /// For a link: the size of the link itself (walkers that do not follow
@@ -60,6 +63,9 @@ impl VfsEntry {
             is_dir: self.is_dir,
             is_symlink: self.is_symlink,
             modified: self.modified,
+            created: self.created,
+            accessed: self.accessed,
+            ..Default::default()
         }
     }
 }
@@ -94,6 +100,7 @@ pub fn parent_entry(dir: &Path, show_dotdot_in_root_folders: bool) -> Option<Fil
         is_dir: true,
         is_symlink: false,
         modified: None,
+        ..Default::default()
     })
 }
 

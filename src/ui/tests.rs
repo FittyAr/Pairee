@@ -27,6 +27,7 @@ fn test_app() -> (AppContext, AppState) {
             is_dir: false,
             is_symlink: false,
             modified: None,
+            ..Default::default()
         });
     (context, state)
 }
@@ -401,6 +402,7 @@ fn brief_view_fills_every_row_of_both_columns() {
             is_dir: false,
             is_symlink: false,
             modified: None,
+            ..Default::default()
         })
         .collect();
     panel.view_mode = PanelViewMode::Wide;

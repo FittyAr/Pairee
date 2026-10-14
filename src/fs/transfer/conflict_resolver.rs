@@ -54,8 +54,11 @@ impl ConflictResolver<'_> {
     async fn mode(&mut self, src: &Path, dst: &Path) -> anyhow::Result<String> {
         // A setting this code does not know (a hand-edited config) asks
         // instead of falling through to an overwrite.
-        if KNOWN_MODES.contains(&self.options.conflict_resolution.as_str()) {
-            return Ok(self.options.conflict_resolution.clone());
+        // The policy may have been changed in the panel while the job runs.
+        let policy = (self.ctl.live.conflict_resolution())
+            .unwrap_or_else(|| self.options.conflict_resolution.clone());
+        if KNOWN_MODES.contains(&policy.as_str()) {
+            return Ok(policy);
         }
         let chosen = match self.auto {
             Some(answer) => answer,

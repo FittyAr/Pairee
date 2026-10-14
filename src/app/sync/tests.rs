@@ -46,6 +46,7 @@ fn compare_runs_inline_and_lists_rolled_up_top_level_entries() {
             is_dir: false,
             is_symlink: false,
             modified: None,
+            ..Default::default()
         });
 
     start_compare(&mut state, &context());

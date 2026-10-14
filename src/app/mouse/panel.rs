@@ -3,7 +3,7 @@
 //! dispatches that key's action.
 
 use super::{Click, act};
-use crate::app::actions::navigation::set_selected;
+use crate::app::actions::navigation::{set_range, set_selected};
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState, SortField};
 use crate::config::settings::RightClick;
@@ -56,7 +56,7 @@ pub async fn click(
             let action = if state.get_active_panel().sort_field == field {
                 Action::ToggleSortReverse
             } else {
-                sort_action(field)
+                SortField::action(field)
             };
             act(state, context, terminal_backend, action).await?;
         }
@@ -84,7 +84,7 @@ async fn row(
     if index >= state.get_active_panel().entries.len() {
         return Ok(());
     }
-    state.get_active_panel_mut().cursor_index = index;
+    state.get_active_panel_mut().put_cursor(index);
     match click.button {
         MouseButton::Left if click.is_double() && click.modifiers.is_empty() => {
             act(state, context, terminal_backend, Action::Execute).await?;
@@ -133,19 +133,12 @@ pub fn drag(state: &mut AppState, target: Option<&HitTarget>) -> bool {
         return true;
     }
     set_range(state, drag.last, index, drag.selected);
-    state.get_active_panel_mut().cursor_index = index;
+    state.get_active_panel_mut().put_cursor(index);
     state.mouse.mark_drag = Some(MarkDrag {
         last: index,
         ..drag
     });
     true
-}
-
-/// Tags or untags entries `from..=to` (either order) of the active panel.
-fn set_range(state: &mut AppState, from: usize, to: usize, selected: bool) {
-    for idx in from.min(to)..=from.max(to) {
-        set_selected(state, idx, selected);
-    }
 }
 
 /// Moves the cursor of the panel under the wheel, focused or not.
@@ -156,6 +149,7 @@ pub fn wheel(state: &mut AppState, side: ActivePanel, down: bool) -> bool {
     } else {
         panel.page_up(WHEEL_LINES);
     }
+    panel.extend_visual();
     true
 }
 
@@ -173,16 +167,6 @@ async fn focus(
         ActivePanel::Right => Action::FocusRightPanel,
     };
     act(state, context, terminal_backend, action).await
-}
-
-fn sort_action(field: SortField) -> Action {
-    match field {
-        SortField::Name => Action::SortByName,
-        SortField::Extension => Action::SortByExtension,
-        SortField::Size => Action::SortBySize,
-        SortField::Date => Action::SortByWriteTime,
-        SortField::Unsorted => Action::SortUnsorted,
-    }
 }
 
 /// A drag of the border between the panels: the columns the panels share,

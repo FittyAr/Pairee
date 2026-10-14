@@ -69,7 +69,7 @@ fn clicking_in_a_field_moves_its_cursor() {
     h.focus("report.txt").keys("@rename");
     let (fx, fy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
     let text_x = match h.state.hits.at(fx, fy).map(|hit| hit.target) {
-        Some(HitTarget::PopupField { text_x, .. }) => text_x,
+        Some(HitTarget::PopupField { field, .. }) => field.text_x,
         other => panic!("{other:?}"),
     };
     h.click(text_x + 3, fy);
@@ -78,6 +78,35 @@ fn clicking_in_a_field_moves_its_cursor() {
         other => panic!("{other:?}"),
     };
     assert_eq!(cursor, 3);
+}
+
+/// A field longer than the dialog scrolls sideways so the cursor stays in
+/// view, and a click maps through that scroll and through wide characters.
+#[test]
+fn long_fields_scroll_and_clicks_follow_the_scroll() {
+    let mut h = Harness::new();
+    h.keys("@file_panel_filter");
+    // 80 x, a wide 日, then "yEND": far wider than the 50-column prompt.
+    h.text(&format!("{}日yEND", "x".repeat(80)));
+    let (_, fy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
+    let (yx, y_row) = h.locate("yEND");
+    assert_eq!(
+        y_row, fy,
+        "the end of the text (and the cursor) stay in view"
+    );
+    let cursor = |h: &Harness| match top(h) {
+        Some(PopupType::FilePanelFilterPrompt(p)) => {
+            p.input.text()[..p.input.cursor()].chars().count()
+        }
+        other => panic!("{other:?}"),
+    };
+    // The second cell of 日 (just left of "y"): the cursor goes before it.
+    h.click(yx - 1, fy);
+    assert_eq!(cursor(&h), 80, "before 日");
+    // The view did not move (the cursor stayed visible), so "E" is where
+    // it was.
+    h.click(yx + 1, fy);
+    assert_eq!(cursor(&h), 82, "before END");
 }
 
 #[test]
@@ -200,7 +229,7 @@ fn clicking_in_a_one_field_prompt_moves_its_cursor() {
     h.keys("@file_panel_filter").text("abcdef");
     let (fx, fy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
     let text_x = match h.state.hits.at(fx, fy).map(|hit| hit.target) {
-        Some(HitTarget::PopupField { text_x, .. }) => text_x,
+        Some(HitTarget::PopupField { field, .. }) => field.text_x,
         other => panic!("{other:?}"),
     };
     // The field shows where the hit says it starts.

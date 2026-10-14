@@ -66,7 +66,11 @@ pub struct FileAssociationsDialog {
 /// Folder tree to jump to, or to pick a Copy / Move destination.
 #[derive(Debug, Clone)]
 pub struct TreeView {
+    /// The folder the tree starts at.
+    pub root: PathBuf,
     pub nodes: Vec<TreeNode>,
+    /// The nodes are still being read (`app::dialog_loads`).
+    pub loading: bool,
     pub cursor_idx: usize,
     pub caller: TreeViewCaller,
 }

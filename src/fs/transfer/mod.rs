@@ -13,6 +13,7 @@ pub mod history;
 pub mod job;
 pub mod job_log;
 pub mod link_copy;
+pub mod live;
 pub mod metadata;
 pub mod network;
 pub mod options;

@@ -69,3 +69,40 @@ fn copy_into_a_zip() {
     std::io::Read::read_to_string(&mut zip.by_name("nuevo.txt").unwrap(), &mut body).unwrap();
     assert_eq!(body, "dentro");
 }
+
+/// The archive commands' List and Test read the archive in the background
+/// (a message shows meanwhile) and then show the result.
+#[test]
+fn archive_list_and_test_run_in_the_background() {
+    use crate::app::state::PopupType;
+    use crate::app::state::popup::InfoMessage;
+    use crate::config::localization::t;
+    let mut h = Harness::new();
+    write_zip(&h.left().join("bundle.zip"), SAMPLE_TREE);
+    h.reread().focus("bundle.zip");
+    // Started without settling: the message is up until the job ends.
+    h.dispatch(crate::keybindings::Action::ArchiveCommands);
+    let archive = h.left().join("bundle.zip");
+    crate::app::dialog_loads::read_archive(
+        &mut h.state,
+        archive,
+        crate::app::dialog_loads::ArchiveRead::Test,
+    );
+    let reading = h
+        .state
+        .dialogs
+        .top_as::<InfoMessage>()
+        .map(|InfoMessage(text)| text.clone());
+    assert_eq!(reading, Some(t("archive_reading")));
+    h.settle();
+    match h.state.dialogs.top() {
+        Some(PopupType::Info(InfoMessage(text))) => assert_eq!(*text, t("archive_test_ok")),
+        other => panic!("{other:?}"),
+    }
+    h.keys("Esc")
+        .dispatch(crate::keybindings::Action::ArchiveCommands);
+    h.keys("Enter");
+    h.settle();
+    assert!(in_viewer(&h), "the listing opens in the viewer");
+    h.wait_for_text("b.txt");
+}
