@@ -5,6 +5,7 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::popup::TransferPromptOp;
+use crate::app::state::tabs::TabId;
 use crate::app::state::{ActivePanel, AppState};
 use crate::ui::hit::HitTarget;
 use crossterm::event::KeyModifiers;
@@ -35,8 +36,13 @@ const SCROLL_EVERY: Duration = Duration::from_millis(100);
 /// Where a drop puts the files.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Drop {
-    /// Into `dir`, shown by panel `side`.
-    Folder { side: ActivePanel, dir: PathBuf },
+    /// Into `dir`, shown by panel `side` (by its tab `tab` when the drop
+    /// was on a tab label, which may not be the shown one).
+    Folder {
+        side: ActivePanel,
+        dir: PathBuf,
+        tab: Option<TabId>,
+    },
     /// Onto the command line, as quoted paths.
     CommandLine,
 }
@@ -173,7 +179,13 @@ fn payload(state: &AppState, side: ActivePanel, index: usize) -> Vec<PathBuf> {
 
 /// Where dropping on `target` would put the files, if anywhere.
 pub fn drop_target(state: &AppState, drag: &FileDrag, target: Option<&HitTarget>) -> Option<Drop> {
-    let folder = |side: ActivePanel, dir: PathBuf| Some(Drop::Folder { side, dir });
+    let folder = |side: ActivePanel, dir: PathBuf| {
+        Some(Drop::Folder {
+            side,
+            dir,
+            tab: None,
+        })
+    };
     let target = match target? {
         HitTarget::PanelRow { side, index } => {
             let panel = state.panels.tabs(*side).panel();
@@ -199,7 +211,11 @@ pub fn drop_target(state: &AppState, drag: &FileDrag, target: Option<&HitTarget>
             .into_iter()
             .find_map(|side| {
                 let tab = state.panels.tabs(side).find(*id)?;
-                folder(side, tab.panel.current_path.clone())
+                Some(Drop::Folder {
+                    side,
+                    dir: tab.panel.current_path.clone(),
+                    tab: Some(*id),
+                })
             }),
         HitTarget::Action(crate::keybindings::Action::FocusCli) => Some(Drop::CommandLine),
         _ => None,
@@ -232,7 +248,12 @@ pub fn release(
     }
     drag.modifiers = modifiers;
     match drop_target(state, &drag, target) {
-        Some(Drop::Folder { side, dir }) => {
+        Some(Drop::Folder { side, dir, tab }) => {
+            let tabs = state.panels.tabs(side);
+            // The connection of the tab dropped on, shown or not.
+            let dest = tab
+                .and_then(|id| tabs.find(id))
+                .map_or_else(|| tabs.panel(), |tab| &tab.panel);
             let endpoints = (
                 state
                     .panels
@@ -241,7 +262,7 @@ pub fn release(
                     .source
                     .remote()
                     .cloned(),
-                state.panels.tabs(side).panel().source.remote().cloned(),
+                dest.source.remote().cloned(),
             );
             crate::app::actions::fs_ops::transfer::start(
                 state,
