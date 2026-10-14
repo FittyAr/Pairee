@@ -114,8 +114,31 @@ fn missing_folders_fall_back_to_the_nearest_ancestor() {
     );
     let mut state = new_state();
     start_with(&mut state, &Settings::default(), Some(&saved), &[]);
+    // Nothing is looked at while restoring (the folder may be on an offline
+    // share): the tabs open on the saved folders, waiting to be reached.
+    let ids: Vec<_> = state
+        .panels
+        .tabs(ActivePanel::Left)
+        .tabs()
+        .iter()
+        .map(|tab| {
+            assert!(tab.panel.restore_status().is_some());
+            tab.id
+        })
+        .collect();
+    assert_eq!(
+        state.panels.tabs(ActivePanel::Left).tabs()[0]
+            .panel
+            .current_path,
+        gone
+    );
+    // Their (background) listings fall back to the nearest readable folder.
+    for id in ids {
+        state.refresh_tab(id, false, true);
+    }
     let tabs = state.panels.tabs(ActivePanel::Left).tabs();
     for tab in tabs {
+        assert!(tab.panel.restore_status().is_none(), "reached");
         assert_eq!(tab.panel.current_path, dir.path());
         assert!(tab.panel.pending_focus.is_none());
         assert!(matches!(

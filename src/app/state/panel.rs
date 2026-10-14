@@ -52,6 +52,9 @@ pub struct PanelState {
     pub quiet_listing: bool,
     /// Directory whose contents `entries` currently show.
     pub listed_path: Option<PathBuf>,
+    /// The folder came from the last session and was not read yet
+    /// (`state::restore_check`).
+    pub restore_check: Option<super::restore_check::RestoreCheck>,
     /// Entry name to put the cursor on once the pending listing arrives.
     pub pending_focus: Option<String>,
     /// Per-entry attributes for detailed views, read with the listing.
@@ -89,6 +92,7 @@ impl PanelState {
             branch_view: false,
             quiet_listing: false,
             listed_path: None,
+            restore_check: None,
             pending_focus: None,
             attrs: HashMap::new(),
             free_space: None,
@@ -106,6 +110,13 @@ impl PanelState {
 
     /// True while a reread the user should see is running (automatic
     /// refreshes stay silent so the title does not flicker).
+    /// "Connecting" / "unavailable" while a folder restored from the
+    /// session is still being reached.
+    pub fn restore_status(&self) -> Option<super::restore_check::RestoreStatus> {
+        let check = self.restore_check.as_ref()?;
+        check.status(&self.current_path, std::time::Instant::now())
+    }
+
     pub fn is_loading(&self) -> bool {
         self.listing.is_running() && !self.quiet_listing
     }

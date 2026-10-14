@@ -21,6 +21,7 @@ fn entry(name: &str, dir: &Path, is_dir: bool) -> FileEntry {
 
 fn listing(path: &Path, names: &[&str]) -> PanelListing {
     PanelListing {
+        fell_back_from: None,
         path: path.to_path_buf(),
         entries: Ok(names.iter().map(|n| entry(n, path, false)).collect()),
         git: None,

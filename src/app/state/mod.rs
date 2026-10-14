@@ -17,6 +17,7 @@ pub mod update_state;
 
 pub mod quick_view;
 pub mod refresh;
+pub mod restore_check;
 pub mod screens;
 pub mod selection;
 mod tab_ops;

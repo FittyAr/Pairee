@@ -50,7 +50,16 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
     };
 
     let found = panel.branch_progress().filter(|_| panel.is_loading());
-    let loading = if let Some(found) = found {
+    let loading = if let Some(status) = panel.restore_status() {
+        use crate::app::state::restore_check::RestoreStatus;
+        format!(
+            " {}",
+            t(match status {
+                RestoreStatus::Connecting => "panel_connecting",
+                RestoreStatus::Unavailable => "panel_unavailable",
+            })
+        )
+    } else if let Some(found) = found {
         format!(
             " {}",
             t("panel_branch_loading").replace("{}", &found.to_string())

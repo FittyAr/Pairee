@@ -100,13 +100,17 @@ impl AppState {
             return;
         }
         let request = ListingRequest {
-            path,
             source: panel.source.clone(),
             options,
             filter_mask: panel.filter_mask.clone(),
             quick_filter_mask: panel.quick_filter_mask.clone(),
             want_attrs: panel.view_mode.needs_attrs(),
             branch: panel.branch_view,
+            fallback: panel
+                .restore_check
+                .as_ref()
+                .is_some_and(|c| c.covers(&path)),
+            path,
         };
         panel.quiet_listing = quiet;
         panel.listing.start(move |ctx| {
@@ -125,6 +129,7 @@ impl AppState {
             let panel = &mut tab.panel;
             if let Some(listing) = panel.listing.poll() {
                 let show_hidden = listing.show_hidden;
+                settle_restore_check(panel, &listing);
                 if let Some(failure) = apply_listing(panel, listing) {
                     failed.push((tab.id, failure, show_hidden));
                 }
@@ -134,6 +139,9 @@ impl AppState {
             changed |= panel.dir_sizes.poll() || panel.dir_sizes.is_running();
             // Files found so far by a branch view being read.
             changed |= panel.branch_view && panel.listing.is_running();
+            // A restored folder still being reached: the title may turn
+            // from "connecting" to "unavailable".
+            changed |= panel.restore_check.is_some() && panel.listing.is_running();
         }
         for (id, failure, show_hidden) in failed {
             match failure.not_entered {
@@ -259,10 +267,30 @@ pub(crate) struct ListingFailure {
 /// Installs a finished listing, keeping the cursor and selection stable.
 /// A folder that cannot be read is not entered: the panel stays on the
 /// folder its entries belong to.
+/// A listing that answers the panel's restore check ends it, unless the
+/// folder (and every fallback) could not be read.
+fn settle_restore_check(panel: &mut PanelState, listing: &PanelListing) {
+    let asked = listing.fell_back_from.as_ref().unwrap_or(&listing.path);
+    let Some(check) = panel.restore_check.as_mut() else {
+        return;
+    };
+    if check.answered_by(asked, listing.entries.is_err()) && !check.failed() {
+        panel.restore_check = None;
+    }
+}
+
 pub(crate) fn apply_listing(
     panel: &mut PanelState,
     listing: PanelListing,
 ) -> Option<ListingFailure> {
+    if listing.fell_back_from.as_ref() == Some(&panel.current_path) {
+        // A restored folder that is gone: show where the job fell back.
+        panel.current_path = listing.path.clone();
+        panel.last_path = listing.path.clone();
+        panel.source = crate::fs::vfs::PanelSource::Local;
+        panel.cursor_index = 0;
+        panel.pending_focus = None;
+    }
     if listing.path != panel.current_path {
         // The panel moved on; a newer request is (or will be) in flight.
         return None;
