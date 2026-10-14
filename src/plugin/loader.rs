@@ -125,13 +125,21 @@ pub async fn load_plugin(
     // Evaluate main.lua, then run setup() if defined, both under the CPU
     // watchdog. setup runs asynchronously, like every other plugin method,
     // so it may await dialogs or `pairee.sync`.
-    let plugin_table: mlua::Table =
-        crate::plugin::limits::guarded(&lua, || lua.load(&main_content).eval())?;
-    if let mlua::Value::Function(setup_fn) = plugin_table.get::<mlua::Value>("setup")? {
+    // Reading fields of the returned table may run its metamethods, so the
+    // lookups stay under the watchdog as well.
+    let (plugin_table, setup) = crate::plugin::limits::guarded(&lua, || {
+        let table: mlua::Table = lua.load(&main_content).eval()?;
+        let setup = table.get::<mlua::Value>("setup")?;
+        Ok((table, setup))
+    })?;
+    if let mlua::Value::Function(setup_fn) = setup {
         let opts = lua.create_table()?;
         let call = setup_fn.call_async::<()>((plugin_table.clone(), opts));
         crate::plugin::limits::guarded_async(&lua, call).await?;
     }
+    let methods = crate::plugin::limits::guarded(&lua, || {
+        Ok(crate::plugin::registry::PluginMethods::of(&plugin_table))
+    })?;
     let table_key = lua.create_registry_value(plugin_table)?;
 
     // 6. Register capabilities (Previewers, Commands, Hooks) and spawn task
@@ -141,6 +149,7 @@ pub async fn load_plugin(
         lua,
         table_key,
         annotations,
+        methods,
     };
     crate::plugin::registry::register_plugin(loaded, tx).await?;
 

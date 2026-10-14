@@ -34,15 +34,16 @@ pub fn bind(lua: &Lua, tx: mpsc::Sender<PluginRequest>) -> LuaResult<LuaFunction
     lua.create_function(move |lua_ctx, func: LuaFunction| {
         let tx = tx.clone();
         let func_key = std::sync::Arc::new(lua_ctx.create_registry_value(func)?);
-        lua_ctx.create_async_function(move |lua, ()| {
+        lua_ctx.create_async_function(move |lua, args: LuaMultiValue| {
             let tx = tx.clone();
             let func_key = func_key.clone();
             async move {
                 refresh_context(&lua, &tx).await?;
                 let user_fn: LuaFunction = lua.registry_value(&func_key)?;
-                let result: LuaValue = user_fn.call_async(()).await?;
+                // The snapshot is dropped even when `fn` fails.
+                let result = user_fn.call_async::<LuaMultiValue>(args).await;
                 clear_snapshot(&lua)?;
-                Ok(result)
+                result
             }
         })
     })

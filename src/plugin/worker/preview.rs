@@ -107,30 +107,30 @@ fn load_image(path: &Path) -> Option<Arc<image::DynamicImage>> {
 
 impl Worker {
     /// Calls previewer `method` on `job` with the file recorded as the
-    /// preview target for the duration of the call.
-    async fn preview_call(
+    /// preview target for the duration of the call; `finish` converts the
+    /// results under the watchdog (see `call_method`).
+    async fn preview_call<T>(
         &self,
         method: &str,
         job: &PreviewJob,
         units: Option<i64>,
-    ) -> mlua::Result<Option<MultiValue>> {
+        finish: impl FnOnce(MultiValue) -> mlua::Result<T>,
+    ) -> mlua::Result<Option<T>> {
         let file = LuaFile::from_path(&job.file_path);
         let table = job_table(&self.lua, job, file, units)?;
         self.lua.set_app_data(PreviewTarget(job.file_path.clone()));
-        let result = self.call_method(method, table).await;
+        let result = self.call_method(method, table, finish).await;
         self.lua.remove_app_data::<PreviewTarget>();
         result
     }
 
     pub(crate) async fn peek(&self, job: PreviewJob) -> Option<Renderable> {
-        let result = async {
-            let Some(values) = self.preview_call("peek", &job, None).await? else {
-                return Ok(None);
-            };
-            to_renderable(&values.into_iter().next().unwrap_or(Value::Nil))
-        }
-        .await;
-        let mut widget = self.report("peek", result).flatten()?;
+        let result = self
+            .preview_call("peek", &job, None, |values| {
+                to_renderable(&values.into_iter().next().unwrap_or(Value::Nil))
+            })
+            .await;
+        let mut widget = self.report("peek", result).flatten().flatten()?;
         decode_images(&mut widget);
         Some(widget)
     }
@@ -143,18 +143,25 @@ impl Worker {
         if self.preloaded.contains(&key) {
             return true;
         }
-        let result = self.preview_call("preload", &job, None).await;
-        let Some(Some(values)) = self.report("preload", result) else {
+        let result = self
+            .preview_call("preload", &job, None, |values| {
+                let mut values = values.into_iter();
+                let complete = matches!(values.next(), Some(Value::Boolean(true)));
+                let err = match values.next().filter(|v| !v.is_nil()) {
+                    Some(err) => Some(err.to_string()?),
+                    None => None,
+                };
+                Ok((complete, err))
+            })
+            .await;
+        let Some(Some((complete, err))) = self.report("preload", result) else {
             return false;
         };
-        let mut values = values.into_iter();
-        let complete = matches!(values.next(), Some(Value::Boolean(true)));
-        if let Some(err) = values.next().filter(|v| !v.is_nil()) {
+        if let Some(err) = err {
             tracing::warn!(
-                "Plugin {} preload of {:?}: {}",
+                "Plugin {} preload of {:?}: {err}",
                 self.name,
                 job.file_path,
-                err.to_string().unwrap_or_default()
             );
         }
         if complete {
@@ -164,12 +171,15 @@ impl Worker {
     }
 
     pub(super) async fn seek(&self, job: PreviewJob, units: i64) -> Option<usize> {
-        let result = self.preview_call("seek", &job, Some(units)).await;
-        let values = self.report("seek", result)??;
-        match values.into_iter().next() {
-            Some(Value::Integer(skip)) => Some(skip.max(0) as usize),
-            Some(Value::Number(skip)) if skip.is_finite() => Some(skip.max(0.0) as usize),
-            _ => None,
-        }
+        let result = self
+            .preview_call("seek", &job, Some(units), |values| {
+                Ok(match values.into_iter().next() {
+                    Some(Value::Integer(skip)) => Some(skip.max(0) as usize),
+                    Some(Value::Number(skip)) if skip.is_finite() => Some(skip.max(0.0) as usize),
+                    _ => None,
+                })
+            })
+            .await;
+        self.report("seek", result)??
     }
 }

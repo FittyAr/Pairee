@@ -264,3 +264,48 @@ async fn peek_can_show_the_previewed_image() {
     let shown: mlua::Value = w.lua.load("return pairee.image.show(file)").eval().unwrap();
     assert!(shown.is_nil());
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn metamethods_run_by_the_host_are_under_the_watchdog() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("a.txt");
+    std::fs::write(&file, "x").unwrap();
+    let (w, _rx) = worker(
+        dir.path(),
+        r#"
+        local spin = { __index = function() while true do end end }
+        pairee.ps._callbacks = setmetatable({}, spin)
+        return setmetatable({}, spin)
+        "#,
+        false,
+    );
+    crate::plugin::limits::set_test_budget(&w.lua, std::time::Duration::from_millis(200));
+    let started = std::time::Instant::now();
+    w.entry(vec!["go".into()]).await;
+    assert!(w.peek(job(&file, 0)).await.is_none());
+    w.event("x", "{}", None).await;
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn returned_values_are_converted_under_the_watchdog() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("a.txt");
+    std::fs::write(&file, "x").unwrap();
+    let (mut w, _rx) = worker(
+        dir.path(),
+        r#"
+        local M = {}
+        local spin = function() while true do end end
+        function M:peek() return setmetatable({}, { __index = spin }) end
+        function M:preload() return false, setmetatable({}, { __tostring = spin }) end
+        return M
+        "#,
+        false,
+    );
+    crate::plugin::limits::set_test_budget(&w.lua, std::time::Duration::from_millis(200));
+    let started = std::time::Instant::now();
+    assert!(w.peek(job(&file, 0)).await.is_none());
+    assert!(!w.preload(job(&file, 0)).await);
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
+}

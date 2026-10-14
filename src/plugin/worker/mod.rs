@@ -71,27 +71,39 @@ impl Worker {
         }
     }
 
-    /// Calls `M:<method>(arg)`; `Ok(None)` when the plugin has no such
-    /// method. Errors are the plugin's (or the watchdog's).
-    async fn call_method(
+    /// Calls `M:<method>(arg)` and turns its results into `T` with
+    /// `finish`; `Ok(None)` when the plugin has no such method. Errors are
+    /// the plugin's (or the watchdog's).
+    ///
+    /// The method lookup, the `--- @sync` refresh and `finish` run under the
+    /// watchdog together with the call: each may run plugin code through a
+    /// metamethod (`__index` of the plugin table or of `pairee`,
+    /// `__tostring` of a returned value), which must not loop forever
+    /// outside it.
+    async fn call_method<T>(
         &self,
         method: &str,
         arg: impl IntoLuaMulti,
-    ) -> mlua::Result<Option<MultiValue>> {
-        let table: Table = self.lua.registry_value(&self.table_key)?;
-        let Value::Function(func) = table.get::<Value>(method)? else {
-            return Ok(None);
+        finish: impl FnOnce(MultiValue) -> mlua::Result<T>,
+    ) -> mlua::Result<Option<T>> {
+        let lua = &self.lua;
+        let call = async {
+            let table: Table = lua.registry_value(&self.table_key)?;
+            let Value::Function(func) = table.get::<Value>(method)? else {
+                return Ok(None);
+            };
+            let sync = self.annotations.is_sync(method);
+            if sync {
+                refresh_context(lua, &self.tx).await?;
+            }
+            let args = (table, arg).into_lua_multi(lua)?;
+            let result = func.call_async::<MultiValue>(args).await;
+            if sync {
+                clear_snapshot(lua)?;
+            }
+            result.and_then(finish).map(Some)
         };
-        let sync = self.annotations.is_sync(method);
-        if sync {
-            refresh_context(&self.lua, &self.tx).await?;
-        }
-        let args = (table, arg).into_lua_multi(&self.lua)?;
-        let result = guarded_async(&self.lua, func.call_async::<MultiValue>(args)).await;
-        if sync {
-            clear_snapshot(&self.lua)?;
-        }
-        result.map(Some)
+        guarded_async(lua, call).await
     }
 
     /// Logs a failed call of `what`.
@@ -107,7 +119,7 @@ impl Worker {
             if let Some(command) = args.first() {
                 table.set("command", command.as_str())?;
             }
-            self.call_method("entry", table).await
+            self.call_method("entry", table, |_| Ok(())).await
         }
         .await;
         self.report("entry", result);
@@ -116,25 +128,33 @@ impl Worker {
     /// Runs the plugin's `pairee.ps.sub` callbacks for `event` with the
     /// payload and who sent it (`sender`, recorded by Rust).
     pub(crate) async fn event(&self, event: &str, data: &str, sender: Option<&PluginOrigin>) {
-        let callbacks = self.lua.globals().get::<Table>("pairee").and_then(|p| {
-            p.get::<Table>("ps")?
+        let lua = &self.lua;
+        // Looking the callbacks up may run plugin metamethods: watchdog.
+        let callbacks = guarded_async(lua, async {
+            let callbacks = lua
+                .globals()
+                .get::<Table>("pairee")?
+                .get::<Table>("ps")?
                 .get::<Table>("_callbacks")?
-                .get::<Option<Table>>(event)
-        });
-        let Some(callbacks) = self.report(event, callbacks).flatten() else {
+                .get::<Option<Table>>(event)?;
+            callbacks
+                .map(|list| list.sequence_values().collect::<mlua::Result<Vec<mlua::Function>>>())
+                .transpose()
+        })
+        .await;
+        let Some(funcs) = self.report(event, callbacks).flatten() else {
             return;
         };
         let payload: Value = serde_json::from_str::<serde_json::Value>(data)
             .ok()
-            .and_then(|val| lua_json::from_json(&self.lua, &val).ok())
+            .and_then(|val| lua_json::from_json(lua, &val).ok())
             .unwrap_or(Value::Nil);
-        let Some(meta) = self.report(event, event_meta(&self.lua, sender)) else {
+        let Some(meta) = self.report(event, event_meta(lua, sender)) else {
             return;
         };
-        let funcs: Vec<mlua::Function> = callbacks.sequence_values().flatten().collect();
         for func in funcs {
             let call = func.call_async::<()>((payload.clone(), meta.clone()));
-            self.report(event, guarded_async(&self.lua, call).await);
+            self.report(event, guarded_async(lua, call).await);
         }
     }
 }

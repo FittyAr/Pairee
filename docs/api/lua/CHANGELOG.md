@@ -11,6 +11,19 @@ Policy:
 
 ## [Unreleased]
 
+### Changed
+
+- Secure Mode: trusted plugins no longer get `io`, `package`, `load` /
+  `loadfile` / `dofile` or the non-clock part of `os` (`execute`,
+  `remove`, `rename`, `getenv`, `exit`, ...); they keep `coroutine` and
+  `os.time` / `os.date` / `os.clock` / `os.difftime`.
+
+### Fixed
+
+- The function returned by `pairee.sync(fn)` passes its arguments to `fn`
+  and returns all of `fn`'s results; the snapshot is dropped even when
+  `fn` fails.
+
 ## [1.3.0]
 
 ### Added
