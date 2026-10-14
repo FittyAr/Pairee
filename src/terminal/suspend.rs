@@ -8,6 +8,17 @@ use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use std::io;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Set while a child owns the terminal.
+static SUSPENDED: AtomicBool = AtomicBool::new(false);
+
+/// `true` while a child process owns the terminal. Ctrl+C (and Ctrl+backslash /
+/// Ctrl+Break) then interrupts the child, which shares the foreground
+/// process group / console: the signal handlers must not end Pairee too.
+pub fn child_owns_terminal() -> bool {
+    SUSPENDED.load(Ordering::SeqCst)
+}
 
 /// Modes released by [`suspend`]; [`Suspended::resume`] restores them.
 #[must_use = "call `resume` to give the terminal back to the TUI"]
@@ -18,6 +29,7 @@ pub struct Suspended {
 /// Leaves raw mode and the alternate screen, and releases mouse capture so
 /// the child does not receive mouse escape sequences.
 pub fn suspend() -> io::Result<Suspended> {
+    SUSPENDED.store(true, Ordering::SeqCst);
     let mouse = mouse::is_captured();
     mouse::set_capture(false)?;
     disable_raw_mode()?;
@@ -29,6 +41,7 @@ impl Suspended {
     /// Re-enters raw mode and the alternate screen, and captures the mouse
     /// again if it was captured before.
     pub fn resume(self) -> io::Result<()> {
+        SUSPENDED.store(false, Ordering::SeqCst);
         enable_raw_mode()?;
         execute!(io::stdout(), EnterAlternateScreen)?;
         mouse::set_capture(self.mouse)

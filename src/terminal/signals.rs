@@ -30,6 +30,9 @@ pub fn spawn_signal_listener(sender: mpsc::Sender<Event>) -> io::Result<()> {
                             break;
                         }
                     }
+                    // Ctrl+C / Ctrl+backslash typed for a child running in the
+                    // terminal reach Pairee too: they are the child's.
+                    SIGINT | SIGQUIT if super::suspend::child_owns_terminal() => {}
                     SIGINT | SIGTERM | SIGHUP | SIGQUIT => {
                         tracing::info!(
                             "Received POSIX signal {}, requesting graceful shutdown",
