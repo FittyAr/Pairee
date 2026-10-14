@@ -133,18 +133,20 @@ fn only_matching_host_keys_are_accepted() {
         .unwrap_err()
         .to_string();
     assert!(mismatch.contains("example.org:22"), "{mismatch}");
-    assert!(mismatch.contains("man-in-the-middle"), "{mismatch}");
+    assert!(!mismatch.contains("{}"), "{mismatch}");
 
     let unknown = host_key_verdict(CheckResult::NotFound, "example.org", 2222, Some(kh))
         .unwrap_err()
         .to_string();
     assert!(unknown.contains("example.org:2222"), "{unknown}");
     assert!(unknown.contains("known_hosts"), "{unknown}");
+    assert_ne!(unknown, mismatch);
 
     let failure = host_key_verdict(CheckResult::Failure, "example.org", 22, None)
         .unwrap_err()
         .to_string();
-    assert!(failure.contains("check failed"), "{failure}");
+    assert!(failure.contains("example.org:22"), "{failure}");
+    assert!(!failure.contains("{}"), "{failure}");
 }
 
 #[test]

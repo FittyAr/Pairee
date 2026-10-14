@@ -84,13 +84,11 @@ fn verify_host_key(sess: &mut Session, host: &str, port: u16) -> Result<()> {
     };
 
     if !kh_loaded {
-        anyhow::bail!(
-            "Refusing SSH connection to {}:{} because host key \
-             verification is not available. Add the server's host key to \
-             your known_hosts file and try again.",
+        anyhow::bail!(host_key_message(
+            "error_ssh_known_hosts_unavailable",
             host,
             port
-        );
+        ));
     }
 
     let hostkey = sess
@@ -116,26 +114,29 @@ pub(super) fn host_key_verdict(
     match result {
         ssh2::CheckResult::Match => Ok(()),
         ssh2::CheckResult::Mismatch => {
-            anyhow::bail!(
-                "SSH host key for {}:{} does NOT match the key in known_hosts.                  This may indicate a man-in-the-middle attack.",
-                host,
-                port
-            );
+            anyhow::bail!(host_key_message("error_ssh_host_key_mismatch", host, port));
         }
         ssh2::CheckResult::NotFound => {
+            let file = known_hosts_path
+                .map(|p| p.display().to_string())
+                .unwrap_or_default();
             anyhow::bail!(
-                "SSH host key for {}:{} is not in known_hosts. Refusing to                  connect. Add the server's host key to {:?} and try again.",
-                host,
-                port,
-                known_hosts_path
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_default()
+                host_key_message("error_ssh_host_key_unknown", host, port).replacen("{}", &file, 1)
             );
         }
         ssh2::CheckResult::Failure => {
-            anyhow::bail!("SSH host key check failed for {}:{}", host, port);
+            anyhow::bail!(host_key_message(
+                "error_ssh_host_key_check_failed",
+                host,
+                port
+            ));
         }
     }
+}
+
+/// The message under `key` with its first `{}` set to `host:port`.
+fn host_key_message(key: &str, host: &str, port: u16) -> String {
+    t(key).replacen("{}", &format!("{host}:{port}"), 1)
 }
 
 /// Logs in with, in order: the connection's key file (its passphrase is
