@@ -294,6 +294,25 @@ fn unknown_preset_falls_back_to_norton() {
 }
 
 #[test]
+fn a_malformed_preset_falls_back_instead_of_an_empty_keymap() {
+    fn broken(name: &str, report: &mut KeymapLoadReport) -> Option<String> {
+        match name {
+            "custom" | "neovim" => Some("[panels\nbroken".into()),
+            other => embedded(other, report),
+        }
+    }
+    let custom = load_from(&broken, "custom", &[]);
+    assert!(custom.report.errors.iter().any(|e| e.contains("custom")));
+    assert_eq!(chords_of(&custom, Action::Copy), ["F5"]);
+    // A broken user copy of a built-in preset gets its shipped copy.
+    let neovim = load_from(&broken, "neovim", &[]);
+    assert_eq!(
+        chords_of(&neovim, Action::Copy),
+        chords_of(&load("neovim", &[]), Action::Copy)
+    );
+}
+
+#[test]
 fn invalid_chords_are_reported_with_their_text() {
     let map = load("norton", &[(ALL_PRESETS, "copy", "Ctrl+rj")]);
     let details = map.report.detail_lines().join("\n");
