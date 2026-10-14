@@ -11,24 +11,34 @@ pub fn create_sandboxed_lua(
     tx: mpsc::Sender<PluginRequest>,
 ) -> anyhow::Result<mlua::Lua> {
     let trusted = options.trusted;
+    // Only a trusted plugin outside Secure Mode gets the full standard
+    // library: `io`, `os.execute` or `package.loadlib` would bypass the
+    // `pairee.fs` jail and the process allowlist of Secure Mode.
+    let unrestricted = trusted && !options.secure_mode;
     // 1. Determine standard libraries to load
-    let std_libs = if trusted {
+    let std_libs = if unrestricted {
         // ALL includes `debug`, which `new_with` rejects. Trusted plugins
         // get io/os/package via ALL_SAFE (no debug/ffi).
         mlua::StdLib::ALL_SAFE
+    } else if trusted {
+        // Secure Mode: coroutines and the clock part of `os` (below).
+        restricted_libs() | mlua::StdLib::COROUTINE | mlua::StdLib::OS
     } else {
-        mlua::StdLib::TABLE | mlua::StdLib::STRING | mlua::StdLib::UTF8 | mlua::StdLib::MATH
+        restricted_libs()
     };
 
     let lua = mlua::Lua::new_with(std_libs, mlua::LuaOptions::default())?;
     crate::plugin::limits::apply(&lua, trusted);
 
-    // 2. Untrusted sandboxing restrictions
-    if !trusted {
+    // 2. Sandboxing restrictions (untrusted plugins and Secure Mode)
+    if !unrestricted {
         let globals = lua.globals();
         // Remove dangerous global evaluation/loading functions
         for name in ["load", "loadstring", "dofile", "loadfile"] {
             globals.set(name, mlua::Value::Nil)?;
+        }
+        if trusted {
+            keep_clock_os(&lua)?;
         }
     }
 
@@ -39,6 +49,27 @@ pub fn create_sandboxed_lua(
     crate::plugin::runtime::standard::bind_runtime(&lua, plugin_dir, options, tx)?;
 
     Ok(lua)
+}
+
+/// The standard libraries every plugin gets.
+fn restricted_libs() -> mlua::StdLib {
+    mlua::StdLib::TABLE | mlua::StdLib::STRING | mlua::StdLib::UTF8 | mlua::StdLib::MATH
+}
+
+/// `os` functions that only read the clock; Secure Mode keeps these and
+/// drops the rest (`execute`, `remove`, `rename`, `exit`, `getenv`,
+/// `tmpname`, `setlocale`).
+const CLOCK_OS_FUNCTIONS: [&str; 4] = ["clock", "date", "difftime", "time"];
+
+/// Replaces `os` with a table holding only [`CLOCK_OS_FUNCTIONS`].
+fn keep_clock_os(lua: &mlua::Lua) -> mlua::Result<()> {
+    let globals = lua.globals();
+    let full: mlua::Table = globals.get("os")?;
+    let os = lua.create_table()?;
+    for name in CLOCK_OS_FUNCTIONS {
+        os.set(name, full.get::<mlua::Value>(name)?)?;
+    }
+    globals.set("os", os)
 }
 
 /// `a.b` → `a/b`, or `None` for names that are not plain dotted
@@ -139,6 +170,26 @@ mod tests {
         let globals = lua.globals();
         assert!(!globals.get::<mlua::Value>("pairee").unwrap().is_nil());
         assert!(!globals.get::<mlua::Value>("io").unwrap().is_nil());
+    }
+
+    #[test]
+    fn secure_mode_trusted_lua_has_no_io_os_or_loaders() {
+        let dir = tempdir().unwrap();
+        let (tx, _rx) = tokio::sync::mpsc::channel(4);
+        let options = PluginLoadOptions::new("demo", true, true);
+        let lua = create_sandboxed_lua(dir.path(), &options, tx).unwrap();
+        let globals = lua.globals();
+        for name in ["io", "package", "load", "loadfile", "dofile"] {
+            assert!(globals.get::<mlua::Value>(name).unwrap().is_nil(), "{name}");
+        }
+        let (execute, getenv, time, coroutine): (bool, bool, bool, bool) = lua
+            .load(
+                "return os.execute == nil, os.getenv == nil, \
+                 type(os.time()) == 'number', type(coroutine.wrap) == 'function'",
+            )
+            .eval()
+            .unwrap();
+        assert!(execute && getenv && time && coroutine);
     }
 
     #[tokio::test(flavor = "multi_thread")]

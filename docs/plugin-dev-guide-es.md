@@ -634,12 +634,13 @@ trusted = true        # Solicita permisos para ejecutar herramientas externas (m
 
 ### 13.2 Modo Confiable (`trusted = true`)
 Cuando un complemento es marcado explícitamente como confiable por el usuario, se ejecuta en **Modo Confiable**:
-* El complemento puede utilizar la gestión de archivos y módulos estándar de Lua (`io`, `os`, `package`).
+* El complemento puede utilizar la gestión de archivos y módulos estándar de Lua (`io`, `os`, `package`, `load`), solo fuera del Modo Seguro (13.3).
 * El complemento puede ejecutar comandos del sistema a través de la API `pairee.fs.spawn()`.
 
 ### 13.3 Modo Seguro Global (`secure_mode = true`)
 Para evitar la filtración de datos, los usuarios pueden habilitar un **Modo Seguro** global en su configuración principal. Este modo actúa como un cortafuegos a nivel de motor:
 * **Activación:** Se configura en `pairee.toml` bajo `[settings]` -> `secure_mode = true`. Esta configuración es de solo lectura en tiempo de ejecución y completamente inmutable desde Lua.
+* **Biblioteca estándar restringida:** un complemento confiable recibe las mismas bibliotecas de Lua que uno no confiable, más `coroutine` y un `os` reducido al reloj (`os.time`, `os.date`, `os.clock`, `os.difftime`): sin `io`, `package`, `load` / `loadfile` / `dofile`, `os.execute`, `os.remove`, `os.rename`, `os.getenv` ni `os.exit`, que saltearían la jaula y la lista de procesos permitidos de abajo.
 * **Prohibición de Red y Sockets:** La creación de sockets TCP/UDP y las solicitudes HTTP están completamente deshabilitadas a nivel de motor para todos los complementos, incluso aquellos con `trusted = true`.
 * **Lista Permitida de Procesos:** En Modo Seguro, un complemento confiable solo puede ejecutar (`pairee.Command`, `pairee.fs.spawn`) los programas que declara en su manifiesto:
   ```toml

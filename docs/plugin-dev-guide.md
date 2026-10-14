@@ -625,12 +625,13 @@ trusted = true        # Requests permission to spawn external tools (Trusted mod
 
 ### 13.2 Trusted Mode (`trusted = true`)
 When a plugin is explicitly trusted by the user, it runs in **Trusted Mode**:
-* The plugin can use Lua's standard file and module management (`io`, `os`, `package`).
+* The plugin can use Lua's standard file and module management (`io`, `os`, `package`, `load`) — outside Secure Mode only (13.3).
 * The plugin can execute external system commands using the `pairee.fs.spawn()` API.
 
 ### 13.3 Global Secure Mode (`secure_mode = true`)
 To prevent data exfiltration, users can enable a global **Secure Mode** in their settings. This mode acts as an overriding runtime firewall:
 * **Activation:** Configured in `pairee.toml` under `[settings]` -> `secure_mode = true`. This configuration is read-only at runtime and completely immutable from Lua.
+* **Restricted standard library:** a trusted plugin gets the same Lua libraries as an untrusted one plus `coroutine` and a clock-only `os` (`os.time`, `os.date`, `os.clock`, `os.difftime`): no `io`, `package`, `load` / `loadfile` / `dofile`, `os.execute`, `os.remove`, `os.rename`, `os.getenv` or `os.exit`, which would bypass the jail and the process allowlist below.
 * **Network & Socket Ban:** TCP/UDP socket creation and HTTP requests are completely disabled at the engine level for all plugins, including those with `trusted = true`.
 * **Process Allowlist:** In Secure Mode a trusted plugin may only spawn (`pairee.Command`, `pairee.fs.spawn`) programs it declares in its manifest:
   ```toml
