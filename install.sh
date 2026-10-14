@@ -21,6 +21,10 @@ REPO="FittyAr/Pairee"
 MINISIGN_PUBKEY="RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
 INSTALL_DIR="$HOME/.local/bin"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pairee"
+# Where Pairee keeps its log and the plugins' data (removed on uninstall
+# together with the configuration, when the user agrees).
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/pairee"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pairee"
 
 DEBUG_MODE=false
 UNINSTALL_MODE=false
@@ -149,12 +153,13 @@ uninstall() {
     done
 
     if [ -d "$CONFIG_DIR" ]; then
-        printf "Do you want to delete the configuration, themes, and history settings at %s? [y/N]: " "$CONFIG_DIR"
+        printf "Do you want to delete the configuration, themes, and history settings at %s (and the logs and plugin data)? [y/N]: " "$CONFIG_DIR"
         read -r CONFIRM_CONFIG < /dev/tty || CONFIRM_CONFIG="n"
         case "$CONFIRM_CONFIG" in
             [yY] | [yY][eE][sS])
                 echo "Removing configuration folder: $CONFIG_DIR"
-                rm -rf "$CONFIG_DIR"
+                echo "Removing logs and plugin data: $CACHE_DIR $DATA_DIR"
+                rm -rf "$CONFIG_DIR" "$CACHE_DIR" "$DATA_DIR"
                 ;;
             *) echo "Keeping configuration settings." ;;
         esac
