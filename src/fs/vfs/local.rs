@@ -177,11 +177,15 @@ impl Vfs for LocalVfs {
         let _ = fs::create_dir_all(dir);
     }
 
-    /// Files and links (folder links too); read-only entries as well.
+    /// Files and links (folder links too); read-only entries as well. It is
+    /// [`remove_entry`], which also deletes an empty folder.
     fn remove_file(&self, path: &Path) -> io::Result<()> {
         remove_entry(path)
     }
 
+    /// The empty folder `path` (also [`remove_entry`]): a folder that still
+    /// holds anything fails, as [`Vfs::remove_dir`] promises. A link to a
+    /// folder is removed itself, its target untouched.
     fn remove_dir(&self, path: &Path) -> io::Result<()> {
         remove_entry(path)
     }

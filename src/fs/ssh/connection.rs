@@ -159,8 +159,16 @@ fn authenticate(sess: &mut Session, login: &SshLogin<'_>) -> Result<()> {
         .map(str::trim)
         .filter(|k| !k.is_empty())
         .map(Path::new)
-        .filter(|p| p.exists())
     {
+        // A key that was asked for but is not there is an error, not a
+        // reason to try the password or the default keys instead.
+        if !path.exists() {
+            anyhow::bail!(t("error_ssh_key_missing").replacen(
+                "{}",
+                &path.display().to_string(),
+                1
+            ));
+        }
         return key_login(sess, login, path, login.password)
             .context(t("error_ssh_key_auth_failed"));
     }
@@ -313,6 +321,28 @@ mod timeout_tests {
         });
         assert!(result.is_err());
         assert_eq!(asked.lock().unwrap().len(), 1);
+    }
+
+    /// A configured key file that does not exist is an error: it does not
+    /// quietly fall back to the password or the default keys.
+    #[test]
+    fn a_missing_key_file_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("no_such_key");
+        let ask =
+            |_: super::CredentialRequest| -> Option<crate::credential_prompt::Secret> { None };
+        let login = crate::fs::ssh::SshLogin {
+            host: "example.invalid",
+            port: 22,
+            username: "me",
+            password: Some("pw"),
+            key_path: missing.to_str(),
+            timeout: Duration::from_secs(1),
+            ask: &ask,
+        };
+        let mut session = ssh2::Session::new().unwrap();
+        let err = super::authenticate(&mut session, &login).unwrap_err();
+        assert!(err.to_string().contains("no_such_key"), "{err}");
     }
 
     #[test]

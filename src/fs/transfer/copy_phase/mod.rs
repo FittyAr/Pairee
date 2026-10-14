@@ -1,5 +1,6 @@
-//! Copy phase of copies and moves — local, or between a local panel and an
-//! SFTP server — as a pipeline of steps:
+//! Copy phase of copies and moves — local, or between any two filesystems
+//! behind the [`Vfs`] port (SFTP, FTP / FTPS, WebDAV, S3) — as a
+//! pipeline of steps:
 //!
 //! 1. [`CopyJob::prepare`] — destination folders, entries the scan refused
 //!    or skipped;

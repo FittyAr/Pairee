@@ -59,8 +59,8 @@ fn expand_braces(pattern: &str, depth: usize) -> Vec<String> {
         let pre = &pattern[..start];
         let post = &pattern[end + 1..];
         let options = &pattern[start + 1..end];
-        // If the brace group is empty (`{}`), or a single option with
-        // no nested braces remains, keep the literal so we do not loop.
+        // An empty group (`{}`) has nothing to choose from: it is dropped
+        // (`a{}b` is `ab`), which also keeps the expansion from looping.
         if options.is_empty() {
             let mut s = String::with_capacity(pre.len() + post.len());
             s.push_str(pre);

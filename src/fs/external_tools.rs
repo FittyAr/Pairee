@@ -18,6 +18,15 @@ fn verify_sevenzip_archive(data: &[u8]) -> Result<()> {
         .context("Downloaded 7z-extra archive failed integrity check")
 }
 
+/// Most bytes of the 7z-extra download read into memory (it is ~1 MiB).
+const SEVENZIP_MAX_BYTES: usize = 32 * 1024 * 1024;
+/// Time allowed for the whole download.
+const DOWNLOAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// Held while the tool is bootstrapped: two callers (every archive open may
+/// ask) must not download and write the same file at once.
+static BOOTSTRAP: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 /// Gets the local path where `7za.exe` (or `7z`) should reside.
 pub fn get_external_7z_path() -> Option<PathBuf> {
     if cfg!(target_os = "windows") {
@@ -37,6 +46,7 @@ pub async fn ensure_external_tools() -> Result<()> {
     }
 
     let bin_path = get_external_7z_path().context("Could not determine bin path")?;
+    let _only_one = BOOTSTRAP.lock().await;
 
     // If it already exists and size > 1MB, it's valid
     if bin_path.exists() {
@@ -56,11 +66,14 @@ pub async fn ensure_external_tools() -> Result<()> {
 
     // 1. Download the 7z archive into memory and verify the pinned hash
     //    before anything is written to disk or extracted.
-    let response = reqwest::get(SEVENZIP_WIN_URL)
+    let client = crate::update::http::client(DOWNLOAD_TIMEOUT)?;
+    let response = client
+        .get(SEVENZIP_WIN_URL)
+        .send()
         .await?
-        .error_for_status()?
-        .bytes()
-        .await?;
+        .error_for_status()?;
+    let response =
+        crate::update::http::read_limited(response, SEVENZIP_MAX_BYTES, |_, _| {}).await?;
     verify_sevenzip_archive(&response)?;
 
     // 2. Extract the verified bytes into a private, randomly named scratch
@@ -74,23 +87,33 @@ pub async fn ensure_external_tools() -> Result<()> {
     sevenz_rust2::decompress(std::io::Cursor::new(&response[..]), scratch_dir)
         .context("Failed to extract 7z-extra archive")?;
 
-    // 3. Locate 7za.exe inside the scratch tree and move it into place.
-    let extracted = scratch_dir.join("x64").join("7za.exe");
-    if !extracted.exists() {
-        // Try the older layout (7z extra used to ship `7za.exe` at the root).
-        let alt = scratch_dir.join("7za.exe");
-        if alt.exists() {
-            fs::copy(&alt, &bin_path).context("Failed to copy 7za.exe to bin directory")?;
-        } else {
-            anyhow::bail!(
-                "Downloaded 7z-extra archive does not contain 7za.exe (expected at x64/7za.exe)"
-            );
-        }
-    } else {
-        fs::copy(&extracted, &bin_path).context("Failed to copy 7za.exe to bin directory")?;
-    }
+    // 3. Locate 7za.exe inside the scratch tree (the older layout had it at
+    //    the root) and put it in place under a temporary name first: a
+    //    copy cut short by a crash or a full disk must never sit at the
+    //    final name, where the size check above would take it for the tool.
+    let extracted = [
+        scratch_dir.join("x64").join("7za.exe"),
+        scratch_dir.join("7za.exe"),
+    ]
+    .into_iter()
+    .find(|candidate| candidate.exists())
+    .context("Downloaded 7z-extra archive does not contain 7za.exe (expected at x64/7za.exe)")?;
+    install_atomically(&extracted, &bin_path)
+}
 
-    Ok(())
+/// Copies `from` to `to` through a temporary file next to it, renamed over
+/// `to` once complete.
+fn install_atomically(from: &std::path::Path, to: &std::path::Path) -> Result<()> {
+    let mut part = to.as_os_str().to_owned();
+    part.push(".part");
+    let part = PathBuf::from(part);
+    let result = fs::copy(from, &part)
+        .context("Failed to copy 7za.exe to bin directory")
+        .and_then(|_| fs::rename(&part, to).context("Failed to put 7za.exe in place"));
+    if result.is_err() {
+        let _ = fs::remove_file(&part);
+    }
+    result
 }
 
 #[cfg(test)]
@@ -101,6 +124,21 @@ mod tests {
     fn pinned_hash_is_well_formed() {
         assert_eq!(SEVENZIP_WIN_SHA256.len(), 64);
         assert!(SEVENZIP_WIN_SHA256.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn installing_replaces_through_a_temporary_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let (from, to) = (dir.path().join("src.exe"), dir.path().join("7za.exe"));
+        std::fs::write(&from, b"new tool").unwrap();
+        std::fs::write(&to, b"old").unwrap();
+        install_atomically(&from, &to).unwrap();
+        assert_eq!(std::fs::read(&to).unwrap(), b"new tool");
+        assert!(!dir.path().join("7za.exe.part").exists());
+        // A missing source leaves the target and no temporary file.
+        assert!(install_atomically(&dir.path().join("none"), &to).is_err());
+        assert_eq!(std::fs::read(&to).unwrap(), b"new tool");
+        assert!(!dir.path().join("7za.exe.part").exists());
     }
 
     #[test]

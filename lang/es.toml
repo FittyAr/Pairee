@@ -271,6 +271,7 @@ error_ssh_host_key_check_failed = "Falló la comprobación de la clave de host S
 error_ssh_host_key_mismatch = "La clave de host SSH de {} NO coincide con la de known_hosts. Alguien podría estar interceptando la conexión (man-in-the-middle)."
 error_ssh_host_key_unknown = "La clave de host SSH de {} no está en known_hosts, así que se rechazó la conexión. Agregue la clave del servidor a {} y vuelva a intentarlo."
 error_ssh_init_sftp = "Error al inicializar el canal SFTP"
+error_ssh_key_missing = "El archivo de clave SSH no existe: {}"
 error_ssh_key_auth_failed = "Fallo en la autenticación por clave SSH"
 error_ssh_known_hosts_unavailable = "Se rechazó la conexión SSH a {}: la clave de host no se puede comprobar sin un archivo known_hosts legible. Agregue la clave del servidor a su known_hosts y vuelva a intentarlo."
 error_ssh_no_socket_addr = "No se encontraron direcciones de socket para el servidor: {}"
