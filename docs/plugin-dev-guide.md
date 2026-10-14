@@ -52,21 +52,27 @@ Plugins are stored in your configuration folder and declared in `pairee.toml`. O
 
 ## 3. Your First Plugin — Hello World
 
-Create the folder `~/.config/pairee/plugins/hello/`.
+Create the folder `~/.config/pairee/plugins/hello.pairee/`. Pairee only loads
+folders named `<name>.pairee`, and the manifest `name` must be the folder name
+without the suffix (`hello`); only `[A-Za-z0-9_-]` is allowed.
 
-Create the file `~/.config/pairee/plugins/hello/main.lua`:
+Create the file `~/.config/pairee/plugins/hello.pairee/main.lua`:
 
 ```lua
 local M = {}
 
-function M:entry()
+function M:entry(args)
     pairee.app.notify("Hello!", "This is my first Pairee plugin.", "info")
 end
 
 return M
 ```
 
-Create the manifest file `~/.config/pairee/plugins/hello/manifest.toml`:
+Pairee calls plugin functions as methods, with the plugin table first, so
+declare them with `:` (`function M:entry(args)`); with `.` the first parameter
+receives the table instead of `args`.
+
+Create the manifest file `~/.config/pairee/plugins/hello.pairee/manifest.toml`:
 
 ```toml
 name = "hello"
@@ -75,7 +81,11 @@ description = "Simple Hello World test plugin"
 author = "your-handle"
 license = "MIT"
 type = "command"
-min_pairee = "0.7.0"   # semver; pre-releases like "0.10.0-beta.1" work, an unreadable value refuses to load
+min_pairee = "0.11.0"  # semver; pre-releases like "0.10.0-beta.1" work, an unreadable value refuses to load
+
+[[commands]]
+id    = "hello"
+title = "Say hello"
 ```
 
 Register it in `pairee.toml`:
@@ -86,7 +96,7 @@ name    = "hello"
 trusted = false
 ```
 
-Launch Pairee, open the command input (or bind it to a key), and run its command from the command palette. A notification will appear.
+Launch Pairee and run **Say hello** from the command palette (or bind `plugin.hello.hello` to a key, see section 6). A notification will appear.
 
 ---
 
@@ -96,11 +106,11 @@ A plugin is a folder containing a main Lua script, manifest, and optional submod
 
 ```text
 ~/.config/pairee/plugins/
-└── my-plugin/
+└── my-plugin.pairee/       # <name>.pairee; manifest name = "my-plugin"
     ├── main.lua              # Required — plugin entry point
     ├── manifest.toml         # Required — metadata and commands
     ├── utils.lua             # Optional submodule
-    └── locale/               # Optional localization files
+    └── lang/                 # Optional localization files
         ├── en.toml
         └── es.toml
 ```
@@ -144,8 +154,15 @@ pairee.sync(function()
         print(hovered.name, hovered.size, hovered.mime, hovered.is_hidden)
     end
     local selected = pairee.cx.active.selected -- File[]
+    local url = pairee.cx.active.url            -- Url userdata of the folder
 end)
 ```
+
+`File` fields: `name`, `path`, `url`, `size`, `is_dir`, `is_symlink`, `mime`,
+`mtime`, `is_hidden`, `is_exec`, `cha`. `File.url` is a plain string (the
+remote URL in remote panels, else the path); wrap it with `pairee.Url(file.url)`
+when you need a `Url`. The folder `url` of `cx.active`, `cx.left`, `cx.right`
+and `cx.tabs` entries is already a `Url` userdata.
 
 ### `pairee.fs` — Filesystem & Processes
 
@@ -365,7 +382,10 @@ commands remain in the palette. Users rebind any command in
 ```
 
 To avoid conflicts, prefer `<leader>p…` in Neovim, `Alt+p` followed by a
-letter in yazi, and `Ctrl+Alt+x` followed by a letter in the other presets.
+letter in yazi, and `Ctrl+Alt+e` followed by a letter (`Ctrl+Alt+e h`) in
+the other presets, where it is free. Avoid `Ctrl+Alt+x` (branch view) and
+`Ctrl+Alt+p` (command palette), and `Alt+p` outside yazi (quick view in
+standard).
 `pairee developer lint` lists, per preset, the suggested keys that are taken
 or invalid.
 
@@ -426,7 +446,7 @@ function M:peek(job)
         return  -- not a CSV file, decline
     end
 
-    local content = pairee.fs.read(tostring(job.file.url))
+    local content = pairee.fs.read(job.file.url)
     local rows = {}
     for line in content:gmatch("[^\n]+") do
         local cols = {}
@@ -465,19 +485,18 @@ Hook plugins subscribe to lifecycle events during their `setup(opts)` call.
 
 | Event | Payload | Fires When |
 |-------|---------|------------|
-| `on_cd` | `{ cwd: string }` | Active panel changes directory |
-| `on_hover` | `{ entry: Entry }` | User moves cursor to a different file |
+| `on_cd` | `{ path: string, side: string }` | A panel enters a folder. `side`: `left` / `right` |
+| `on_hover` | `{ path: string, is_dir: boolean, size: integer }` | The quick view shows another entry (the one under the cursor, or the first selected); only while the quick view is open |
 | `on_key` | `{ key: string }` | A key is pressed (before resolver) |
 | `on_mouse` | `{ kind, button, x, y, target, side?, index? }` | A mouse click on the panels or the bars (not inside dialogs). `kind`: `click` / `double_click`; `button`: `left` / `right` / `middle`; `target`: `panel_row`, `panel`, `panel_title`, `panel_header`, `tab`, `menu`, `fkey`, `command_line`, `other`; `side`: `left` / `right`; `index`: 1-based entry of a `panel_row` |
-| `on_focus` | `{ side: string }` | Panel focus switches |
 
 ```lua
 local M = {}
 
 function M:setup(opts)
     pairee.ps.sub("on_cd", function(payload)
-        pairee.log.info("Navigated to: " .. payload.cwd)
-        local result = pairee.fs.spawn("git", { "-C", payload.cwd, "status", "--short" })
+        pairee.log.info("Navigated to: " .. payload.path)
+        local result = pairee.fs.spawn("git", { "-C", payload.path, "status", "--short" })
         if result.status == 0 and result.stdout ~= "" then
             pairee.app.notify("Git Status", result.stdout, "info")
         end
@@ -656,8 +675,8 @@ In the Plugin Manager (Installed tab) `c` or Enter opens the plugin's settings (
 
 ## 14. Testing Your Plugin Locally
 
-1. **Place your plugin** folder under `~/.config/pairee/plugins/<name>/`.
-2. **Register it** in `pairee.toml`.
+1. **Place your plugin** folder under `~/.config/pairee/plugins/<name>.pairee/`; the manifest `name` must be `<name>`.
+2. **Register it** in `pairee.toml` (needed for `trusted = true`; an unregistered plugin loads untrusted).
 3. Run Pairee and check the logs in `~/.cache/pairee/app.log` for execution events.
 
 ---
@@ -728,7 +747,8 @@ When a developer uses the **Initialize New Plugin** wizard (either via the TUI D
 
 ```
 plugin-template/
-├── manifest.toml          # [plugin] block with PLUGIN_NAME, PLUGIN_DESCRIPTION, PLUGIN_AUTHOR tokens
+├── manifest.toml          # [plugin] block with PLUGIN_NAME, PLUGIN_DESCRIPTION, PLUGIN_AUTHOR tokens,
+│                          # license, type, min_pairee = "0.11.0", a [[commands]] entry and settings_schema
 ├── main.lua               # Full Lua boilerplate with setup(), entry(), and peek()
 ├── icon.png               # 256×256 grey placeholder PNG
 ├── lang/
@@ -766,7 +786,7 @@ git checkout master
 ## 16. Registry Submission Flow
 
 1. **Enable Developer Mode** in `pairee.toml`.
-2. Open the **Metadata Wizard TUI** or run `pairee developer package ~/.config/pairee/plugins/my-plugin` to validate your files, copy them to a local checkout of the `plugin-registry` branch, and update the central `registry/index.toml` catalog file.
+2. Open the **Metadata Wizard TUI** or run `pairee developer package ~/.config/pairee/plugins/my-plugin.pairee` to validate your files, copy them to a local checkout of the `plugin-registry` branch, and update the central `registry/index.toml` catalog file.
 3. Ensure the plugin meets the following mandatory publication requirements:
    - **Icon:** A PNG icon named `icon.png` must be located in the plugin's root directory (recommended sizes: `512x512` or `256x256` pixels).
    - **Screenshots:** A `screenshots/` directory must exist in the plugin's root containing at least one screenshot (PNG, JPG, or JPEG).
@@ -785,7 +805,7 @@ Pairee plugins support isolated, self-contained translations. There is no need t
 ### 17.1 Creating Language Files
 Create a `lang/` subdirectory in your plugin's root folder, and place translation TOML files inside named after their ISO-639-1 language code:
 ```text
-~/.config/pairee/plugins/my-plugin/
+~/.config/pairee/plugins/my-plugin.pairee/
 ├── manifest.toml
 ├── main.lua
 └── lang/
@@ -860,7 +880,7 @@ To document keybindings, commands, and functionality for your users, you can int
 ### 19.1 Creating Help Markdown Files
 Add a `help/` subdirectory to the root folder of your plugin, and place help markdown files named after their ISO-639-1 language code inside:
 ```text
-~/.config/pairee/plugins/my-plugin/
+~/.config/pairee/plugins/my-plugin.pairee/
 ├── manifest.toml
 ├── main.lua
 └── help/

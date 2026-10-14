@@ -52,21 +52,27 @@ Los complementos se almacenan en tu carpeta de configuración y se declaran en `
 
 ## 3. Tu Primer Complemento — Hola Mundo
 
-Crea la carpeta `~/.config/pairee/plugins/hello/`.
+Crea la carpeta `~/.config/pairee/plugins/hello.pairee/`. Pairee solo carga
+carpetas llamadas `<nombre>.pairee`, y el `name` del manifiesto debe ser el
+nombre de la carpeta sin el sufijo (`hello`); solo se admite `[A-Za-z0-9_-]`.
 
-Crea el archivo `~/.config/pairee/plugins/hello/main.lua`:
+Crea el archivo `~/.config/pairee/plugins/hello.pairee/main.lua`:
 
 ```lua
 local M = {}
 
-function M:entry()
+function M:entry(args)
     pairee.app.notify("¡Hola!", "Este es mi primer complemento de Pairee.", "info")
 end
 
 return M
 ```
 
-Crea el archivo de manifiesto `~/.config/pairee/plugins/hello/manifest.toml`:
+Pairee llama a las funciones del complemento como métodos, con la tabla del
+complemento primero, así que se declaran con `:` (`function M:entry(args)`);
+con `.` el primer parámetro recibe la tabla en lugar de `args`.
+
+Crea el archivo de manifiesto `~/.config/pairee/plugins/hello.pairee/manifest.toml`:
 
 ```toml
 name = "hello"
@@ -75,7 +81,11 @@ description = "Complemento simple de prueba Hola Mundo"
 author = "tu-usuario"
 license = "MIT"
 type = "command"
-min_pairee = "0.7.0"   # semver; sirven pre-releases como "0.10.0-beta.1", un valor ilegible impide la carga
+min_pairee = "0.11.0"  # semver; sirven pre-releases como "0.10.0-beta.1", un valor ilegible impide la carga
+
+[[commands]]
+id    = "hello"
+title = "Decir hola"
 ```
 
 Regístralo en `pairee.toml`:
@@ -86,7 +96,7 @@ name    = "hello"
 trusted = false
 ```
 
-Lanza Pairee, y ejecuta su comando desde la paleta de comandos. Aparecerá una notificación.
+Lanza Pairee y ejecuta **Decir hola** desde la paleta de comandos (o asigna `plugin.hello.hello` a una tecla, ver la sección 6). Aparecerá una notificación.
 
 ---
 
@@ -96,11 +106,11 @@ Un complemento es una carpeta que contiene un script Lua principal, un manifiest
 
 ```text
 ~/.config/pairee/plugins/
-└── my-plugin/
+└── my-plugin.pairee/       # <nombre>.pairee; name del manifiesto = "my-plugin"
     ├── main.lua              # Requerido — punto de entrada
     ├── manifest.toml         # Requerido — metadatos y atajos de teclado
     ├── utils.lua             # Submódulo opcional
-    └── locale/               # Archivos de localización opcionales
+    └── lang/                 # Archivos de localización opcionales
         ├── en.toml
         └── es.toml
 ```
@@ -144,8 +154,16 @@ pairee.sync(function()
         print(hovered.name, hovered.size, hovered.mime, hovered.is_hidden)
     end
     local selected = pairee.cx.active.selected -- File[]
+    local url = pairee.cx.active.url            -- userdata Url de la carpeta
 end)
 ```
+
+Campos de `File`: `name`, `path`, `url`, `size`, `is_dir`, `is_symlink`,
+`mime`, `mtime`, `is_hidden`, `is_exec`, `cha`. `File.url` es un string simple
+(la URL remota en paneles remotos, si no la ruta); envuélvelo con
+`pairee.Url(file.url)` cuando necesites un `Url`. El `url` de carpeta de
+`cx.active`, `cx.left`, `cx.right` y de las entradas de `cx.tabs` ya es un
+userdata `Url`.
 
 ### `pairee.fs` — Sistema de Archivos y Procesos
 
@@ -369,7 +387,9 @@ reasigna cualquier comando en `keybindings.toml`:
 ```
 
 Para evitar conflictos conviene usar `<leader>p…` en Neovim, `Alt+p` y una
-letra en yazi, y `Ctrl+Alt+x` y una letra en los demás presets.
+letra en yazi, y `Ctrl+Alt+e` y una letra (`Ctrl+Alt+e h`) en los demás
+presets, donde está libre. Evita `Ctrl+Alt+x` (vista de rama) y `Ctrl+Alt+p`
+(paleta de comandos), y `Alt+p` fuera de yazi (vista rápida en standard).
 `pairee developer lint` lista, por preset, las teclas sugeridas que están
 ocupadas o no son válidas.
 
@@ -435,7 +455,7 @@ function M:peek(job)
         return  -- no es un archivo CSV, declinar
     end
 
-    local content = pairee.fs.read(tostring(job.file.url))
+    local content = pairee.fs.read(job.file.url)
     local rows = {}
     for line in content:gmatch("[^\n]+") do
         local cols = {}
@@ -474,19 +494,18 @@ Los complementos hook se suscriben a eventos de ciclo de vida durante su llamada
 
 | Evento | Payload | Se dispara Cuando |
 |--------|---------|-----------------|
-| `on_cd` | `{ cwd: string }` | El panel activo cambia de directorio |
-| `on_hover` | `{ entry: Entry }` | El usuario mueve el cursor a un archivo diferente |
+| `on_cd` | `{ path: string, side: string }` | Un panel entra en una carpeta. `side`: `left` / `right` |
+| `on_hover` | `{ path: string, is_dir: boolean, size: integer }` | La vista rápida muestra otra entrada (la del cursor, o la primera seleccionada); solo con la vista rápida abierta |
 | `on_key` | `{ key: string }` | Se presiona una tecla (antes del resolver) |
 | `on_mouse` | `{ kind, button, x, y, target, side?, index? }` | Un clic en los paneles o las barras (no dentro de diálogos). `kind`: `click` / `double_click`; `button`: `left` / `right` / `middle`; `target`: `panel_row`, `panel`, `panel_title`, `panel_header`, `tab`, `menu`, `fkey`, `command_line`, `other`; `side`: `left` / `right`; `index`: entrada (desde 1) de un `panel_row` |
-| `on_focus` | `{ side: string }` | El foco de panel cambia |
 
 ```lua
 local M = {}
 
 function M:setup(opts)
     pairee.ps.sub("on_cd", function(payload)
-        pairee.log.info("Navegado a: " .. payload.cwd)
-        local result = pairee.fs.spawn("git", { "-C", payload.cwd, "status", "--short" })
+        pairee.log.info("Navegado a: " .. payload.path)
+        local result = pairee.fs.spawn("git", { "-C", payload.path, "status", "--short" })
         if result.status == 0 and result.stdout ~= "" then
             pairee.app.notify("Git Status", result.stdout, "info")
         end
@@ -665,8 +684,8 @@ En el Gestor de Complementos (pestaña Instalados) `c` o Enter abre los ajustes 
 
 ## 14. Probar tu Complemento Localmente
 
-1. **Coloca la carpeta de tu complemento** bajo `~/.config/pairee/plugins/<nombre>/`.
-2. **Regístralo** en `pairee.toml`.
+1. **Coloca la carpeta de tu complemento** bajo `~/.config/pairee/plugins/<nombre>.pairee/`; el `name` del manifiesto debe ser `<nombre>`.
+2. **Regístralo** en `pairee.toml` (hace falta para `trusted = true`; un complemento sin registrar carga como no confiable).
 3. Ejecuta Pairee y revisa los registros en `~/.cache/pairee/app.log` para ver los eventos de ejecución.
 
 ---
@@ -737,7 +756,8 @@ Cuando un desarrollador usa el asistente **Inicializar Nuevo Complemento** (ya s
 
 ```
 plugin-template/
-├── manifest.toml          # Bloque [plugin] con tokens PLUGIN_NAME, PLUGIN_DESCRIPTION, PLUGIN_AUTHOR
+├── manifest.toml          # Bloque [plugin] con tokens PLUGIN_NAME, PLUGIN_DESCRIPTION, PLUGIN_AUTHOR,
+│                          # license, type, min_pairee = "0.11.0", una entrada [[commands]] y settings_schema
 ├── main.lua               # Código Lua completo con setup(), entry() y peek()
 ├── icon.png               # PNG de marcador de posición 256×256 en gris
 ├── lang/
@@ -775,7 +795,7 @@ git checkout master
 ## 16. Flujo de Envío al Registro
 
 1. **Activar el Modo Desarrollador** en `pairee.toml`.
-2. Abrir la pantalla del **Asistente de Metadatos TUI** o ejecutar `pairee developer package ~/.config/pairee/plugins/mi-complemento` para validar tus archivos, copiarlos a una copia de trabajo local de la rama `plugin-registry` y actualizar el archivo de catálogo central `registry/index.toml`.
+2. Abrir la pantalla del **Asistente de Metadatos TUI** o ejecutar `pairee developer package ~/.config/pairee/plugins/mi-complemento.pairee` para validar tus archivos, copiarlos a una copia de trabajo local de la rama `plugin-registry` y actualizar el archivo de catálogo central `registry/index.toml`.
 3. Asegurarse de que el plugin cumpla con los siguientes requisitos obligatorios de publicación:
    - **Icono:** Debe existir un icono PNG llamado `icon.png` en el directorio raíz del plugin (tamaños recomendados: `512x512` o `256x256` píxeles).
    - **Capturas de pantalla:** Debe existir un directorio `screenshots/` en la raíz del plugin que contenga al menos una captura de pantalla (PNG, JPG o JPEG).
@@ -794,7 +814,7 @@ Los complementos de Pairee admiten traducciones aisladas y autocontenidas. No es
 ### 17.1 Creación de Archivos de Idioma
 Crea un subdirectorio `lang/` en la carpeta raíz de tu complemento y coloca allí archivos de traducción TOML nombrados con su código de idioma ISO-639-1:
 ```text
-~/.config/pairee/plugins/mi-complemento/
+~/.config/pairee/plugins/mi-complemento.pairee/
 ├── manifest.toml
 ├── main.lua
 └── lang/
@@ -867,7 +887,7 @@ Para documentar atajos de teclado, comandos y funciones para los usuarios, puede
 ### 19.1 Creación de Archivos Markdown de Ayuda
 Agrega un subdirectorio `help/` a la carpeta raíz de tu complemento, y coloca dentro los archivos markdown de ayuda nombrados según su código de idioma ISO-639-1:
 ```text
-~/.config/pairee/plugins/mi-complemento/
+~/.config/pairee/plugins/mi-complemento.pairee/
 ├── manifest.toml
 ├── main.lua
 └── help/
