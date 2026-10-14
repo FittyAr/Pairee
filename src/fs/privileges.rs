@@ -70,27 +70,20 @@ fn run_sudo(message: &str, args: &[&std::ffi::OsStr]) -> std::io::Result<std::pr
 }
 
 pub fn run_in_elevated_helper(ops: Vec<FsOperation>) -> Result<()> {
-    let temp_dir = std::env::temp_dir();
-    // Use a UUID rather than the (guessable) process id so a local
-    // attacker cannot pre-create the JSON file with their own operations
-    // and have the helper execute them as root / as Administrator. Pairs
-    // with the matching helper-side fix in `main.rs` which builds the
-    // res-file path from the same operations envelope.
-    let unique = uuid::Uuid::new_v4();
-    let temp_file_path = temp_dir.join(format!("pairee_op_{}.json", unique));
+    // The operations and the helper's result live in a private folder of
+    // their own (0700 on Unix, random name): in the shared temp folder a
+    // local attacker could swap the operations, or plant a link where the
+    // helper — running as root — writes its result.
+    let private = tempfile::Builder::new().prefix("pairee-op-").tempdir()?;
+    let temp_file_path = private.path().join("ops.json");
 
     let json_content = serde_json::to_string(&ops)?;
     std::fs::write(&temp_file_path, json_content)?;
 
     let current_exe = std::env::current_exe()?;
 
-    let run_res = run_helper_process(&current_exe, &temp_file_path);
-
-    // Best-effort cleanup; if the helper crashed before deleting, the
-    // unique name means it won't collide with a future run.
-    let _ = std::fs::remove_file(&temp_file_path);
-
-    run_res
+    // The folder (with whatever the helper left in it) goes away on drop.
+    run_helper_process(&current_exe, &temp_file_path)
 }
 
 #[cfg(target_os = "windows")]
