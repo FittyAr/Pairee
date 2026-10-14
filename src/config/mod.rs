@@ -177,11 +177,20 @@ impl AppConfig {
             write_atomic(&keybindings_path, keybindings_toml.as_bytes())?;
         }
 
-        // Save active theme (never to a path outside the themes folder)
+        // Save active theme (never to a path outside the themes folder), only
+        // when it differs from what loading it gives: an unchanged built-in
+        // theme is not frozen into a file (later releases' updates would
+        // never reach it), and a hand-edited file keeps its comments.
         match loading::theme_path(&self.settings.theme) {
             Some(theme_path) if self.theme_state == ConfigLoadState::Loaded => {
-                let theme_toml = toml::to_string_pretty(&self.theme)?;
-                write_atomic(&theme_path, theme_toml.as_bytes())?;
+                let stored = loading::load_theme(&self.settings.theme)
+                    .ok()
+                    .filter(|(_, error)| error.is_none())
+                    .map(|(theme, _)| theme);
+                if stored.as_ref() != Some(&self.theme) {
+                    let theme_toml = toml::to_string_pretty(&self.theme)?;
+                    write_atomic(&theme_path, theme_toml.as_bytes())?;
+                }
             }
             Some(theme_path) => {
                 log::warn!("Not overwriting invalid {theme_path:?} until Save setup");
@@ -364,6 +373,22 @@ mod tests {
         assert!(locked.take_load_error().is_none());
         locked.confirm_settings_overwrite();
         assert!(!locked.settings_save_locked());
+    }
+
+    #[test]
+    fn an_unchanged_built_in_theme_is_not_written_to_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let _root = paths::test_root::redirect(dir.path());
+        let mut config = AppConfig::default();
+        let path = loading::theme_path(&config.settings.theme).unwrap();
+        config.theme = loading::load_theme(&config.settings.theme).unwrap().0;
+
+        config.save().unwrap();
+        assert!(!path.exists(), "the built-in theme stays built in");
+
+        config.theme.panel_bg = "#123456".into();
+        config.save().unwrap();
+        assert!(fs::read_to_string(&path).unwrap().contains("#123456"));
     }
 
     #[test]
