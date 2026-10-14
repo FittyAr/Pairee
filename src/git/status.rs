@@ -43,13 +43,19 @@ impl StatusKind {
 }
 
 /// Reads all changed, staged and untracked files from the repository.
-pub fn get_status(repo: &git2::Repository) -> Vec<GitFileStatus> {
+///
+/// A failure (corrupt index, unreadable objects, …) is returned, never an
+/// empty list: a broken repository must not look clean.
+pub fn get_status(repo: &git2::Repository) -> Result<Vec<GitFileStatus>, git2::Error> {
     get_status_scoped(repo, None)
 }
 
 /// Like [`get_status`], restricted to `pathspec` (repository-relative,
 /// forward slashes; a directory matches everything below it).
-pub fn get_status_scoped(repo: &git2::Repository, pathspec: Option<&str>) -> Vec<GitFileStatus> {
+pub fn get_status_scoped(
+    repo: &git2::Repository,
+    pathspec: Option<&str>,
+) -> Result<Vec<GitFileStatus>, git2::Error> {
     let mut opts = git2::StatusOptions::new();
     if let Some(spec) = pathspec {
         opts.pathspec(spec);
@@ -59,12 +65,9 @@ pub fn get_status_scoped(repo: &git2::Repository, pathspec: Option<&str>) -> Vec
         .include_ignored(false)
         .include_unmodified(false);
 
-    let statuses = match repo.statuses(Some(&mut opts)) {
-        Ok(s) => s,
-        Err(_) => return Vec::new(),
-    };
+    let statuses = repo.statuses(Some(&mut opts))?;
 
-    statuses
+    Ok(statuses
         .iter()
         .filter_map(|entry| {
             let path = entry.path().unwrap_or("").to_string();
@@ -121,5 +124,5 @@ pub fn get_status_scoped(repo: &git2::Repository, pathspec: Option<&str>) -> Vec
                 is_unstaged,
             })
         })
-        .collect()
+        .collect())
 }

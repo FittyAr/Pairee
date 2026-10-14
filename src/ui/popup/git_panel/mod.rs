@@ -186,15 +186,21 @@ fn render_content(
         _ => Vec::new(),
     };
     if rows.is_empty() {
-        let notice = if loading {
-            t("panel_loading")
+        let failed = panel
+            .status_error
+            .as_ref()
+            .filter(|_| panel.active_tab == 0);
+        let (notice, color) = if loading {
+            (t("panel_loading"), Color::DarkGray)
+        } else if let Some(error) = failed {
+            (t("git_status_failed").replace("{}", error), Color::Red)
         } else {
-            t(tab_keys(panel.active_tab).1)
+            (t(tab_keys(panel.active_tab).1), Color::DarkGray)
         };
         f.render_widget(
             Paragraph::new(Span::styled(
                 format!("  {}", notice),
-                Style::default().fg(Color::DarkGray),
+                Style::default().fg(color),
             )),
             area,
         );

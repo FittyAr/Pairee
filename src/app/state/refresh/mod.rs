@@ -325,7 +325,13 @@ pub(crate) fn apply_listing(
     panel.listed_path = Some(listing.path);
     match listing.git {
         Some(git) => {
-            panel.git_branch = Some(git.branch);
+            // The header then reads "[git: main, status unavailable]".
+            panel.git_branch = Some(if git.status_failed {
+                crate::config::localization::t("git_branch_status_failed")
+                    .replace("{}", &git.branch)
+            } else {
+                git.branch
+            });
             panel.git_statuses = git.statuses;
         }
         None => {

@@ -272,21 +272,21 @@ fn test_stage_all_and_unstage_all() {
         .write_all(b"content 2")
         .unwrap();
 
-    let status = get_status(&repo);
+    let status = get_status(&repo).unwrap();
     assert_eq!(status.len(), 2);
     assert!(!status[0].is_staged);
     assert!(!status[1].is_staged);
 
     // Stage all
     stage_all(&repo).unwrap();
-    let status = get_status(&repo);
+    let status = get_status(&repo).unwrap();
     assert_eq!(status.len(), 2);
     assert!(status[0].is_staged);
     assert!(status[1].is_staged);
 
     // Unstage all
     unstage_all(&repo).unwrap();
-    let status = get_status(&repo);
+    let status = get_status(&repo).unwrap();
     assert_eq!(status.len(), 2);
     assert!(!status[0].is_staged);
     assert!(!status[1].is_staged);
@@ -323,7 +323,7 @@ fn test_discard_file_changes() {
     discard_file_changes(&repo, "tracked.txt").unwrap();
     let restored = std::fs::read_to_string(&tracked_path).unwrap();
     assert_eq!(restored, "v1 content");
-    let status = get_status(&repo);
+    let status = get_status(&repo).unwrap();
     assert!(!status.iter().any(|s| s.path == "tracked.txt"));
 
     // Discard untracked file (should delete file)
@@ -454,6 +454,7 @@ fn test_unstage_and_discard_take_file_names_literally() {
     unstage_file(&repo, "[id].txt").unwrap();
     let staged = |name: &str| {
         get_status(&repo)
+            .unwrap()
             .iter()
             .any(|s| s.path == name && s.is_staged)
     };
