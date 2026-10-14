@@ -92,6 +92,11 @@ impl RemoteKind {
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Connection {
     pub name: String,
+    /// Unique, stable key of the connection (its keyring entry): names
+    /// may repeat in a hand-edited file and change on rename. Assigned on
+    /// load or when the connection is first saved.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
     /// Older `[[ssh_presets]]` entries have no kind: SFTP.
     #[serde(default)]
     pub kind: RemoteKind,
@@ -104,7 +109,7 @@ pub struct Connection {
     /// The password (or S3 secret key). Kept in the keyring: only present
     /// in `config.toml` with `[security] passwords_in_config`.
     #[serde(default)]
-    pub password: Option<String>,
+    pub password: Option<crate::credential_prompt::Secret>,
     /// SSH private key file (SFTP only).
     #[serde(default)]
     pub key_path: Option<String>,
@@ -127,6 +132,7 @@ impl std::fmt::Debug for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Connection")
             .field("name", &self.name)
+            .field("id", &self.id)
             .field("kind", &self.kind)
             .field("host", &self.host)
             .field("port", &self.port)
@@ -141,6 +147,18 @@ impl std::fmt::Debug for Connection {
 }
 
 impl Connection {
+    /// The password (or S3 secret key), if known.
+    pub fn secret(&self) -> Option<&str> {
+        self.password.as_ref().map(|s| s.as_str())
+    }
+
+    /// Gives the connection an id when it has none.
+    pub fn ensure_id(&mut self) {
+        if self.id.is_empty() {
+            self.id = uuid::Uuid::new_v4().simple().to_string();
+        }
+    }
+
     /// The port to connect to: the typed one, else the kind's default.
     pub fn port_number(&self) -> Option<u16> {
         self.port
@@ -178,7 +196,7 @@ mod tests {
     fn debug_output_hides_the_password() {
         let conn = Connection {
             name: "box".into(),
-            password: Some("hunter2".into()),
+            password: Some(crate::credential_prompt::Secret::new("hunter2".into())),
             ..Connection::default()
         };
         let text = format!("{conn:?}");

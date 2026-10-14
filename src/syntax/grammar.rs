@@ -42,10 +42,32 @@ pub struct Region {
     pub captured_end: Option<CapturedEnd>,
     pub skip: Option<Regex>,
     /// Pattern the text before the start must match.
-    pub after: Option<Regex>,
+    pub after: Option<After>,
     /// Language of the inner text.
     pub include: Option<Include>,
     pub inner: Context,
+}
+
+/// The `after` pattern of a region.
+#[derive(Debug)]
+pub struct After {
+    pub regex: Regex,
+    /// The pattern may need the start of the line (`^`, `\A`): it is then
+    /// matched against the whole text before the start, not only the last
+    /// few hundred bytes.
+    pub from_line_start: bool,
+}
+
+impl After {
+    fn new(regex: Regex) -> Self {
+        // A `^` inside a class (`[^,]`) only costs a longer search.
+        let pattern = regex.as_str();
+        let from_line_start = pattern.contains('^') || pattern.contains("\\A");
+        Self {
+            regex,
+            from_line_start,
+        }
+    }
 }
 
 /// An `end` with `${N}` references.
@@ -221,7 +243,7 @@ impl Compiler {
                 cache: EndCache::default(),
             }),
             skip: optional(&def.skip, "skip")?,
-            after: optional(&def.after, "after")?,
+            after: optional(&def.after, "after")?.map(After::new),
             include: include.transpose()?,
             inner: Context::default(),
         };

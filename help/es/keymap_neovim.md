@@ -129,6 +129,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+Alt+k` | Ciclar modificadores de la barra de teclas |
 | `Alt+F9` | Modo de vídeo |
 | `g .` · `z a` · `Ctrl+h` | Mostrar / ocultar archivos ocultos |
+| `Ctrl+Alt+n` | Mostrar / ocultar barra de teclas |
 | `Space v 4` · `Ctrl+4` | Vista: ancha |
 | `Space v 1` · `Ctrl+1` | Vista: breve |
 | `Space v 3` · `Ctrl+3` | Vista: completa |
@@ -221,6 +222,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `F2` · `Space u` | Menú de usuario |
 | `Ctrl+Enter` | Nombre a la línea de comandos |
 | `F11` | Plugins |
+| `Ctrl+Alt+j` | Ruta a la línea de comandos |
 
 ### Sistema
 

@@ -12,5 +12,7 @@ pub struct CredentialPrompt {
     pub kind: SecretKind,
     /// `user@host` or the key file.
     pub subject: String,
+    /// The previous answer was wrong.
+    pub retry: bool,
     pub input: TextField,
 }

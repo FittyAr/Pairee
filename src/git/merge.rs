@@ -97,14 +97,6 @@ fn merge_touched_paths(
             }
         }
     }
-    for conflict in index.conflicts()? {
-        let conflict = conflict?;
-        for entry in [conflict.ancestor, conflict.our, conflict.their]
-            .into_iter()
-            .flatten()
-        {
-            paths.insert(PathBuf::from(String::from_utf8_lossy(&entry.path).as_ref()));
-        }
-    }
+    paths.extend(crate::git::outcome::conflict_paths(&index)?);
     Ok(paths)
 }

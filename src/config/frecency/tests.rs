@@ -109,7 +109,7 @@ fn round_trips_through_its_file() {
     let file = dir.path().join("frecency.toml");
     let mut store = FrecencyStore::default();
     store.visit(&p("/a"), NOW);
-    store.save_to(&file).unwrap();
+    store.save_visits_to(&file).unwrap();
     assert_eq!(FrecencyStore::load_from(&file), store);
     std::fs::write(&file, "folders = 3").unwrap();
     assert_eq!(FrecencyStore::load_from(&file), FrecencyStore::default());
@@ -122,7 +122,7 @@ fn two_running_instances_add_up_their_visits() {
     let mut start = FrecencyStore::default();
     start.visit(&p("/shared"), NOW);
     start.visit(&p("/forgotten"), NOW);
-    start.save_to(&file).unwrap();
+    start.save_visits_to(&file).unwrap();
 
     let mut first = FrecencyStore::load_from(&file);
     let mut second = FrecencyStore::load_from(&file);
@@ -131,8 +131,8 @@ fn two_running_instances_add_up_their_visits() {
     second.visit(&p("/shared"), NOW + 20);
     second.visit(&p("/second"), NOW + 20);
     second.remove(&p("/forgotten"));
-    first.save_to(&file).unwrap();
-    second.save_to(&file).unwrap();
+    first.save_visits_to(&file).unwrap();
+    second.save_visits_to(&file).unwrap();
 
     let saved = FrecencyStore::load_from(&file);
     let find = |path: &str| saved.folders.iter().find(|f| f.path == p(path));

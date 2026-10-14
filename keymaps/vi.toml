@@ -28,6 +28,9 @@ visual_mode    = "v, V"
 find_in_panel  = "/"
 find_next      = "n"
 find_prev      = "N"
+# Norton's Ctrl+b / Ctrl+f went to paging above.
+toggle_keybar      = "Ctrl+Alt+n"
+insert_path_to_cli = "Ctrl+Alt+j"
 
 [viewer]
 

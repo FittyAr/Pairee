@@ -10,12 +10,20 @@ use std::sync::OnceLock;
 #[derive(Debug)]
 pub struct Language {
     definition: Definition,
-    /// Lower-case extensions and file names.
+    /// The name, normalized by [`normalize`] (comparisons ignore case).
+    key: String,
+    /// Normalized extensions and file names.
     extensions: Vec<String>,
     names: Vec<String>,
     filename: Option<Regex>,
     first_line: Option<Regex>,
     grammar: OnceLock<Option<Grammar>>,
+}
+
+/// The form language names, extensions and file names are compared in:
+/// every comparison ignores case the same (Unicode) way.
+pub fn normalize(name: &str) -> String {
+    name.to_lowercase()
 }
 
 /// How strongly a file matched a language, best first.
@@ -36,8 +44,9 @@ impl Language {
                 .map(|p| grammar::build(p, false).map_err(|e| format!("{at}: {e}")))
                 .transpose()
         };
-        let lower = |v: &[String]| v.iter().map(|s| s.to_lowercase()).collect();
+        let lower = |v: &[String]| v.iter().map(|s| normalize(s)).collect();
         Ok(Self {
+            key: normalize(&definition.name),
             extensions: lower(&definition.extensions),
             names: lower(&definition.names),
             filename: regex(&definition.filename, "filename")?,
@@ -56,13 +65,16 @@ impl Language {
         self.definition.host.as_deref()
     }
 
+    /// Whether this language is called `name` (any case).
+    pub fn is_named(&self, name: &str) -> bool {
+        self.key == normalize(name)
+    }
+
     /// Whether `name` (from an `include`) names this language: its name,
     /// one of its extensions or file names (any case).
     pub fn answers_to(&self, name: &str) -> bool {
-        let lower = name.to_lowercase();
-        self.definition.name.to_lowercase() == lower
-            || self.extensions.contains(&lower)
-            || self.names.contains(&lower)
+        let key = normalize(name);
+        self.key == key || self.extensions.contains(&key) || self.names.contains(&key)
     }
 
     /// The compiled grammar (`None` when a pattern does not compile; the
@@ -87,7 +99,7 @@ impl Language {
 
     /// How `path` (whose first line is `first_line`) matches this language.
     pub fn matches(&self, path: &Path, first_line: &str) -> Option<Match> {
-        let lower = |s: Option<&std::ffi::OsStr>| s.and_then(|s| s.to_str()).map(str::to_lowercase);
+        let lower = |s: Option<&std::ffi::OsStr>| s.and_then(|s| s.to_str()).map(normalize);
         let name = lower(path.file_name());
         if name.as_ref().is_some_and(|n| self.names.contains(n)) {
             return Some(Match::Name);
@@ -133,6 +145,17 @@ mod tests {
             Some(Match::FirstLine)
         );
         assert_eq!(lang.matches(Path::new("a.txt"), "hello"), None);
+    }
+
+    #[test]
+    fn names_compare_the_same_way_everywhere() {
+        let def = Definition::parse("name = \"Élan\"\nextensions = [\"ÉL\"]").unwrap();
+        let lang = Language::new(def).unwrap();
+        assert!(lang.is_named("élan") && lang.is_named("ÉLAN"));
+        assert!(lang.answers_to("éLAN") && lang.answers_to("él"));
+        assert_eq!(lang.matches(Path::new("a.él"), ""), Some(Match::Extension));
+        let registry = crate::syntax::registry::Registry::new(vec![std::sync::Arc::new(lang)]);
+        assert!(registry.embedded("élan").is_some());
     }
 
     #[test]

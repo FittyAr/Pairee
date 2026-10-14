@@ -7,7 +7,7 @@
 //! (see [`crate::credential_prompt`]); a cancelled prompt skips the key.
 
 use crate::config::localization::t;
-use crate::credential_prompt::{self, Ask, CredentialRequest};
+use crate::credential_prompt::{self, Ask, CredentialRequest, Secret};
 use std::path::{Path, PathBuf};
 
 /// Hard cap on credential callback invocations for one transfer.
@@ -16,7 +16,7 @@ const MAX_CREDENTIAL_ATTEMPTS: usize = 8;
 const DEFAULT_SSH_USER: &str = "git";
 
 /// Asks the user for a secret (`None`: cancelled or nobody to ask).
-type Prompt<'a> = Box<dyn FnMut(CredentialRequest) -> Option<String> + 'a>;
+type Prompt<'a> = Box<dyn FnMut(CredentialRequest) -> Option<Secret> + 'a>;
 
 /// What has already been offered to the remote during one transfer.
 pub struct CredentialState<'a> {
@@ -48,7 +48,7 @@ impl<'a> CredentialState<'a> {
     #[cfg(test)]
     pub fn with_prompt(
         mut self,
-        prompt: impl FnMut(CredentialRequest) -> Option<String> + 'a,
+        prompt: impl FnMut(CredentialRequest) -> Option<Secret> + 'a,
     ) -> Self {
         self.prompt = Box::new(prompt);
         self
@@ -125,7 +125,13 @@ impl<'a> CredentialState<'a> {
         } else {
             None
         };
-        git2::Cred::ssh_key(username, None, path, passphrase.as_deref()).ok()
+        git2::Cred::ssh_key(
+            username,
+            None,
+            path,
+            passphrase.as_ref().map(|s| s.as_str()),
+        )
+        .ok()
     }
 }
 

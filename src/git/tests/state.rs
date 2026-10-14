@@ -3,6 +3,18 @@
 use super::*;
 use crate::config::localization::t;
 
+#[test]
+fn index_paths_keep_their_bytes() {
+    use crate::git::outcome::index_path;
+    assert_eq!(index_path(b"dir/a.txt"), std::path::Path::new("dir/a.txt"));
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let raw = b"caf\xe9.txt";
+        assert_eq!(index_path(raw).as_os_str().as_bytes(), raw, "not lossy");
+    }
+}
+
 /// A repo on its default branch with `base.txt`, plus a `feature` branch one
 /// commit ahead that adds `feature.txt`. Returns the default branch name.
 fn repo_with_feature() -> (TempDir, git2::Repository, String, git2::Oid) {

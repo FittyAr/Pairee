@@ -29,7 +29,7 @@ pub struct Registry {
 
 impl Registry {
     pub fn new(user: Vec<Arc<Language>>) -> Self {
-        let replaced = |name: &str| user.iter().any(|u| u.name().eq_ignore_ascii_case(name));
+        let replaced = |name: &str| user.iter().any(|u| u.is_named(name));
         let builtin: Vec<_> = builtin::languages()
             .iter()
             .filter(|b| !replaced(b.name()))
@@ -73,7 +73,7 @@ impl Registry {
         if name.is_empty() {
             return None;
         }
-        let named = |l: &&Arc<Language>| l.name().eq_ignore_ascii_case(name);
+        let named = |l: &&Arc<Language>| l.is_named(name);
         self.languages
             .iter()
             .find(named)

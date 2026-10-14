@@ -9,6 +9,7 @@ mod tests;
 use super::context::AppContext;
 use super::state::AppState;
 use crate::app::state::popup::OnboardingKeymap;
+use crate::config::StateFile;
 use crate::terminal::{EventHandler, TerminalBackend};
 use crate::ui;
 use anyhow::Result;

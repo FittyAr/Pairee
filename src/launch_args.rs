@@ -1,5 +1,6 @@
 //! Command-line arguments of an interactive run:
-//! `pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [<left> [<right>]]`.
+//! `pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [--standalone]
+//! [--] [<left> [<right>]]`.
 
 use crate::config::localization::t;
 use std::ffi::OsString;
@@ -8,8 +9,8 @@ use std::path::PathBuf;
 const CWD_FILE: &str = "--cwd-file";
 const PRINT_CWD: &str = "--print-cwd";
 const NO_MOUSE: &str = "--no-mouse";
-/// Consumed by the standalone launcher before the arguments are parsed.
-const STANDALONE: &str = "--standalone";
+/// Open Pairee in a new terminal window (see `terminal::standalone`).
+pub(crate) const STANDALONE: &str = "--standalone";
 const MAX_PATHS: usize = 2;
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -22,6 +23,8 @@ pub struct LaunchArgs {
     pub print_cwd: bool,
     /// Never capture the mouse, whatever the configuration says.
     pub no_mouse: bool,
+    /// Relaunch in a new terminal window (only once the arguments parsed).
+    pub standalone: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -76,7 +79,9 @@ impl LaunchArgs {
                 parsed.print_cwd = true;
             } else if text == NO_MOUSE {
                 parsed.no_mouse = true;
-            } else if text != STANDALONE {
+            } else if text == STANDALONE {
+                parsed.standalone = true;
+            } else {
                 return Err(ArgError::UnknownOption(text.to_string()));
             }
         }
@@ -131,10 +136,18 @@ mod tests {
     }
 
     #[test]
-    fn standalone_flag_is_ignored() {
+    fn standalone_flag_is_an_option_before_double_dash() {
         assert!(parse(&["--no-mouse"]).unwrap().no_mouse);
         let args = parse(&["--standalone", "/a"]).unwrap();
+        assert!(args.standalone);
         assert_eq!(args.paths, [PathBuf::from("/a")]);
+        let args = parse(&["--", "--standalone"]).unwrap();
+        assert!(!args.standalone);
+        assert_eq!(args.paths, [PathBuf::from("--standalone")]);
+        assert!(
+            parse(&["--standalone", "--bad"]).is_err(),
+            "validated first"
+        );
     }
 
     #[test]

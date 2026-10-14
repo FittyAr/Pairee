@@ -1,12 +1,11 @@
 //! Persistent folder shortcuts (Ctrl+Alt+1…9) and the directory hotlist,
 //! stored in `<config_dir>/bookmarks.toml`.
 
+use super::toml_store::StateFile;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
-
-const FILE_NAME: &str = "bookmarks.toml";
 
 /// Lowest and highest folder shortcut slot.
 pub const SHORTCUT_SLOTS: std::ops::RangeInclusive<u8> = 1..=9;
@@ -29,24 +28,11 @@ pub struct BookmarksFile {
     pub hotlist: Option<Vec<HotlistEntry>>,
 }
 
+impl StateFile for BookmarksFile {
+    const FILE_NAME: &'static str = "bookmarks.toml";
+}
+
 impl BookmarksFile {
-    /// Loads `bookmarks.toml` from the config directory (default on missing/invalid file).
-    pub fn load() -> Self {
-        Self::load_from(&default_path())
-    }
-
-    pub fn load_from(path: &Path) -> Self {
-        super::toml_store::load_or_default(path)
-    }
-
-    pub fn save(&self) -> Result<()> {
-        self.save_to(&default_path())
-    }
-
-    pub fn save_to(&self, path: &Path) -> Result<()> {
-        super::toml_store::save(path, self)
-    }
-
     /// Folder shortcuts as slot → path, ignoring malformed or out-of-range keys.
     pub fn shortcut_map(&self) -> HashMap<u8, PathBuf> {
         self.shortcuts
@@ -84,10 +70,6 @@ pub fn save_hotlist(entries: &[HotlistEntry]) -> Result<()> {
     let mut file = BookmarksFile::load();
     file.hotlist = Some(entries.to_vec());
     file.save()
-}
-
-fn default_path() -> PathBuf {
-    crate::config::paths::get_config_dir().join(FILE_NAME)
 }
 
 /// Localized default hotlist: home, desktop, documents, downloads and filesystem root.
@@ -144,7 +126,7 @@ mod tests {
     #[test]
     fn shortcuts_roundtrip_through_file() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join(FILE_NAME);
+        let path = dir.path().join(BookmarksFile::FILE_NAME);
         let mut map = HashMap::new();
         map.insert(1u8, PathBuf::from("/a"));
         map.insert(9u8, PathBuf::from("/b"));
@@ -173,7 +155,7 @@ mod tests {
     #[test]
     fn missing_or_invalid_file_yields_defaults() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join(FILE_NAME);
+        let path = dir.path().join(BookmarksFile::FILE_NAME);
         assert_eq!(BookmarksFile::load_from(&path), BookmarksFile::default());
         std::fs::write(&path, "not = [valid").unwrap();
         assert_eq!(BookmarksFile::load_from(&path), BookmarksFile::default());

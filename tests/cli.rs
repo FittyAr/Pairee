@@ -30,10 +30,16 @@ fn stdout_of(home: &Path, args: &[&str]) -> String {
 fn version_flags_print_the_crate_version() {
     let home = tempfile::tempdir().unwrap();
     let expected = format!("pairee {}\n", env!("CARGO_PKG_VERSION"));
-    for flag in ["--version", "-V"] {
+    for args in [
+        &["--version"][..],
+        &["-V"],
+        &["--no-mouse", "--version"],
+        &["/some/folder", "-V"],
+    ] {
         assert_eq!(
-            stdout_of(home.path(), &[flag]).replace("\r\n", "\n"),
-            expected
+            stdout_of(home.path(), args).replace("\r\n", "\n"),
+            expected,
+            "{args:?}"
         );
     }
 }

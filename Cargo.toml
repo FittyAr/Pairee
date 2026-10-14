@@ -13,7 +13,7 @@ readme = "README.md"
 # No termwiz/termina backends: default features would list them in the lock
 # through weak `?/underline-color` features (never built, but audited).
 ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] }
-crossterm = { version = "0.29.0", features = ["event-stream"] }
+crossterm = "0.29.0"
 tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -24,7 +24,6 @@ thiserror = "2.0"
 log = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
-tracing-log = "0.2"
 chrono = "0.4"
 zip = { version = "9.0.2", default-features = false, features = ["deflate", "time"] }
 tar = "0.4.46"
@@ -90,6 +89,7 @@ quick-xml = "0.42.0"
 url = "2.5.8"
 bytes = "1.12"
 http-body = "1.1"
+zeroize = { version = "1.9.1", features = ["serde"] }
 
 [features]
 # Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in

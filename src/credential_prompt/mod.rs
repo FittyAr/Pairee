@@ -16,6 +16,11 @@
 
 pub mod key;
 
+/// A password, passphrase or secret key held in memory: its bytes are
+/// overwritten when it is dropped (best effort: copies the OS, the
+/// terminal or a library made are out of reach).
+pub type Secret = zeroize::Zeroizing<String>;
+
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, SyncSender, channel as std_channel, sync_channel};
@@ -39,6 +44,8 @@ pub struct CredentialRequest {
     pub kind: SecretKind,
     /// What the secret is for: `user@host` or the key file path.
     pub subject: String,
+    /// The previous answer was wrong (the prompt says so).
+    pub retry: bool,
 }
 
 impl CredentialRequest {
@@ -46,6 +53,15 @@ impl CredentialRequest {
         Self {
             kind: SecretKind::Password,
             subject: subject.into(),
+            retry: false,
+        }
+    }
+
+    /// The same request after a wrong answer.
+    pub fn again(self) -> Self {
+        Self {
+            retry: true,
+            ..self
         }
     }
 
@@ -55,6 +71,7 @@ impl CredentialRequest {
         Self {
             kind: SecretKind::Certificate,
             subject: format!("{server}\n{fingerprint}"),
+            retry: false,
         }
     }
 
@@ -62,25 +79,26 @@ impl CredentialRequest {
         Self {
             kind: SecretKind::Passphrase,
             subject: key.display().to_string(),
+            retry: false,
         }
     }
 }
 
 /// How a login asks the user for a secret (`None`: cancelled or nobody to
 /// ask). Connections and Git network jobs get it from whoever started them.
-pub type Ask<'a> = &'a (dyn Fn(CredentialRequest) -> Option<String> + Sync);
+pub type Ask<'a> = &'a (dyn Fn(CredentialRequest) -> Option<Secret> + Sync);
 
 /// A request waiting for the user, with the way back to the job.
 #[derive(Debug)]
 pub struct Pending {
     pub id: u64,
     pub request: CredentialRequest,
-    reply: SyncSender<Option<String>>,
+    reply: SyncSender<Option<Secret>>,
 }
 
 impl Pending {
     /// Sends the answer (`None`: cancelled) to the waiting job.
-    pub fn answer(self, secret: Option<String>) {
+    pub fn answer(self, secret: Option<Secret>) {
         // The job may have given up already; nothing to do then.
         let _ = self.reply.send(secret);
     }
@@ -105,7 +123,7 @@ impl Asker {
 
     /// Asks the user and blocks until the answer comes (`None`: cancelled,
     /// or nobody is listening anymore).
-    pub fn ask(&self, request: CredentialRequest) -> Option<String> {
+    pub fn ask(&self, request: CredentialRequest) -> Option<Secret> {
         if self.ui_thread == Some(std::thread::current().id()) {
             tracing::warn!("credential request from the UI thread refused");
             return None;
@@ -149,7 +167,7 @@ pub fn channel(wake: fn()) -> (Asker, Inbox) {
 }
 
 /// The answer when nobody can be asked: always cancelled.
-pub fn nobody(_request: CredentialRequest) -> Option<String> {
+pub fn nobody(_request: CredentialRequest) -> Option<Secret> {
     None
 }
 
@@ -170,8 +188,11 @@ mod tests {
             std::thread::yield_now();
         };
         assert_eq!(pending.request, CredentialRequest::password("me@host"));
-        pending.answer(Some("pw".into()));
-        assert_eq!(job.join().unwrap().as_deref(), Some("pw"));
+        pending.answer(Some(Secret::new("pw".into())));
+        assert_eq!(
+            job.join().unwrap().as_deref().map(String::as_str),
+            Some("pw")
+        );
     }
 
     #[test]

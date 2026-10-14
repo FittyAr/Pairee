@@ -72,10 +72,8 @@ pub fn plugin_commands(
 /// Rewrites each chord written in a plugin spelling (`ctrl-h`, `<C-h>`)
 /// in keymap grammar; sequences and `<leader>` chords pass unchanged.
 fn normalize_chords(chords: &str) -> String {
-    chords
-        .split(',')
-        .map(str::trim)
-        .filter(|c| !c.is_empty())
+    crate::keybindings::chord::split_chords(chords)
+        .into_iter()
         .map(|c| canonical_key(c).unwrap_or_else(|| c.to_string()))
         .collect::<Vec<_>>()
         .join(", ")
@@ -91,7 +89,7 @@ mod tests {
             id: "toggle".into(),
             title: Some("Toggle blame".into()),
             keys: BTreeMap::from([
-                ("default".into(), "ctrl-b, <A-x>".into()),
+                ("default".into(), "ctrl-b, <A-x>, ctrl+,".into()),
                 ("neovim".into(), "<leader>gb".into()),
             ]),
         }];
@@ -103,7 +101,7 @@ mod tests {
         let cmds = plugin_commands("blame", &declared, Some(&legacy));
         assert_eq!(cmds.len(), 2, "a declared command wins over a legacy one");
         assert_eq!(cmds[0].keymap_id(), "plugin.blame.toggle");
-        assert_eq!(cmds[0].keys_for("norton"), Some("Ctrl+b, Alt+x"));
+        assert_eq!(cmds[0].keys_for("norton"), Some("Ctrl+b, Alt+x, Ctrl+,"));
         assert_eq!(cmds[0].keys_for("neovim"), Some("<leader>gb"));
         assert_eq!(cmds[1].title, "hello");
         assert_eq!(cmds[1].keys_for("yazi"), Some("Ctrl+h, Ctrl+j"));

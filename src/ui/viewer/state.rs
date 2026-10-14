@@ -46,6 +46,9 @@ pub struct ViewerState {
     /// Highlighting limits changed while loading: applied to the content
     /// once it arrives (the background job used the earlier ones).
     pub pending_syntax: Option<SyntaxLimits>,
+    /// The settings `syntax` was chosen with (kept to choose again after
+    /// an encoding change).
+    pub syntax_limits: SyntaxLimits,
 }
 
 pub(crate) fn is_image_extension(path: &Path) -> bool {
@@ -154,12 +157,14 @@ impl ViewerState {
             notice: None,
             syntax: RefCell::new(None),
             pending_syntax: None,
+            syntax_limits: SyntaxLimits::default(),
         }
     }
 
     /// Picks the syntax highlighter for a text file (by name and first
     /// line) when `limits` allow it.
     pub fn detect_syntax(&mut self, limits: &SyntaxLimits) {
+        self.syntax_limits = *limits;
         let cache = if self.is_text && !self.is_image {
             let first = self.doc.lines(0, 1).pop().unwrap_or_default();
             limits.cache_for(&self.path, &first, self.doc.len())
@@ -172,10 +177,10 @@ impl ViewerState {
     /// Re-reads the content in `encoding` (chosen by the user) as text.
     pub fn set_encoding(&mut self, encoding: &'static encoding_rs::Encoding) {
         spawn_index(self.doc.set_encoding(encoding));
-        if let Some(cache) = self.syntax.get_mut() {
-            cache.invalidate_from(0);
-        }
         self.is_text = true;
+        // The first line (a shebang, a mode line) may read differently now.
+        let limits = self.syntax_limits;
+        self.detect_syntax(&limits);
         self.mode = ViewerMode::Text;
         self.scroll = 0;
         self.notice = None;
@@ -278,6 +283,32 @@ mod tests {
         assert!(vs.doc.lines(0, 1)[0].contains("pingüino"));
         vs.set_encoding(encoding_rs::UTF_8);
         assert!(vs.doc.lines(0, 1)[0].contains('\u{FFFD}'));
+    }
+
+    #[test]
+    fn an_encoding_change_detects_the_language_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("run");
+        let utf16: Vec<u8> = "#!/bin/bash\necho hi\n"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        std::fs::write(&path, utf16).unwrap();
+        let mut vs = load(path, false);
+        vs.detect_syntax(&SyntaxLimits {
+            enabled: true,
+            max_bytes: 1 << 20,
+        });
+        vs.set_encoding(encoding_rs::WINDOWS_1252);
+        assert!(vs.syntax.borrow().is_none(), "read as bytes: no shebang");
+        vs.set_encoding(encoding_rs::UTF_16LE);
+        assert_eq!(
+            vs.syntax
+                .borrow()
+                .as_ref()
+                .map(|c| c.language().to_string()),
+            Some("Shell".into())
+        );
     }
 
     #[test]

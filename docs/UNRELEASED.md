@@ -71,6 +71,8 @@
 - Pictures in the quick view, plugin previews and the viewer are resized once per size instead of on every redraw.
 
 ### Changed
+- Connection passwords in the system keyring are now stored per connection (by a unique id written to `config.toml`) instead of by name: two connections with the same name keep their own password and a rename keeps it. Existing entries are moved automatically.
+- Neovim and yazi presets: "Show / hide key bar" is `Ctrl+Alt+N` and "Path to command line" `Ctrl+Alt+J` (their Norton keys are used for paging there); yazi: "Swap panels" is `Ctrl+Alt+Y`.
 - Renamed files are colored in the panels as in the Git panel.
 - Sizes in dialogs, the transfer panel and the viewer status line use binary units (KiB, MiB, GiB), matching the 1024-byte steps they are computed with.
 - The log file `app.log` is appended to instead of truncated on every start, and rotates to `app.log.1` past 5 MiB; two Pairee windows no longer overwrite each other's log.
@@ -103,6 +105,14 @@
 
 - Copying a folder into itself or a file onto itself showed the untranslated message key instead of the error; the help index shows translated titles for every page (it showed file names such as "Ssh Sftp").
 ### Fixed
+- SSH: a wrong passphrase for an encrypted key is asked again (up to three times, saying the previous one was wrong) instead of failing the connection.
+- Passwords and passphrases typed into prompts or read from the keyring are wiped from memory when no longer needed.
+- Keys: `Ctrl+,` (a literal comma) works in keymaps, overrides and plugin key declarations instead of being split at the comma.
+- Keymap load messages (unknown actions, invalid or duplicate chords, unreadable presets) are translated.
+- Command line: `--version` / `-V` works after other options (`pairee --no-mouse --version`); `--standalone` opens the new window only after the other arguments are checked, and neither it nor the internal `--elevated-helper` is recognized after `--`.
+- Syntax highlighting: an `after` pattern using `^` keeps matching far into a long line; language names compare the same way everywhere (any case, including non-ASCII); the viewer picks the language again after changing the encoding.
+- Remote branches of remotes whose name contains `/` (`team/eu/main`) are split correctly when checking out or deleting them.
+- Configuration and state files are flushed to disk together with their folder on Linux and macOS, so a crash right after saving cannot bring back the old file.
 - Git: a repository whose status cannot be read (for example a corrupt index) no longer looks clean: the Git panel shows the error in the Status tab, the panel header says "status unavailable", and Commit reports the error instead of "No changes".
 - Git: pressing Esc while a pull, fetch or push is finishing no longer claims it was cancelled when it had already completed (a pull may have merged): the popup shows "Cancelling…" and then the real outcome. A second Esc hides the popup.
 - Git: deleting a local branch that is not fully merged (into its upstream, or HEAD) now asks a second time, saying its unmerged commits will be lost, instead of deleting it straight away.

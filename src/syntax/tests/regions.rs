@@ -77,7 +77,30 @@ fn after_limits_where_a_region_starts() {
             (2, "z", Some(Str)),
         ],
     );
-    // Only the text shortly before the start is examined.
+    // A pattern that may need the line start sees the whole line.
+    let indented = format!("{}/w/", " ".repeat(1_000));
+    let toks = run(&g, &[&indented]);
+    assert_eq!(super::kind_at(&toks[0], &indented, "w"), Some(Str));
+    let far = format!("a = {}/w/", " ".repeat(1_000));
+    let toks = run(&g, &[&far]);
+    assert_eq!(super::kind_at(&toks[0], &far, "w"), Some(Str));
+}
+
+#[test]
+fn unanchored_after_patterns_look_only_shortly_back() {
+    let g = grammar(
+        r#"
+        name = "T"
+        [[region]]
+        kind = "string"
+        start = '/'
+        end = '/|$'
+        after = '[(=]\s*$'
+        "#,
+    );
+    let near = "a = /w/";
+    let toks = run(&g, &[near]);
+    assert_eq!(super::kind_at(&toks[0], near, "w"), Some(Str));
     let far = format!("a = {}/w/", " ".repeat(1_000));
     let toks = run(&g, &[&far]);
     assert_eq!(super::kind_at(&toks[0], &far, "w"), None);
