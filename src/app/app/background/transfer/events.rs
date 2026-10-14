@@ -44,12 +44,15 @@ pub fn handle_transfer_event(
             if context.config.settings.transfer.auto_report {
                 save_report(transfer, context, job_id, &results);
             }
+            // Where the job wrote: the drive an "eject" post-action ejects.
+            let destination = results.completed_files.last().map(|f| f.dst.clone());
             effects.finished.push((job_id, Some(results)));
             if transfer.engine.queue.pending_count() == 0
                 && transfer.post_action != crate::fs::transfer::post_action::PostAction::None
             {
                 let _ = crate::fs::transfer::post_action::execute_post_action(
                     transfer.post_action.clone(),
+                    destination.as_deref(),
                 );
             }
         }
