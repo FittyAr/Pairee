@@ -100,6 +100,9 @@
 
 - Copying a folder into itself or a file onto itself showed the untranslated message key instead of the error; the help index shows translated titles for every page (it showed file names such as "Ssh Sftp").
 ### Fixed
+- `install.ps1 -Uninstall` run through `irm | iex` no longer closes the PowerShell window, and installing or uninstalling no longer rewrites user `PATH` entries such as `%USERPROFILE%\bin` as fixed paths; uninstall removes every copy of the Pairee entry.
+- The ARM64 Windows installer refuses to install on x64 Windows, where its program cannot run.
+- `install.sh uninstall` also offers to remove the log and the plugins' data, not only the configuration.
 - Folder sizes and the disk usage view are marked incomplete again when some entries of a folder cannot be read, and copies report such folders instead of silently leaving those entries out.
 - Previews drawn with `pairee.ui` are shown in the Quick View, and plugin commands, previews and hooks can use dialogs, `pairee.sync` and other calls that wait; waiting for the user no longer counts against a plugin's 10-second limit.
 - A keyring that could not be read at startup (locked, temporarily unavailable) no longer makes the next save delete the stored connection password; it is read again when connecting.
