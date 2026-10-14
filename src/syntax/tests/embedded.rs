@@ -66,6 +66,12 @@ fn php_files_are_html_with_php_inside() {
             (3, "<i", Some(Tag)),
         ],
     );
+    let xml = ["<?xml version=\"1.0\"?>", "<p>"];
+    check_file(
+        "a.xhtml",
+        &xml,
+        &[(0, "\"1.0\"", None), (1, "<p", Some(Tag))],
+    );
 }
 
 #[test]

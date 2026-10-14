@@ -24,7 +24,8 @@ include = "CSS"
 
 [[region]]
 kind = "tag"
-start = '<\?(?:php|=)?'
+# (`<?php`, `<?=`, a short `<? `; not `<?xml`)
+start = '<\?(?:php\b|=|\s|$)'
 end = '\?>'
 include = "PHP"
 
