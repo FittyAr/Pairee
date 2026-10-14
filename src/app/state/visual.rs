@@ -85,6 +85,7 @@ mod tests {
                 is_dir: false,
                 is_symlink: false,
                 modified: None,
+                ..Default::default()
             })
             .collect();
         p

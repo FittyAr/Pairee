@@ -15,6 +15,7 @@ fn entry(name: &str, dir: &Path, is_dir: bool) -> FileEntry {
         is_symlink: false,
         size: 0,
         modified: None,
+        ..Default::default()
     }
 }
 

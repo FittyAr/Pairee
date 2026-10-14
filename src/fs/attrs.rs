@@ -22,6 +22,22 @@ pub struct FileAttrs {
     pub nlinks: u64,
 }
 
+/// Owner name of a file with metadata `meta` (its uid when the name is
+/// unknown) on Unix; `None` where the platform does not tell it cheaply.
+pub fn owner_of(meta: &std::fs::Metadata) -> Option<String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let uid = meta.uid();
+        Some(super::identity::user_name_of(uid).unwrap_or_else(|| uid.to_string()))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = meta;
+        None
+    }
+}
+
 /// Reads the file attributes for the given path.
 pub fn read_attrs(path: &Path) -> Result<FileAttrs> {
     let meta = std::fs::metadata(path).with_context(|| format!("Reading metadata: {:?}", path))?;
@@ -31,16 +47,15 @@ pub fn read_attrs(path: &Path) -> Result<FileAttrs> {
     let modified = meta.modified().ok();
     let created = meta.created().ok();
 
+    let owner = owner_of(&meta).unwrap_or_else(|| "N/A".to_string());
     #[cfg(unix)]
-    let (mode, owner, nlinks) = {
+    let (mode, nlinks) = {
         use std::os::unix::fs::MetadataExt;
-        let uid = meta.uid();
-        let owner_name = super::identity::user_name_of(uid).unwrap_or_else(|| uid.to_string());
-        (meta.mode(), owner_name, meta.nlink())
+        (meta.mode(), meta.nlink())
     };
 
     #[cfg(not(unix))]
-    let (mode, owner, nlinks) = { (0u32, "N/A".to_string(), 1u64) };
+    let (mode, nlinks) = (0u32, 1u64);
 
     Ok(FileAttrs {
         path: path.to_path_buf(),

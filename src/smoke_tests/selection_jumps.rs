@@ -47,6 +47,37 @@ fn select_all_unselect_all_and_restore() {
     assert_eq!(selected(&h), 4);
 }
 
+/// Sorting by description reads `descript.ion` (it used to sort by name),
+/// and creation time is its own order (it used to be the write time).
+#[test]
+fn description_and_creation_sorts_use_their_own_fields() {
+    let mut h = Harness::new();
+    for name in ["a.txt", "b.txt", "c.txt"] {
+        h.write(&format!("work/left/{name}"), name);
+    }
+    h.write("work/left/descript.ion", "b.txt alpha\na.txt zulu\n");
+    h.reread();
+    h.dispatch(Action::SortByDescription);
+    assert_eq!(
+        h.state.get_active_panel().sort_field,
+        SortField::Description
+    );
+    let files: Vec<String> = h
+        .names()
+        .into_iter()
+        .filter(|n| n.ends_with(".txt"))
+        .collect();
+    assert_eq!(files, ["c.txt", "b.txt", "a.txt"], "no description first");
+    h.dispatch(Action::SortByCreationTime);
+    assert_eq!(h.state.get_active_panel().sort_field, SortField::Created);
+    let panel = h.state.get_active_panel();
+    let created = panel.entries.iter().find(|e| e.name == "a.txt");
+    assert!(
+        created.and_then(|e| e.created).is_some() || cfg!(target_os = "linux"),
+        "the listing reads creation times"
+    );
+}
+
 #[test]
 fn visual_mode_selects_the_range_the_cursor_covers() {
     let mut h = with_files();

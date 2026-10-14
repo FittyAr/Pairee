@@ -38,6 +38,7 @@ fn app(root: &std::path::Path) -> (AppContext, AppState) {
         is_dir: true,
         is_symlink: false,
         modified: None,
+        ..Default::default()
     }];
     (context, state)
 }

@@ -15,4 +15,14 @@ pub struct FileEntry {
     pub is_symlink: bool,
     /// The last modification time, if available
     pub modified: Option<SystemTime>,
+    /// Creation time, where the file system records it (listing).
+    pub created: Option<SystemTime>,
+    /// Last access time, where the file system records it (listing).
+    pub accessed: Option<SystemTime>,
+    /// Owner name: filled in only when the listing sorts by owner, on
+    /// platforms that tell it cheaply (Unix).
+    pub owner: Option<String>,
+    /// `descript.ion` description: filled in only when the listing sorts
+    /// by description.
+    pub description: Option<String>,
 }

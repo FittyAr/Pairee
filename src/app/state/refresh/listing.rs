@@ -61,14 +61,18 @@ pub fn run(
     cancelled: &dyn Fn() -> bool,
     progress: &dyn Fn(ListingProgress),
 ) -> PanelListing {
+    let local = req.source.is_local();
     let entries = read_entries(req, cancelled, progress).map(|entries| {
-        apply_masks(
+        let mut entries = apply_masks(
             entries,
             req.filter_mask.as_deref(),
             req.quick_filter_mask.as_deref(),
-        )
+        );
+        if local && fill_sort_keys(&mut entries, req.options.sort_field) {
+            req.options.sort(&mut entries);
+        }
+        entries
     });
-    let local = req.source.is_local();
     let listed = entries.as_deref().unwrap_or(&[]);
     let git = if local && !cancelled() {
         git_info(&req.path, listed, req.branch)
@@ -112,6 +116,38 @@ fn read_entries(
         vfs.read_panel(&req.path, o)
     };
     entries.map_err(|e| e.to_string())
+}
+
+/// Fills in what sorting by owner or description needs (left out of a
+/// plain listing as it costs a stat or a file read). Returns whether it
+/// did, so the entries are sorted again.
+fn fill_sort_keys(entries: &mut [FileEntry], field: crate::fs::list::SortField) -> bool {
+    use crate::fs::descriptions::{find_description, read_descriptions_file};
+    if field.needs_owner() {
+        for entry in entries.iter_mut().filter(|e| e.name != "..") {
+            let meta = std::fs::symlink_metadata(&entry.path).ok();
+            entry.owner = meta.as_ref().and_then(crate::fs::attrs::owner_of);
+        }
+        return true;
+    }
+    if field.needs_description() {
+        // One read of `descript.ion` per folder (a branch view spans many).
+        let mut files: HashMap<PathBuf, Option<String>> = HashMap::new();
+        for entry in entries.iter_mut().filter(|e| e.name != "..") {
+            let (Some(dir), Some(name)) = (entry.path.parent(), entry.path.file_name()) else {
+                continue;
+            };
+            let content = files
+                .entry(dir.to_path_buf())
+                .or_insert_with(|| read_descriptions_file(dir));
+            entry.description = content
+                .as_deref()
+                .and_then(|c| find_description(c, &name.to_string_lossy()))
+                .map(str::to_string);
+        }
+        return true;
+    }
+    false
 }
 
 fn read_attrs_map(entries: &[FileEntry]) -> HashMap<PathBuf, FileAttrs> {

@@ -351,6 +351,7 @@ mod tests {
             is_symlink: false,
             size: 0,
             modified: None,
+            ..Default::default()
         };
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         let panel = state.get_active_panel_mut();

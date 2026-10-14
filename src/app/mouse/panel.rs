@@ -56,7 +56,7 @@ pub async fn click(
             let action = if state.get_active_panel().sort_field == field {
                 Action::ToggleSortReverse
             } else {
-                sort_action(field)
+                SortField::action(field)
             };
             act(state, context, terminal_backend, action).await?;
         }
@@ -167,16 +167,6 @@ async fn focus(
         ActivePanel::Right => Action::FocusRightPanel,
     };
     act(state, context, terminal_backend, action).await
-}
-
-fn sort_action(field: SortField) -> Action {
-    match field {
-        SortField::Name => Action::SortByName,
-        SortField::Extension => Action::SortByExtension,
-        SortField::Size => Action::SortBySize,
-        SortField::Date => Action::SortByWriteTime,
-        SortField::Unsorted => Action::SortUnsorted,
-    }
 }
 
 /// A drag of the border between the panels: the columns the panels share,

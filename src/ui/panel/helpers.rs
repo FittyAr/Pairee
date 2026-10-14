@@ -1,4 +1,4 @@
-use crate::app::state::{PanelState, PanelViewMode, SortField};
+use crate::app::state::{PanelState, PanelViewMode};
 use crate::config::localization::t;
 use crate::config::settings::Settings;
 use crate::fs::FileEntry;
@@ -19,13 +19,7 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
     };
 
     let sort_letter = if settings.show_sort_mode_letter {
-        let letter = match panel.sort_field {
-            SortField::Name => "N",
-            SortField::Extension => "X",
-            SortField::Size => "S",
-            SortField::Date => "D",
-            SortField::Unsorted => "U",
-        };
+        let letter = panel.sort_field.letter();
         let rev = if panel.sort_reverse { "▼" } else { "▲" };
         format!("|{}{}", letter, rev)
     } else {
@@ -248,6 +242,7 @@ mod tests {
             is_dir: true,
             is_symlink: false,
             modified: None,
+            ..Default::default()
         };
         panel.entries = vec![folder.clone()];
         assert_eq!(entry_size_text(&panel, &folder), None);
