@@ -31,6 +31,21 @@ pub struct CliLine {
     pub previous_dir: Option<PathBuf>,
 }
 
+/// `text` quoted as one argument of the shell the command line runs in:
+/// double quotes around names with spaces on Windows (cmd.exe has no single
+/// quotes), POSIX shell quoting elsewhere.
+pub fn quote_arg(text: &str) -> String {
+    if cfg!(windows) {
+        if text.contains(char::is_whitespace) {
+            format!("\"{text}\"")
+        } else {
+            text.to_string()
+        }
+    } else {
+        shlex::try_quote(text).map_or_else(|_| text.to_string(), |q| q.into_owned())
+    }
+}
+
 impl CliLine {
     pub fn text(&self) -> &str {
         self.field.text()
@@ -58,6 +73,12 @@ impl CliLine {
         self.set_text(line);
     }
 
+    /// Appends `text` at the cursor and drops any Tab completion in progress.
+    pub fn insert_text(&mut self, text: &str) {
+        self.field.insert_str(text);
+        self.completion = None;
+    }
+
     /// Empties and unfocuses the line.
     pub fn reset(&mut self) {
         self.field.clear();
@@ -83,5 +104,28 @@ mod tests {
         assert!(cli.is_active());
         cli.reset();
         assert!(!cli.is_active());
+    }
+
+    #[test]
+    fn quote_arg_follows_the_platform_shell() {
+        assert_eq!(quote_arg("plain"), "plain");
+        let quoted = quote_arg("a b");
+        if cfg!(windows) {
+            assert_eq!(quoted, "\"a b\"");
+            assert_eq!(quote_arg(r"C:\Users\x"), r"C:\Users\x");
+        } else {
+            assert_eq!(quoted, "'a b'");
+        }
+    }
+
+    #[test]
+    fn insert_text_drops_the_completion() {
+        let mut cli = CliLine {
+            completion: Some(Completion::default()),
+            ..CliLine::default()
+        };
+        cli.insert_text("x");
+        assert!(cli.completion.is_none());
+        assert_eq!(cli.text(), "x");
     }
 }

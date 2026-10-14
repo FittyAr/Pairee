@@ -14,6 +14,9 @@ use std::path::{Path, PathBuf};
 /// `None` when `line` is another command.
 pub fn cd_argument(line: &str) -> Option<&str> {
     let rest = line.strip_prefix("cd")?;
+    if has_shell_operator(rest) {
+        return None; // `cd x && make`: the shell runs the whole line
+    }
     if rest.is_empty() || rest.starts_with(char::is_whitespace) {
         return Some(rest.trim());
     }
@@ -21,16 +24,42 @@ pub fn cd_argument(line: &str) -> Option<&str> {
     (rest.starts_with("..") || rest.starts_with(['\\', '/'])).then_some(rest)
 }
 
+/// Whether `text` has an unquoted shell operator (`&`, `|`, `;`, `<`, `>`),
+/// i.e. is more than one plain argument. Quotes follow the platform shell:
+/// only `"` on Windows, `"` and `'` (and `\` escapes) elsewhere.
+fn has_shell_operator(text: &str) -> bool {
+    let mut quote: Option<char> = None;
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            (Some(q), _) if c == q => quote = None,
+            (Some(_), _) => {}
+            (None, '"') => quote = Some('"'),
+            (None, '\'') if !cfg!(windows) => quote = Some('\''),
+            (None, '\\') if !cfg!(windows) => {
+                chars.next();
+            }
+            (None, '&' | '|' | ';' | '<' | '>') => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
 /// The query of a `z` command line (`z`, `z words`), or `None` when `line`
 /// is another command.
 pub fn z_argument(line: &str) -> Option<&str> {
     let rest = line.strip_prefix('z')?;
+    if has_shell_operator(rest) {
+        return None;
+    }
     (rest.is_empty() || rest.starts_with(char::is_whitespace)).then(|| rest.trim())
 }
 
 /// `arg` without its shell quoting: shell words on Unix (several words are
 /// one name, as `cd My Docs` in cmd.exe); on Windows quotes are dropped and
-/// a leading `/d` (change drive too) is ignored, as cmd.exe does.
+/// a leading `/d` (change drive too) is ignored, as cmd.exe does (an
+/// apostrophe is part of the name there, as in `O'Brien`).
 pub fn unquote(arg: &str) -> String {
     let arg = arg.trim();
     if cfg!(windows) {
@@ -171,6 +200,34 @@ mod tests {
         assert_eq!(cd_argument("cd.."), Some(".."));
         assert_eq!(cd_argument("cdx"), None);
         assert_eq!(cd_argument("echo cd"), None);
+    }
+
+    #[test]
+    fn a_cd_chained_with_other_commands_is_left_to_the_shell() {
+        for line in [
+            "cd x && make",
+            "cd x; ls",
+            "cd x | cat",
+            "cd x > f",
+            "cd x &",
+            "cd x || y",
+        ] {
+            assert_eq!(cd_argument(line), None, "{line}");
+        }
+        let quoted = "cd \"a && b\"";
+        assert_eq!(
+            cd_argument(quoted),
+            Some("\"a && b\""),
+            "quoted operators are a name"
+        );
+        assert_eq!(z_argument("z proj && ls"), None);
+    }
+
+    #[test]
+    fn an_apostrophe_in_a_windows_name_is_kept() {
+        if cfg!(windows) {
+            assert_eq!(unquote("\"O'Brien\""), "O'Brien");
+        }
     }
 
     #[test]

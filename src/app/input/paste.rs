@@ -21,7 +21,7 @@ pub fn handle_paste(state: &mut AppState, raw: &str) {
         }
         return;
     }
-    state.cli.field.insert_str(&line);
+    state.cli.insert_text(&line);
 }
 
 #[cfg(test)]
@@ -38,6 +38,14 @@ mod paste_tests {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         handle_paste(&mut state, "echo hi\r\nignored");
         assert_eq!(state.cli.text(), "echo hi");
+    }
+
+    #[test]
+    fn paste_into_cli_drops_the_tab_completion() {
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        state.cli.completion = Some(Default::default());
+        handle_paste(&mut state, "x");
+        assert!(state.cli.completion.is_none());
     }
 
     #[test]

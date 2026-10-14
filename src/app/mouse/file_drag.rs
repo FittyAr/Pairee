@@ -282,15 +282,12 @@ pub fn release(
             let quoted: Vec<String> = drag
                 .paths
                 .iter()
-                .map(|path| {
-                    let text = path.to_string_lossy();
-                    shlex::try_quote(&text).map_or_else(|_| text.to_string(), |q| q.into_owned())
-                })
+                .map(|path| crate::app::state::cli_line::quote_arg(&path.to_string_lossy()))
                 .collect();
             if !state.cli.field.is_empty() && !state.cli.text().ends_with(' ') {
                 state.cli.field.insert_char(' ');
             }
-            state.cli.field.insert_str(&quoted.join(" "));
+            state.cli.insert_text(&quoted.join(" "));
             state.cli.focused = true;
         }
         None => {}
