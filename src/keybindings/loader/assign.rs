@@ -164,10 +164,8 @@ fn entries<B: Bindable>(layer: &Layer, report: &mut KeymapLoadReport) -> Vec<Ent
                 parsed.command.id()
             ));
         }
-        let chords = keys
-            .split(',')
-            .map(str::trim)
-            .filter(|k| !k.is_empty())
+        let chords = crate::keybindings::chord::split_chords(keys)
+            .into_iter()
             .map(str::to_string);
         match out.iter_mut().find(|e| e.command == parsed.command) {
             Some(entry) => entry.chords.extend(chords),
