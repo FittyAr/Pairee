@@ -25,6 +25,24 @@ pub(super) fn install(data: &[u8], asset_name: &str, is_installer: bool) -> Resu
     }
 }
 
+/// `std::fs::rename`, retried for a moment while another process (an
+/// antivirus scanning the file, a process still mapping a just-started
+/// image) holds it without delete sharing (`ERROR_SHARING_VIOLATION`).
+fn rename_when_free(from: &Path, to: &Path) -> std::io::Result<()> {
+    const SHARING_VIOLATION: i32 = 32;
+    let mut delay = std::time::Duration::from_millis(25);
+    for _ in 0..8 {
+        match std::fs::rename(from, to) {
+            Err(e) if e.raw_os_error() == Some(SHARING_VIOLATION) => {
+                std::thread::sleep(delay);
+                delay *= 2;
+            }
+            result => return result,
+        }
+    }
+    std::fs::rename(from, to)
+}
+
 /// Replaces `exe` (possibly running) with `new_bytes`, restoring it when the
 /// replacement cannot be put in place.
 fn replace_exe(exe: &Path, new_bytes: &[u8]) -> Result<()> {
@@ -45,7 +63,7 @@ fn replace_exe(exe: &Path, new_bytes: &[u8]) -> Result<()> {
         .context("failed to flush new pairee.exe")?;
 
     let old = moved_aside_path(dir);
-    std::fs::rename(exe, &old).with_context(|| format!("cannot move {} aside", exe.display()))?;
+    rename_when_free(exe, &old).with_context(|| format!("cannot move {} aside", exe.display()))?;
 
     if let Err(e) = staged.persist(exe) {
         let failure = anyhow!(e.error);

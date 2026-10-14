@@ -142,10 +142,13 @@ impl ChildKiller for Killer {
             Signal::HUP
         };
         self.hung_up = true;
-        // The group is the child's PID (`setsid` in `command`); should it
-        // be gone already, signal the child itself.
-        rustix::process::kill_process_group(pid, signal)
-            .or_else(|_| rustix::process::kill_process(pid, signal))?;
+        // The group is the child's PID (`setsid` in `command`). The child
+        // is signalled directly too: should the group be gone, or the
+        // platform refuse the group signal (seen on macOS runners), the
+        // child itself still gets it.
+        let group = rustix::process::kill_process_group(pid, signal);
+        let child = rustix::process::kill_process(pid, signal);
+        group.or(child)?;
         Ok(())
     }
 }

@@ -19,9 +19,10 @@ pub(crate) fn two_trees() -> (tempfile::TempDir, tempfile::TempDir) {
     (l, r)
 }
 
-/// Waits for the background scan (it runs on the blocking pool under Tokio).
+/// Waits for the background scan (it runs on the blocking pool under Tokio;
+/// generous, as CI runners under a full parallel test run can be slow).
 pub(crate) async fn finish_scan(state: &mut AppState) {
-    for _ in 0..500 {
+    for _ in 0..3000 {
         if poll_folder_scan(state) {
             return;
         }
