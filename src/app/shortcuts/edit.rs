@@ -99,10 +99,15 @@ pub fn export(context: &AppContext, s: &ShortcutsState, name: &str) -> Result<Pa
     if !valid {
         return Err(t("shortcuts_export_bad_name"));
     }
-    let text = exported_preset(context, &s.preset, name);
     let dir = crate::config::paths::get_keymaps_dir();
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(format!("{name}.toml"));
+    // The previewed preset itself (it would extend itself, and lose its
+    // own bindings) or another existing preset file is never replaced.
+    if name == s.preset || path.exists() {
+        return Err(t("shortcuts_export_exists").replacen("{}", name, 1));
+    }
+    let text = exported_preset(context, &s.preset, name);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     std::fs::write(&path, text).map_err(|e| e.to_string())?;
     Ok(path)
 }
