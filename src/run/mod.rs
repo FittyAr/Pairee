@@ -111,7 +111,7 @@ pub(crate) fn report_exit_dir(
     if launch.print_cwd
         && let Some(dir) = dir
     {
-        println!("{}", dir.display());
+        let _ = app::session::cwd::print_dir(dir);
     }
 }
 

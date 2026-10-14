@@ -51,15 +51,24 @@ fn missing_field(conn: &Connection, saving: bool) -> Option<&'static str> {
     None
 }
 
-/// Saves the fields as a connection (replacing one with the same name).
-/// `Err` holds the message key of a missing required field.
+/// Saves the fields as a connection: over the one the dialog shows (so a
+/// rename keeps it a single entry), else over one with the same name, else
+/// as a new one. `Err` holds the message key of a missing required field.
 fn save(prompt: &mut Prompt, context: &mut AppContext) -> Result<(), &'static str> {
     let mut conn = prompt.to_connection();
     if let Some(key) = missing_field(&conn, true) {
         return Err(key);
     }
     let saved = &mut context.config.settings.connections;
-    let idx = match saved.iter().position(|c| c.name == conn.name) {
+    let shown = prompt.selected_idx.filter(|&i| {
+        // Renaming onto another saved connection would make two of one name.
+        i < saved.len()
+            && !saved
+                .iter()
+                .enumerate()
+                .any(|(j, c)| j != i && c.name == conn.name)
+    });
+    let idx = match shown.or_else(|| saved.iter().position(|c| c.name == conn.name)) {
         Some(idx) => {
             // The same connection: its keyring entry stays its own.
             conn.id = std::mem::take(&mut saved[idx].id);
@@ -148,4 +157,56 @@ pub fn start_connection(
         let ask = |request| asker.ask(request);
         (panel, crate::fs::remote::open(&conn, timeout, &ask))
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::ActivePanel;
+    use crate::app::state::popup::ConnectionField;
+    use crate::config::AppConfig;
+
+    fn connection(name: &str, host: &str) -> Connection {
+        let mut conn = Connection {
+            name: name.into(),
+            host: host.into(),
+            username: "me".into(),
+            ..Connection::default()
+        };
+        conn.ensure_id();
+        conn
+    }
+
+    fn type_into(prompt: &mut Prompt, field: ConnectionField, text: &str) {
+        prompt.text_field_at(field.row()).unwrap().set_text(text);
+    }
+
+    #[test]
+    fn renaming_the_shown_connection_keeps_one_entry_and_its_id() {
+        let mut context = AppContext::new(AppConfig::default());
+        let first = connection("one", "a");
+        let id = first.id.clone();
+        context.config.settings.connections = vec![first, connection("two", "b")];
+        let mut prompt = Prompt::new(ActivePanel::Left, &context.config.settings.connections);
+        type_into(&mut prompt, ConnectionField::Name, "uno");
+        save(&mut prompt, &mut context).unwrap();
+        let saved = &context.config.settings.connections;
+        assert_eq!(saved.len(), 2, "no duplicate");
+        assert_eq!(
+            (saved[0].name.as_str(), saved[0].id.as_str()),
+            ("uno", id.as_str())
+        );
+        assert_eq!(prompt.selected_idx, Some(0));
+    }
+
+    #[test]
+    fn a_new_name_in_an_empty_dialog_adds_a_connection() {
+        let mut context = AppContext::new(AppConfig::default());
+        let mut prompt = Prompt::new(ActivePanel::Left, &[]);
+        type_into(&mut prompt, ConnectionField::Name, "new");
+        type_into(&mut prompt, ConnectionField::Host, "h");
+        type_into(&mut prompt, ConnectionField::User, "u");
+        save(&mut prompt, &mut context).unwrap();
+        assert_eq!(context.config.settings.connections.len(), 1);
+    }
 }

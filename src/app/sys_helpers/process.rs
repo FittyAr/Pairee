@@ -79,30 +79,7 @@ pub fn get_process_list() -> Vec<ProcessEntry> {
             .output()
         {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                let line = line.trim();
-                if line.is_empty() {
-                    continue;
-                }
-                let parts: Vec<&str> = if line.starts_with('"') && line.ends_with('"') {
-                    line[1..line.len() - 1].split("\",\"").collect()
-                } else {
-                    line.split(',').collect()
-                };
-                if parts.len() >= 5 {
-                    let name = parts[0].to_string();
-                    let pid = parts[1].parse::<u32>().unwrap_or(0);
-                    let mem_str = parts[4];
-                    let digits_only: String =
-                        mem_str.chars().filter(|c| c.is_ascii_digit()).collect();
-                    let memory_kb = digits_only.parse::<u64>().unwrap_or(0);
-                    processes.push(ProcessEntry {
-                        pid,
-                        name,
-                        memory_kb,
-                    });
-                }
-            }
+            processes.extend(stdout.lines().filter_map(parse_tasklist_line));
         }
         processes.sort_by_key(|p| p.pid);
     }
@@ -279,8 +256,44 @@ fn merge_env_scopes(listing: &str) -> Vec<(String, String)> {
     merged
 }
 
+/// A `tasklist /FO CSV /NH` row (`"name","pid","session","#","1,234 K"`).
+#[cfg_attr(not(any(test, windows)), allow(dead_code))]
+fn parse_tasklist_line(line: &str) -> Option<ProcessEntry> {
+    let line = line.trim();
+    let parts: Vec<&str> = match line
+        .strip_prefix('"')
+        .and_then(|rest| rest.strip_suffix('"'))
+    {
+        Some(inner) => inner.split("\",\"").collect(),
+        None => line.split(',').collect(),
+    };
+    if parts.len() < 5 {
+        return None;
+    }
+    let digits_only: String = parts[4].chars().filter(char::is_ascii_digit).collect();
+    Some(ProcessEntry {
+        pid: parts[1].parse::<u32>().unwrap_or(0),
+        name: parts[0].to_string(),
+        memory_kb: digits_only.parse::<u64>().unwrap_or(0),
+    })
+}
+
 #[cfg(test)]
 mod env_tests {
+    use super::parse_tasklist_line;
+
+    #[test]
+    fn tasklist_rows_parse_and_a_lone_quote_does_not_panic() {
+        let row = parse_tasklist_line("\"a.exe\",\"42\",\"Console\",\"1\",\"1,234 K\"").unwrap();
+        assert_eq!(
+            (row.pid, row.name.as_str(), row.memory_kb),
+            (42, "a.exe", 1234)
+        );
+        for junk in ["\"", "\"\"", "", "a,b"] {
+            assert!(parse_tasklist_line(junk).is_none(), "{junk:?}");
+        }
+    }
+
     use super::merge_env_scopes;
 
     #[test]

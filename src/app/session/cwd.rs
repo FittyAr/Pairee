@@ -22,9 +22,20 @@ pub fn exit_dir(panel: &PanelState) -> Option<PathBuf> {
 
 /// Writes `dir` to `file` (no trailing newline, as shell wrappers expect);
 /// without a local folder the file is left empty so the shell stays put.
+/// The path is written byte for byte, so a non-UTF-8 folder name on Unix
+/// reaches the shell intact.
 pub fn write_cwd_file(file: &Path, dir: Option<&Path>) -> std::io::Result<()> {
-    let text = dir.map(|d| d.to_string_lossy()).unwrap_or_default();
-    std::fs::write(file, text.as_bytes())
+    let bytes = dir.map_or(&[][..], |d| d.as_os_str().as_encoded_bytes());
+    std::fs::write(file, bytes)
+}
+
+/// Prints `dir` and a newline to stdout, byte for byte (see
+/// [`write_cwd_file`]).
+pub fn print_dir(dir: &Path) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut out = std::io::stdout().lock();
+    out.write_all(dir.as_os_str().as_encoded_bytes())?;
+    out.write_all(b"\n")
 }
 
 #[cfg(test)]
@@ -46,5 +57,16 @@ mod tests {
         );
         write_cwd_file(&file, None).unwrap();
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_non_utf8_folder_is_written_byte_for_byte() {
+        use std::os::unix::ffi::OsStrExt;
+        let dir = tempfile::tempdir().unwrap();
+        let odd = Path::new(std::ffi::OsStr::from_bytes(b"/tmp/caf\xe9"));
+        let file = dir.path().join("cwd");
+        write_cwd_file(&file, Some(odd)).unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"/tmp/caf\xe9");
     }
 }

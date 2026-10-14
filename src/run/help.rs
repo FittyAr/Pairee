@@ -26,6 +26,7 @@ const MAIN_OPTIONS: &[Row] = &[
     ),
     ("--print-cwd", None, "cli_help_opt_print_cwd"),
     ("--no-mouse", None, "cli_help_opt_no_mouse"),
+    ("--standalone", None, "cli_help_opt_standalone"),
     ("-h, --help", None, "cli_help_opt_help"),
     ("-V, --version", None, "cli_help_opt_version"),
 ];
