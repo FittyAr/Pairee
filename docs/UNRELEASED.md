@@ -86,6 +86,7 @@
 ### Removed
 
 ### Fixed
+- Folder sizes and the disk usage view are marked incomplete again when some entries of a folder cannot be read, and copies report such folders instead of silently leaving those entries out.
 - Previews drawn with `pairee.ui` are shown in the Quick View, and plugin commands, previews and hooks can use dialogs, `pairee.sync` and other calls that wait; waiting for the user no longer counts against a plugin's 10-second limit.
 - A keyring that could not be read at startup (locked, temporarily unavailable) no longer makes the next save delete the stored connection password; it is read again when connecting.
 - Removing or renaming an SSH preset now deletes its old password from the system keyring.
