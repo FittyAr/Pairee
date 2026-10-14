@@ -2,8 +2,9 @@
 #
 # What the Neovim and yazi presets have in common: hjkl, gg / G, Ctrl+u / d /
 # b / f, / n N, visual mode, letters as commands, and j / k / gg / G / q in
-# the viewer and in dialog lists. It keeps every Norton Commander / Far key
-# underneath, so the F-key row still works. Not selectable on its own.
+# the viewer and in dialog lists. It extends the Norton Commander / Far keys,
+# so the F-key row still works; the Vim keys above take over the few Norton
+# chords they share (Ctrl+b / f / u). Not selectable on its own.
 
 extends = "norton"
 
