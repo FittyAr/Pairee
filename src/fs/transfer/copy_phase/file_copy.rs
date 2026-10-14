@@ -16,7 +16,7 @@ use super::super::control::JobControl;
 use super::super::hash::hash_reader;
 use super::super::link_copy::recreate_link;
 use super::super::options::TransferOptions;
-use super::super::part::{Replaced, commit, part_path};
+use super::super::part::{Replaced, commit, folder_in_the_way, part_path};
 use super::super::pipeline::{
     ByteCopy, LocalSink, StreamSink, copy_pipelined, local_source, read_start,
 };
@@ -235,10 +235,12 @@ impl FileCopy {
         if self.fs.local {
             return commit(&self.part, &self.dst, self.options.trash_replaced);
         }
-        let replaced = if self.fs.dst.stat(&self.dst).is_ok() {
-            Replaced::Overwritten
-        } else {
-            Replaced::Nothing
+        // WebDAV's MOVE with overwrite deletes a folder at the target with
+        // everything in it: a folder is never replaced, as locally.
+        let replaced = match self.fs.dst.stat(&self.dst) {
+            Ok(entry) if entry.is_dir => return Err(folder_in_the_way(&self.dst)),
+            Ok(_) => Replaced::Overwritten,
+            Err(_) => Replaced::Nothing,
         };
         self.fs.dst.replace(&self.part, &self.dst)?;
         Ok(replaced)

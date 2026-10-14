@@ -4,12 +4,12 @@
 
 mod propfind;
 
-use super::http::{self, BodyReader, Upload};
+use super::http::{self, Upload};
 use super::tls::{self, Handshake, TlsTrust};
 use super::{REMOTE, Remote, credentials, file_name, invalid, not_found, remote_path};
-use crate::fs::vfs::{Capabilities, Vfs, VfsEntry};
+use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name};
 use propfind::DavItem;
-use reqwest::{Method, StatusCode};
+use reqwest::Method;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -163,11 +163,16 @@ impl Vfs for WebDavVfs {
 
     fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
         let own = remote_path(dir);
+        // Only direct children with plain names (a hostile `href` can name
+        // any path on the server).
+        let child_of_dir =
+            |entry: &VfsEntry| entry.path.parent().is_some_and(|p| remote_path(p) == own);
         Ok(self
             .propfind(dir, "1")?
             .into_iter()
             .map(|item| self.entry(item))
             .filter(|entry| remote_path(&entry.path) != own)
+            .filter(|entry| is_plain_name(&entry.name) && child_of_dir(entry))
             .collect())
     }
 
@@ -194,12 +199,7 @@ impl Vfs for WebDavVfs {
             request = request.header("Range", format!("bytes={offset}-"));
         }
         let response = http::send(request, "GET")?;
-        let partial = response.status() == StatusCode::PARTIAL_CONTENT;
-        let mut reader = BodyReader::new(response);
-        if offset > 0 && !partial {
-            io::copy(&mut (&mut reader).take(offset), &mut io::sink())?;
-        }
-        Ok(Box::new(reader))
+        Ok(Box::new(http::body_from(response, offset)?))
     }
 
     fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
@@ -224,7 +224,10 @@ impl Vfs for WebDavVfs {
         .map(drop)
     }
 
+    /// `DELETE` of a collection takes its contents with it: only an empty
+    /// one is deleted.
     fn remove_dir(&self, path: &Path) -> io::Result<()> {
+        crate::fs::vfs::ensure_empty_dir(self, path)?;
         http::send(self.request(Method::DELETE, self.url(path, true)), "DELETE").map(drop)
     }
 

@@ -67,19 +67,26 @@ impl TransferFilter {
     }
 
     /// Comprueba si un archivo cumple las reglas del filtro.
-    pub fn matches(&self, path: &Path, file_size: u64) -> bool {
+    pub fn matches(
+        &self,
+        path: &Path,
+        file_size: u64,
+        file_modified: Option<std::time::SystemTime>,
+    ) -> bool {
         if self.rules.is_empty() {
             return true;
         }
 
-        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        // Lossy, so a name that is not valid Unicode still meets the
+        // exclusions (a filtered delete must never take it by accident).
+        let file_name = crate::fs::file_name_lossy(path);
+        let file_name = file_name.as_str();
         if self.excludes(file_name) {
             return false;
         }
 
         let mut has_include_glob = false;
         let mut glob_matched = false;
-        let mut file_modified = None;
 
         for rule in &self.rules {
             match rule {
@@ -100,10 +107,9 @@ impl TransferFilter {
                         return false;
                     }
                 }
+                // The time comes from the entry's own filesystem (a remote
+                // or archive path means nothing to the local disk).
                 FilterRule::DateNewer(limit) => {
-                    if file_modified.is_none() {
-                        file_modified = path.metadata().and_then(|m| m.modified()).ok();
-                    }
                     if let Some(mtime) = file_modified {
                         if mtime < *limit {
                             return false;
@@ -113,9 +119,6 @@ impl TransferFilter {
                     }
                 }
                 FilterRule::DateOlder(limit) => {
-                    if file_modified.is_none() {
-                        file_modified = path.metadata().and_then(|m| m.modified()).ok();
-                    }
                     if let Some(mtime) = file_modified {
                         if mtime > *limit {
                             return false;
@@ -185,31 +188,39 @@ mod tests {
         let filter = TransferFilter::parse("*.jpg;*.png;!temp*;>1MB;<50MB");
 
         // Incluido por glob y dentro de rango de tamaño
-        assert!(filter.matches(Path::new("image.jpg"), 5 * 1024 * 1024));
+        assert!(filter.matches(Path::new("image.jpg"), 5 * 1024 * 1024, None));
 
         // Excluido por tamaño demasiado pequeño
-        assert!(!filter.matches(Path::new("image.jpg"), 500 * 1024));
+        assert!(!filter.matches(Path::new("image.jpg"), 500 * 1024, None));
 
         // Excluido por glob de exclusion
-        assert!(!filter.matches(Path::new("temp_image.png"), 2 * 1024 * 1024));
+        assert!(!filter.matches(Path::new("temp_image.png"), 2 * 1024 * 1024, None));
 
         // Excluido porque no es ni jpg ni png
-        assert!(!filter.matches(Path::new("document.pdf"), 2 * 1024 * 1024));
+        assert!(!filter.matches(Path::new("document.pdf"), 2 * 1024 * 1024, None));
     }
 
     #[test]
     fn test_date_filters() {
-        let temp_path = Path::new("temp_test_date_filter.txt");
-        let _ = std::fs::write(temp_path, "test");
+        // The time is the entry's (a remote path has no local metadata).
+        let path = Path::new("/remote/only/report.txt");
+        let now = Some(std::time::SystemTime::now());
 
         let filter_newer = TransferFilter::parse("newer:2020-01-01");
-        // Debería coincidir para un archivo nuevo/modificado recientemente
-        assert!(filter_newer.matches(temp_path, 100));
+        assert!(filter_newer.matches(path, 100, now));
+        assert!(!filter_newer.matches(path, 100, None));
 
         let filter_relative = TransferFilter::parse("older:5d");
-        // No coincidirá si el archivo se modificó hoy
-        assert!(!filter_relative.matches(temp_path, 100));
+        assert!(!filter_relative.matches(path, 100, now));
+    }
 
-        let _ = std::fs::remove_file(temp_path);
+    /// A name that is not valid Unicode still meets the exclusions.
+    #[cfg(unix)]
+    #[test]
+    fn exclusions_apply_to_names_that_are_not_unicode() {
+        use std::os::unix::ffi::OsStrExt;
+        let name = std::ffi::OsStr::from_bytes(b"caf\xe9.keep");
+        let filter = TransferFilter::parse("!*.keep");
+        assert!(!filter.matches(Path::new(name), 1, None));
     }
 }

@@ -90,3 +90,22 @@ fn hash_reader_matches_streamed_digest_and_honours_cancel() {
     .unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::Interrupted);
 }
+
+/// A read interrupted by a signal is retried: for callers `Interrupted`
+/// means the job was cancelled.
+#[test]
+fn interrupted_reads_are_retried() {
+    struct Flaky(bool, &'static [u8]);
+    impl std::io::Read for Flaky {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            if std::mem::replace(&mut self.0, false) {
+                return Err(std::io::ErrorKind::Interrupted.into());
+            }
+            std::io::Read::read(&mut self.1, buf)
+        }
+    }
+    let hash = |reader: &mut dyn std::io::Read| {
+        super::hash_reader(reader, HashAlgorithm::Crc32, &|| false).unwrap()
+    };
+    assert_eq!(hash(&mut Flaky(true, b"abc")), hash(&mut &b"abc"[..]));
+}

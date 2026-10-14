@@ -144,15 +144,23 @@ impl<'a> CopyJob<'a> {
     }
 
     /// Where `src` is written: `None` when it is not copied (the user or the
-    /// conflict setting skipped it, or it would replace itself). Copying a
-    /// file onto itself is only possible as a renamed duplicate.
+    /// conflict setting skipped it, it would replace itself, or whether
+    /// something is there cannot be told). Copying a file onto itself is
+    /// only possible as a renamed duplicate.
     async fn destination(
         &mut self,
         src: &Path,
         mut dst: PathBuf,
     ) -> anyhow::Result<Option<PathBuf>> {
-        if self.fs.dst.stat(&dst).is_err() {
-            return Ok(Some(dst));
+        match self.fs.dst.stat(&dst) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Some(dst)),
+            // A server that timed out (or refused the lookup) may still
+            // hold a file there: never overwrite it unasked.
+            Err(e) => {
+                self.fail(failure(src, &dst, e.to_string(), 0))?;
+                return Ok(None);
+            }
+            Ok(_) => {}
         }
         let action = self
             .conflicts

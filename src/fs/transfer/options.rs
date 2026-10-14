@@ -28,8 +28,6 @@ pub struct TransferOptions {
     pub conflict_resolution: String, // "ask", "overwrite", "skip", "rename", "overwrite_older"
     pub filter_mask: Option<String>,
     pub limit_bandwidth_rate: Option<u64>, // en bytes por segundo (opcional)
-    pub auto_report: bool,
-    pub report_format: String, // "html" o "csv"
     pub halt_on_error: bool,
     pub delete_to_recycle_bin: bool,
 }
@@ -55,8 +53,6 @@ impl Default for TransferOptions {
             conflict_resolution: "ask".to_string(),
             filter_mask: None,
             limit_bandwidth_rate: None,
-            auto_report: false,
-            report_format: "html".to_string(),
             halt_on_error: false,
             delete_to_recycle_bin: false,
         }

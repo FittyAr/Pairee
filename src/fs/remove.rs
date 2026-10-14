@@ -48,7 +48,7 @@ fn removed_as_dir(meta: &Metadata) -> bool {
 
 /// Clears the read-only attribute (Windows) or adds the owner's write bit
 /// (Unix) of `path`; links are left alone.
-fn make_writable(path: &Path, meta: &Metadata) -> io::Result<()> {
+pub(crate) fn make_writable(path: &Path, meta: &Metadata) -> io::Result<()> {
     if meta.file_type().is_symlink() {
         return Err(io::Error::from(io::ErrorKind::PermissionDenied));
     }
@@ -71,10 +71,20 @@ fn make_writable(path: &Path, meta: &Metadata) -> io::Result<()> {
 /// never followed; a missing `path` is not an error. The first entry that
 /// cannot be deleted stops the removal with its error.
 pub fn remove_tree<V: Vfs + ?Sized>(vfs: &V, path: &Path) -> io::Result<()> {
+    remove_tree_with(vfs, path, |file| vfs.remove_file(file))
+}
+
+/// [`remove_tree`] with `remove_file` deleting each file and link (a wipe
+/// overwrites them first); folders are removed by `vfs`.
+pub fn remove_tree_with<V: Vfs + ?Sized>(
+    vfs: &V,
+    path: &Path,
+    remove_file: impl Fn(&Path) -> io::Result<()>,
+) -> io::Result<()> {
     match vfs.stat(path) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
         Err(e) => return Err(e),
-        Ok(entry) if !entry.is_real_dir() => return vfs.remove_file(path),
+        Ok(entry) if !entry.is_real_dir() => return remove_file(path),
         Ok(_) => {}
     }
     let mut dirs = vec![path.to_path_buf()];
@@ -83,7 +93,7 @@ pub fn remove_tree<V: Vfs + ?Sized>(vfs: &V, path: &Path) -> io::Result<()> {
         if item.descends {
             dirs.push(item.entry.path);
         } else {
-            vfs.remove_file(&item.entry.path)?;
+            remove_file(&item.entry.path)?;
         }
     }
     // Parents were found before their children: delete in reverse.

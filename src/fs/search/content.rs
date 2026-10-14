@@ -2,16 +2,17 @@
 //! encoding. Text files are decoded with the encoding the viewer would
 //! detect (UTF-8, UTF-16, legacy code pages) and searched with the
 //! viewer's matcher; binary files are searched byte by byte. Invalid bytes
-//! never end the search early.
+//! never end the search early. Files of any size are searched as a stream,
+//! one chunk at a time, with the end of each chunk carried into the next so
+//! a match across the boundary is still found.
 
 use crate::fs::text::encoding::{EncodingPolicy, detect};
 use crate::fs::text::search::Matcher;
 use std::io::Read;
 use std::path::Path;
 
-/// Larger files are not searched.
-pub const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
-/// Bytes read per step (cancellation is checked between steps).
+/// Bytes read per step (cancellation is checked between steps; the
+/// encoding is detected on the first one).
 const CHUNK: usize = 1024 * 1024;
 
 /// `true` when the file at `path` contains `needle`. `cancelled` is polled
@@ -22,50 +23,137 @@ pub fn file_contains(
     case_sensitive: bool,
     cancelled: &dyn Fn() -> bool,
 ) -> bool {
-    let Some(bytes) = read_small(path, cancelled) else {
+    let Ok(mut file) = std::fs::File::open(path) else {
         return false;
     };
-    let detected = detect(&bytes, true, EncodingPolicy::Detect);
-    if detected.binary {
-        return bytes_contain(&bytes, needle.as_bytes(), case_sensitive);
+    let mut chunk = vec![0u8; CHUNK];
+    let Some(first) = read_chunk(&mut file, &mut chunk, cancelled) else {
+        return false;
+    };
+    let detected = detect(&chunk[..first], first < CHUNK, EncodingPolicy::Detect);
+    let mut search: Box<dyn Search> = if detected.binary {
+        Box::new(BytesSearch::new(needle.as_bytes(), case_sensitive))
+    } else {
+        Box::new(TextSearch {
+            decoder: detected.encoding.new_decoder_without_bom_handling(),
+            matcher: Matcher::new(needle, case_sensitive),
+            // Case folding can lengthen text: keep a margin.
+            keep_chars: needle.chars().count() * 2,
+            carry: String::new(),
+        })
+    };
+    let mut data = &chunk[detected.bom_len.min(first)..first];
+    let mut last = first < CHUNK;
+    loop {
+        if search.feed(data, last) {
+            return true;
+        }
+        if last {
+            return false;
+        }
+        let Some(n) = read_chunk(&mut file, &mut chunk, cancelled) else {
+            return false;
+        };
+        data = &chunk[..n];
+        last = n < CHUNK;
     }
-    let (text, _, _) = detected.encoding.decode(&bytes);
-    Matcher::new(needle, case_sensitive).matches(&text)
 }
 
-/// The whole file, when it is small enough and the search goes on.
-fn read_small(path: &Path, cancelled: &dyn Fn() -> bool) -> Option<Vec<u8>> {
-    let file = std::fs::File::open(path).ok()?;
-    if file.metadata().ok()?.len() > MAX_FILE_BYTES {
-        return None;
-    }
-    let mut reader = file.take(MAX_FILE_BYTES);
-    let mut bytes = Vec::new();
-    let mut chunk = vec![0u8; CHUNK];
-    loop {
+/// Fills `buf` as far as the file allows; `None` when reading failed or
+/// the search was cancelled.
+fn read_chunk(
+    file: &mut std::fs::File,
+    buf: &mut [u8],
+    cancelled: &dyn Fn() -> bool,
+) -> Option<usize> {
+    let mut filled = 0;
+    while filled < buf.len() {
         if cancelled() {
             return None;
         }
-        let n = reader.read(&mut chunk).ok()?;
-        if n == 0 {
-            return Some(bytes);
+        match file.read(&mut buf[filled..]) {
+            Ok(0) => break,
+            Ok(n) => filled += n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(_) => return None,
         }
-        bytes.extend_from_slice(&chunk[..n]);
+    }
+    Some(filled)
+}
+
+/// A search fed one chunk at a time.
+trait Search {
+    /// `true` once the needle was seen (`last`: no more data follows).
+    fn feed(&mut self, data: &[u8], last: bool) -> bool;
+}
+
+/// Text decoded as a stream (a character cut by a chunk boundary is
+/// completed by the next chunk).
+struct TextSearch {
+    decoder: encoding_rs::Decoder,
+    matcher: Matcher,
+    keep_chars: usize,
+    /// The end of the text seen so far.
+    carry: String,
+}
+
+impl Search for TextSearch {
+    fn feed(&mut self, data: &[u8], last: bool) -> bool {
+        let capacity = self
+            .decoder
+            .max_utf8_buffer_length(data.len())
+            .unwrap_or(data.len() * 3);
+        let mut text = std::mem::take(&mut self.carry);
+        text.reserve(capacity);
+        let _ = self.decoder.decode_to_string(data, &mut text, last);
+        if self.matcher.matches(&text) {
+            return true;
+        }
+        let cut = text
+            .char_indices()
+            .rev()
+            .nth(self.keep_chars.saturating_sub(1))
+            .map_or(0, |(i, _)| i);
+        self.carry = text.split_off(cut);
+        false
     }
 }
 
-/// Byte search (ASCII case folding when not case-sensitive).
-fn bytes_contain(haystack: &[u8], needle: &[u8], case_sensitive: bool) -> bool {
-    if needle.is_empty() {
-        return true;
-    }
-    haystack.windows(needle.len()).any(|window| {
-        if case_sensitive {
-            window == needle
-        } else {
-            window.eq_ignore_ascii_case(needle)
+/// Raw bytes (ASCII case folding when not case-sensitive).
+struct BytesSearch {
+    needle: Vec<u8>,
+    case_sensitive: bool,
+    carry: Vec<u8>,
+}
+
+impl BytesSearch {
+    fn new(needle: &[u8], case_sensitive: bool) -> Self {
+        Self {
+            needle: needle.to_vec(),
+            case_sensitive,
+            carry: Vec::new(),
         }
-    })
+    }
+}
+
+impl Search for BytesSearch {
+    fn feed(&mut self, data: &[u8], _last: bool) -> bool {
+        if self.needle.is_empty() {
+            return true;
+        }
+        let mut haystack = std::mem::take(&mut self.carry);
+        haystack.extend_from_slice(data);
+        let found = haystack.windows(self.needle.len()).any(|window| {
+            if self.case_sensitive {
+                window == self.needle.as_slice()
+            } else {
+                window.eq_ignore_ascii_case(&self.needle)
+            }
+        });
+        let keep = self.needle.len() - 1;
+        self.carry = haystack[haystack.len().saturating_sub(keep)..].to_vec();
+        found
+    }
 }
 
 #[cfg(test)]
@@ -79,7 +167,6 @@ mod tests {
         file_contains(&path, needle, false, &|| false)
     }
 
-    /// Regression (FS-11): invalid UTF-8 stopped the search at that line.
     #[test]
     fn finds_text_after_invalid_utf8_and_in_legacy_encodings() {
         let mut latin1 = b"first line\n\xe9t\xe9 caf\xe9\n".to_vec();
@@ -106,5 +193,23 @@ mod tests {
         let path = dir.path().join("f");
         std::fs::write(&path, b"needle").unwrap();
         assert!(!file_contains(&path, "needle", true, &|| true));
+    }
+
+    /// Big files are searched too (they used to be skipped past 16 MiB),
+    /// and a match cut by a chunk boundary is found.
+    #[test]
+    fn large_files_and_matches_across_chunks_are_found() {
+        let mut text = "x".repeat(17 * 1024 * 1024).into_bytes();
+        text.extend_from_slice("end ñandú".as_bytes());
+        assert!(contains(&text, "ÑANDÚ"));
+
+        let mut across = vec![b'a'; CHUNK - 3];
+        across.extend_from_slice("café needle".as_bytes());
+        assert!(contains(&across, "café needle"));
+
+        let mut binary = vec![0u8; CHUNK - 2];
+        binary.extend_from_slice(b"Marker");
+        assert!(contains(&binary, "marker"));
+        assert!(!contains(&binary, "other"));
     }
 }

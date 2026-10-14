@@ -83,6 +83,7 @@ pub async fn copy_pipelined(
     bytes_acc: Arc<AtomicU64>,
 ) -> anyhow::Result<Option<String>> {
     let (block_tx, block_rx) = mpsc::channel::<Vec<u8>>(CHANNEL_BLOCKS);
+    let size = copy.size;
     let reader = Reader {
         source: copy.source,
         start: read_start(copy.offset, options),
@@ -100,8 +101,19 @@ pub async fn copy_pipelined(
     let reader_handle = tokio::task::spawn_blocking(move || reader.run(block_tx));
     let writer_handle = tokio::task::spawn_blocking(move || writer.run(block_rx));
     let (reader_res, writer_res) = tokio::join!(reader_handle, writer_handle);
-    writer_res.map_err(|e| anyhow!("Writer task join error: {}", e))??;
-    reader_res.map_err(|e| anyhow!("Reader task join error: {}", e))?
+    let written = writer_res.map_err(|e| anyhow!("Writer task join error: {}", e))??;
+    let hash = reader_res.map_err(|e| anyhow!("Reader task join error: {}", e))??;
+    if written < size {
+        // A connection that ended early (or a file that shrank): the copy
+        // is incomplete and must never be committed (a move would then
+        // delete the source).
+        return Err(anyhow!(
+            crate::config::localization::t("transfer_source_truncated")
+                .replacen("{}", &written.to_string(), 1)
+                .replacen("{}", &size.to_string(), 1)
+        ));
+    }
+    Ok(hash)
 }
 
 /// Reader stage: reads blocks, hashes them and sends them to the writer.
@@ -139,7 +151,8 @@ impl Reader {
                 return Err(anyhow!("Writer thread disconnected"));
             }
             pos += read as u64;
-            throttle.pace(pos.saturating_sub(self.offset.max(self.start)));
+            let paced = pos.saturating_sub(self.offset.max(self.start));
+            throttle.pace(paced, &|| self.ctl.is_cancelled());
         }
         Ok(hasher.map(|h| h.finalize()))
     }
@@ -156,7 +169,8 @@ struct Writer {
 }
 
 impl Writer {
-    fn run(mut self, mut block_rx: mpsc::Receiver<Vec<u8>>) -> anyhow::Result<()> {
+    /// Returns the bytes the destination holds.
+    fn run(mut self, mut block_rx: mpsc::Receiver<Vec<u8>>) -> anyhow::Result<u64> {
         // Resumed bytes count as copied.
         self.bytes_acc.fetch_add(self.written, Ordering::SeqCst);
         let mut last_progress = Instant::now();
@@ -172,7 +186,8 @@ impl Writer {
             }
         }
         self.emit_progress();
-        Ok(self.sink.finish()?)
+        self.sink.finish()?;
+        Ok(self.written)
     }
 
     fn emit_progress(&self) {

@@ -101,12 +101,8 @@ impl Config {
 
     /// A new logged-in connection in binary, passive mode.
     pub fn open(&self) -> io::Result<Conn> {
-        use std::net::ToSocketAddrs;
-        let addr = (self.host.as_str(), self.port)
-            .to_socket_addrs()?
-            .next()
-            .ok_or_else(|| io::Error::from(io::ErrorKind::AddrNotAvailable))?;
-        let mut conn = Conn::connect_timeout(addr, CONNECT_TIMEOUT).map_err(io_err)?;
+        let stream = crate::fs::remote::connect_tcp(&self.host, self.port, CONNECT_TIMEOUT)?;
+        let mut conn = Conn::connect_with_stream(stream).map_err(io_err)?;
         let _ = conn.get_ref().set_read_timeout(Some(IO_TIMEOUT));
         let _ = conn.get_ref().set_write_timeout(Some(IO_TIMEOUT));
         if let Some(tls) = &self.tls {
@@ -123,9 +119,11 @@ impl Config {
     }
 }
 
-/// A download on a connection of its own.
+/// A download on a connection of its own. The end of the data is only
+/// reported once the server confirms the transfer completed (`226`): a
+/// download the server aborted is an error, never a short file.
 pub struct Download {
-    stream: Transfer,
+    stream: Option<Transfer>,
     _conn: Conn,
 }
 
@@ -139,7 +137,7 @@ impl Download {
         }
         let stream = conn.retr_as_stream(path).map_err(io_err)?;
         Ok(Self {
-            stream,
+            stream: Some(stream),
             _conn: conn,
         })
     }
@@ -147,7 +145,15 @@ impl Download {
 
 impl Read for Download {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.stream.read(buf)
+        let Some(stream) = self.stream.as_mut() else {
+            return Ok(0);
+        };
+        let n = stream.read(buf)?;
+        if n == 0 && !buf.is_empty() {
+            let stream = self.stream.take().expect("checked above");
+            stream.finish().map_err(io_err)?;
+        }
+        Ok(n)
     }
 }
 

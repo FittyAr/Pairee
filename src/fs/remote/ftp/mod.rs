@@ -7,7 +7,7 @@
 mod session;
 
 use super::{REMOTE, Remote, file_name, not_found, remote_path};
-use crate::fs::vfs::{Capabilities, Vfs, VfsEntry};
+use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name};
 use crate::lock::LockExt;
 use session::{Config, Conn, Download, UploadStream, io_err};
 use std::io::{self, Read, Write};
@@ -134,7 +134,7 @@ impl FtpVfs {
 
     fn entry(dir: &Path, file: &ListedFile) -> Option<VfsEntry> {
         let name = file_name(file.name());
-        if name.is_empty() || name == "." || name == ".." {
+        if !is_plain_name(&name) {
             return None;
         }
         let is_dir = file.is_directory();

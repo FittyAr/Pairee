@@ -221,7 +221,7 @@ fn parse_range(spec: &str) -> Option<CharRange> {
         let len = number(len)?;
         return Some(CharRange {
             start,
-            end: Some(start + len - 1),
+            end: Some(start.saturating_add(len - 1)),
         });
     }
     if let Some((start, end)) = spec.split_once('-') {
@@ -264,5 +264,16 @@ mod tests {
             ]
         );
         assert_eq!(Mask::parse("").tokens, []);
+    }
+
+    /// Huge positions typed in a mask clamp instead of overflowing.
+    #[test]
+    fn huge_ranges_do_not_overflow() {
+        let mask = Mask::parse("[N2,18446744073709551615]");
+        let values = MaskValues {
+            name: "photo",
+            ..MaskValues::default()
+        };
+        assert_eq!(mask.render(&values), "hoto");
     }
 }

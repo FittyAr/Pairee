@@ -80,6 +80,10 @@ pub fn entry_name(rel: &Path, dir_slash: bool) -> String {
 /// permissions. Whatever `write` opens (the old archive) is closed when it
 /// returns: Windows cannot replace a file that is still open.
 pub fn replace_archive(archive: &Path, write: impl FnOnce(fs::File) -> Result<()>) -> Result<()> {
+    // Through a link, the archive it points to is rewritten (renaming over
+    // the link would replace the link and leave the archive as it was).
+    let real = fs::canonicalize(archive)?;
+    let archive = real.as_path();
     let dir = archive.parent().unwrap_or(Path::new("."));
     let tmp = tempfile::NamedTempFile::new_in(dir)?;
     write(tmp.as_file().try_clone()?)?;

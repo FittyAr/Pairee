@@ -29,7 +29,7 @@ use crate::config::localization::t;
 use crate::fs::vfs::{Vfs, VfsEntry};
 use crate::fs::walk::{LinkPolicy, WalkEntry, WalkError, WalkOptions, Walker};
 use anyhow::anyhow;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 /// One file to transfer: source, destination (empty for a delete), size.
 pub type FileMapping = (PathBuf, PathBuf, u64);
@@ -88,6 +88,12 @@ pub fn top_targets(
             (src.clone(), dst)
         })
         .collect()
+}
+
+/// `rel` only goes down (no `..`, root or drive): joined to a destination
+/// it stays below it, whatever names a server listed.
+fn is_plain_path(rel: &Path) -> bool {
+    rel.components().all(|c| matches!(c, Component::Normal(_)))
 }
 
 /// Scans the sources of `req`, reporting progress through `ctl`. Fails only
@@ -220,8 +226,12 @@ impl Scanner<'_> {
         if entry.is_symlink && self.link_policy() == LinkPolicy::Keep {
             return self.kept_link(entry, dst);
         }
-        let size = self.req.src_fs.metadata(&entry.path).map_or(0, |e| e.size);
-        if self.filter.matches(&entry.path, size) {
+        let (size, modified) = self
+            .req
+            .src_fs
+            .metadata(&entry.path)
+            .map_or((0, None), |e| (e.size, e.modified));
+        if self.filter.matches(&entry.path, size, modified) {
             self.push(entry.path, dst, size);
         }
     }
@@ -277,7 +287,14 @@ impl Scanner<'_> {
     fn found(&mut self, item: WalkEntry, src: &Path, base_dst: &Path) {
         let dst = match (self.is_delete(), item.path().strip_prefix(src)) {
             (true, _) => PathBuf::new(),
-            (false, Ok(rel)) => base_dst.join(rel),
+            (false, Ok(rel)) if is_plain_path(rel) => base_dst.join(rel),
+            (false, Ok(_)) => {
+                let name = item.path().to_string_lossy().into_owned();
+                return self.refuse(
+                    item.path(),
+                    t("transfer_unsafe_name").replacen("{}", &name, 1),
+                );
+            }
             (false, Err(_)) => return,
         };
         if item.descends {
@@ -292,7 +309,8 @@ impl Scanner<'_> {
         if item.is_kept_link() {
             return self.kept_link(item.entry, dst);
         }
-        if self.filter.matches(&item.entry.path, item.entry.size) {
+        let entry = &item.entry;
+        if self.filter.matches(&entry.path, entry.size, entry.modified) {
             self.push(item.entry.path, dst, item.entry.size);
         }
     }

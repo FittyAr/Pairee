@@ -123,3 +123,24 @@ async fn resumed_copy_streams_only_the_rest_but_hashes_everything() {
     .unwrap();
     assert_eq!(src_hash, full);
 }
+
+/// A source that ends before its announced size (a dropped connection)
+/// fails the copy instead of leaving a short file to be committed.
+#[tokio::test]
+async fn a_source_shorter_than_its_size_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let part = dir.path().join("dst.bin.pairee-part");
+    let options = TransferOptions::default();
+    let copy = ByteCopy {
+        source: Box::new(io::Cursor::new(vec![7u8; 10])),
+        sink: Box::new(LocalSink::open(&part, 0, &options).unwrap()),
+        offset: 0,
+        size: 25,
+    };
+    let acc = Arc::new(AtomicU64::new(0));
+    assert!(
+        copy_pipelined(copy, &options, &control(), acc)
+            .await
+            .is_err()
+    );
+}

@@ -15,6 +15,9 @@ pub struct Node {
     pub is_symlink: bool,
     pub size: u64,
     pub modified: Option<SystemTime>,
+    /// Entries stored under this name so far (a tar updated with `tar -u`
+    /// holds several; the last one is the entry).
+    pub copies: usize,
 }
 
 impl Node {
@@ -23,6 +26,7 @@ impl Node {
         is_symlink: false,
         size: 0,
         modified: None,
+        copies: 0,
     };
 }
 
@@ -60,7 +64,14 @@ impl ArchiveIndex {
             if last {
                 // A later entry with the same name wins (tar updates), but a
                 // folder never turns back into a file through an implicit one.
-                children.insert(name, node.clone());
+                let copies = children.get(&name).map_or(0, |n| n.copies) + 1;
+                children.insert(
+                    name,
+                    Node {
+                        copies,
+                        ..node.clone()
+                    },
+                );
             } else {
                 children.entry(name).or_insert(Node::DIR);
             }
@@ -96,5 +107,6 @@ fn node_of(entry: &EntryMeta) -> Node {
         is_symlink: matches!(entry.kind, EntryKind::Symlink(_)),
         size: if is_dir { 0 } else { entry.size },
         modified: entry.modified,
+        copies: 0,
     }
 }

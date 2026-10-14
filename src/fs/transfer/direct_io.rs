@@ -15,24 +15,36 @@ const FILE_FLAG_WRITE_THROUGH: u32 = 0x80000000;
 #[cfg(target_os = "linux")]
 const O_DIRECT: i32 = 0o40000;
 
-/// Convierte una ruta a su formato Unicode largo UNC en Windows si es absoluta.
+/// The Windows long-path (`\\?\`) form of an absolute `path`, so paths
+/// past `MAX_PATH` work. Verbatim paths skip all normalization, so the path
+/// is made canonical first (`/` turned into `\`, `.` and `..` resolved):
+/// otherwise a typed `C:/backup` or `C:\a\..\b` would name a different,
+/// invalid file. Device (`\\.\`) and verbatim paths are left alone, as is
+/// everything on other platforms.
 pub fn to_long_path(path: &Path) -> PathBuf {
     #[cfg(target_os = "windows")]
     {
-        let path_str = path.to_string_lossy();
-        if path.is_absolute() && !path_str.starts_with(r"\\?\") {
-            if path_str.starts_with(r"\\") {
-                let mut p = PathBuf::from(r"\\?\UNC");
-                p.push(path_str.strip_prefix(r"\\").unwrap_or(&path_str));
-                p
-            } else {
-                let mut p = PathBuf::from(r"\\?\");
-                p.push(path);
-                p
-            }
-        } else {
-            path.to_path_buf()
+        use std::ffi::OsString;
+        use std::os::windows::ffi::{OsStrExt, OsStringExt};
+        let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+        let starts = |prefix: &str| {
+            let prefix: Vec<u16> = prefix.encode_utf16().collect();
+            wide.starts_with(&prefix)
+        };
+        if !path.is_absolute() || starts(r"\\?\") || starts(r"\\.\") {
+            return path.to_path_buf();
         }
+        let full = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+        let full: Vec<u16> = full.as_os_str().encode_wide().collect();
+        let unc: Vec<u16> = r"\\".encode_utf16().collect();
+        let long: Vec<u16> = match full.strip_prefix(unc.as_slice()) {
+            Some(share) => r"\\?\UNC\"
+                .encode_utf16()
+                .chain(share.iter().copied())
+                .collect(),
+            None => r"\\?\".encode_utf16().chain(full.iter().copied()).collect(),
+        };
+        PathBuf::from(OsString::from_wide(&long))
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -234,5 +246,36 @@ impl Read for DiskReader {
         out[..n].copy_from_slice(&self.buf.as_slice()[self.consumed..self.consumed + n]);
         self.consumed += n;
         Ok(n)
+    }
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod long_path_tests {
+    use super::to_long_path;
+    use std::path::Path;
+
+    #[test]
+    fn long_paths_are_canonical() {
+        assert_eq!(
+            to_long_path(Path::new("C:/data/a/../b/./c.txt")),
+            Path::new(r"\\?\C:\data\b\c.txt")
+        );
+        assert_eq!(
+            to_long_path(Path::new(r"\\server\share\dir\f.txt")),
+            Path::new(r"\\?\UNC\server\share\dir\f.txt")
+        );
+        for kept in [r"\\?\C:\x", r"\\.\pipe\p", "relative\\f"] {
+            assert_eq!(to_long_path(Path::new(kept)), Path::new(kept));
+        }
+    }
+
+    /// A destination typed with `/` still works (verbatim paths take `/`
+    /// as part of a name).
+    #[test]
+    fn forward_slash_paths_open() {
+        let dir = tempfile::tempdir().unwrap();
+        let typed = dir.path().to_string_lossy().replace('\\', "/") + "/sub/../f.txt";
+        std::fs::write(to_long_path(Path::new(&typed)), b"x").unwrap();
+        assert_eq!(std::fs::read(dir.path().join("f.txt")).unwrap(), b"x");
     }
 }
