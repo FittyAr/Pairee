@@ -93,6 +93,16 @@ fn preview_activate_and_export_a_preset() {
     let path = h.config_dir().join("keymaps/mine.toml");
     let text = std::fs::read_to_string(&path).expect("exported preset");
     assert!(text.contains("extends = \"standard\""), "{text}");
+
+    // Exporting again under an existing name never replaces that file.
+    h.keys("F9");
+    for _ in 0.."standard-mine".len() {
+        h.keys("Backspace");
+    }
+    h.text("mine").keys("Enter");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), text, "kept");
+    let message = modal(&h).unwrap().message.clone().unwrap_or_default();
+    assert!(message.contains("mine"), "{message}");
 }
 
 #[test]

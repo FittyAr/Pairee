@@ -79,11 +79,7 @@ pub fn bind_extra(lua: &Lua, fs: &Table, policy: &Arc<FsPolicy>) -> mlua::Result
         "cha",
         lua.create_function(move |lua, (url, follow): (Value, Option<bool>)| {
             let result = lua_to_path(&p, url, Access::Read)
-                .map_err(|e| LuaError {
-                    kind: Some("PermissionDenied".into()),
-                    code: None,
-                    message: e.to_string(),
-                })
+                .map_err(|e| LuaError::denied(e.to_string()))
                 .and_then(|target| {
                     LuaCha::read(target.path(), follow.unwrap_or(false)).map_err(LuaError::from)
                 });

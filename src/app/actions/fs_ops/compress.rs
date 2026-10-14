@@ -10,7 +10,14 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "archive".to_string());
-        let dest_dir = state.get_passive_panel().current_path.clone();
+        // The archive is written with local tools: into the other panel's
+        // folder when it is on the local disk, else beside the files.
+        let passive = state.get_passive_panel();
+        let dest_dir = if passive.source.is_local() {
+            passive.current_path.clone()
+        } else {
+            state.get_active_panel().current_path.clone()
+        };
         state.dialogs.replace(CompressPrompt {
             input: default_name.into(),
             targets,

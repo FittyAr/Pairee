@@ -273,7 +273,8 @@ fn test_stash_untracked() {
     assert!(!untracked_path.exists());
 
     // Apply stash
-    stash_apply(&mut repo, 0).unwrap();
+    let oid = stash_oid(&mut repo, 0);
+    stash_apply(&mut repo, &oid).unwrap();
     assert!(untracked_path.exists());
 }
 

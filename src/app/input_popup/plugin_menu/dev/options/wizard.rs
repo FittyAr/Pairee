@@ -1,5 +1,6 @@
 use super::super::progress::begin_dev_op;
 use crate::app::context::AppContext;
+use crate::app::plugin_install::is_plain_name;
 use crate::app::state::{AppState, PluginMenuState};
 use crate::config::localization::t;
 use crate::plugin::developer_tool;
@@ -41,6 +42,14 @@ fn store_answer(menu: &mut PluginMenuState, required: bool, next: usize) {
     menu.dev_wizard_step = next;
 }
 
+/// Something exists at `path` other than an empty folder.
+fn is_non_empty(path: &Path) -> bool {
+    match std::fs::read_dir(path) {
+        Ok(mut entries) => entries.next().is_some(),
+        Err(_) => std::fs::symlink_metadata(path).is_ok(),
+    }
+}
+
 /// Creates the plugin skeleton from the name, description and author answers.
 fn finish_init_wizard(state: &mut AppState, context: &mut AppContext, menu: &mut PluginMenuState) {
     let name = menu.dev_wizard_data[0].clone();
@@ -53,7 +62,18 @@ fn finish_init_wizard(state: &mut AppState, context: &mut AppContext, menu: &mut
     } else {
         format!("{}.pairee", name)
     };
+    // The template replaces the folder's files (and may replace the folder
+    // itself): only a new folder, named by a plain name, is initialized.
+    if !is_plain_name(&folder_name) {
+        menu.dev_results = t("plugin_dev_init_bad_name").replace("{}", &folder_name);
+        return;
+    }
     let target_path = plugins_dev_dir.join(&folder_name);
+    if is_non_empty(&target_path) {
+        menu.dev_results =
+            t("plugin_dev_init_exists").replace("{}", &target_path.display().to_string());
+        return;
+    }
 
     let _ = std::fs::create_dir_all(&target_path);
     menu.dev_results = format!(
@@ -126,7 +146,7 @@ fn finish_submit_wizard(
             return;
         }
         if token.is_empty() {
-            let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+            let temp_dir = crate::plugin::developer_tool::temp_registry_dir();
             let result =
                 t("plugin_dev_no_token_inst").replace("{}", &temp_dir.display().to_string());
             developer_tool::progress_finish(Some(tx), Some(result), None);
@@ -181,5 +201,21 @@ async fn submit_in_background(token: String, commit_msg: String, plugin_name: St
             .await;
             developer_tool::progress_finish(Some(tx), None, Some(msg));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_new_folders_are_initialized() {
+        let dir = tempfile::tempdir().unwrap();
+        let plugin = dir.path().join("demo.pairee");
+        assert!(!is_non_empty(&plugin), "missing");
+        std::fs::create_dir(&plugin).unwrap();
+        assert!(!is_non_empty(&plugin), "empty");
+        std::fs::write(plugin.join("main.lua"), "-- mine").unwrap();
+        assert!(is_non_empty(&plugin), "an existing plugin is kept");
     }
 }

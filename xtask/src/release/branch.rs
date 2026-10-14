@@ -3,20 +3,13 @@
 
 use std::process::Command;
 
-use super::{version, winget};
-use crate::{Result, changelog, cmd, ui};
+use super::winget;
+use crate::{Result, cmd, ui};
 
 /// Files the release rewrites and commits; local edits to them are allowed
 /// (they become part of the release commit).
 fn is_managed(path: &str) -> bool {
-    [
-        version::CARGO_TOML,
-        version::CARGO_LOCK,
-        version::INSTALLER,
-        changelog::CHANGELOG,
-        changelog::UNRELEASED,
-    ]
-    .contains(&path)
+    super::RELEASE_FILES.contains(&path)
         || path
             .strip_prefix(winget::WINGET_DIR)
             .is_some_and(|rest| rest.starts_with('/'))

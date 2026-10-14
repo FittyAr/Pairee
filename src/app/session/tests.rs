@@ -227,6 +227,51 @@ fn ssh_tabs_wait_until_shown() {
 }
 
 #[test]
+fn a_locked_remote_tab_is_locked_to_its_remote_folder_once_connected() {
+    use crate::config::settings::RemoteKind;
+    use crate::fs::remote::{RemoteConn, RemoteInfo};
+    let locked = TabSpec {
+        locked: true,
+        ..remote_spec("web")
+    };
+    let saved = session(vec![], vec![locked.clone()]);
+    let mut state = new_state();
+    start_with(&mut state, &settings_with_preset("web"), Some(&saved), &[]);
+    let tab = state.panels.tabs(ActivePanel::Right).active();
+    assert!(
+        tab.lock.is_none(),
+        "not locked to the home folder it waits on"
+    );
+    assert_eq!(tab.spec(), locked, "saved again as a locked remote tab");
+
+    let id = tab.id;
+    let conn = RemoteConn::new(
+        std::sync::Arc::new(crate::fs::vfs::LocalVfs),
+        RemoteInfo {
+            kind: RemoteKind::Sftp,
+            host: "h".into(),
+            port: Some(22),
+            username: "me".into(),
+        },
+    );
+    assert!(remote::finish(
+        &mut state,
+        id,
+        &Ok((conn, "/".into())),
+        false
+    ));
+    let tabs = state.panels.tabs(ActivePanel::Right);
+    assert_eq!(tabs.count(), 1, "the tab did not split");
+    let tab = tabs.active();
+    assert_eq!(tab.panel.current_path, Path::new("/srv/www"));
+    assert!(
+        tab.lock
+            .as_ref()
+            .is_some_and(|l| l.path == Path::new("/srv/www"))
+    );
+}
+
+#[test]
 fn ssh_tabs_without_their_preset_open_at_home_with_a_notice() {
     let saved = session(vec![remote_spec("gone")], vec![]);
     let mut state = new_state();

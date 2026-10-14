@@ -28,14 +28,24 @@ pub fn restore_terminal() {
     );
 }
 
-/// Installs the hook: restore the terminal, log the panic, then run the
-/// previously installed hook (normally the default one that prints to stderr).
+/// Installs the hook on the UI thread (the caller). A panic there restores
+/// the terminal, is logged, then reaches the previously installed hook
+/// (normally the default one that prints to stderr). A panic on any other
+/// thread (a background job, which is caught and reported, or a worker
+/// whose lock `lock_safe` recovers) is only logged: the TUI keeps running,
+/// so restoring the terminal or printing over it would break it.
 pub fn install() {
+    let ui_thread = std::thread::current().id();
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        restore_terminal();
+        let on_ui = std::thread::current().id() == ui_thread;
+        if on_ui {
+            restore_terminal();
+        }
         let backtrace = std::backtrace::Backtrace::force_capture();
         tracing::error!("Pairee panicked: {info}\n{backtrace}");
-        previous(info);
+        if on_ui {
+            previous(info);
+        }
     }));
 }

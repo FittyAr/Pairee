@@ -4,6 +4,7 @@
 use super::grammar::{Context, Grammar, Rule};
 use super::{LineTokens, SyntaxKind, Token};
 use regex::{Captures, Regex};
+use std::collections::HashMap;
 use std::ops::Range;
 
 /// Pattern searches allowed per line.
@@ -17,6 +18,12 @@ pub struct Painter<'a> {
     paint: Vec<Option<SyntaxKind>>,
     /// Searches left before giving up on the line.
     budget: usize,
+    /// Per grammar pattern, the last search: where it started and what it
+    /// found. Every stretch searches the same patterns again from a later
+    /// position; a match still ahead (or no match at all) is the answer
+    /// again, so each pattern scans the line about once instead of once
+    /// per stretch.
+    memo: HashMap<*const Regex, (usize, Option<Range<usize>>)>,
 }
 
 impl<'a> Painter<'a> {
@@ -25,7 +32,14 @@ impl<'a> Painter<'a> {
             line,
             paint: vec![None; line.len()],
             budget: MAX_SEARCHES,
+            memo: HashMap::new(),
         }
+    }
+
+    /// Whether the search budget ran out (the rest of the line is plain,
+    /// and region boundaries past that point were never seen).
+    pub fn exhausted(&self) -> bool {
+        self.budget == 0
     }
 
     pub fn line_len(&self) -> usize {
@@ -39,9 +53,30 @@ impl<'a> Painter<'a> {
     }
 
     /// One search of `regex` from `at`, or `None` once the budget is spent.
-    pub fn search(&mut self, regex: &Regex, at: usize) -> Option<Range<usize>> {
+    /// For patterns built while painting (a captured end), which may be
+    /// dropped and their address reused: never remembered.
+    pub fn search_once(&mut self, regex: &Regex, at: usize) -> Option<Range<usize>> {
         self.spend()?;
         regex.find_at(self.line, at).map(|m| m.range())
+    }
+
+    /// [`Self::search`] for a pattern of a grammar (alive for the whole
+    /// line), answered from the previous search when it still holds: one
+    /// from an earlier position that found nothing, or a match at or after
+    /// `at` (the leftmost match from `at`, since none starts in between).
+    pub fn search(&mut self, regex: &Regex, at: usize) -> Option<Range<usize>> {
+        let key: *const Regex = regex;
+        if let Some((from, found)) = self.memo.get(&key)
+            && *from <= at
+            && found.as_ref().is_none_or(|m| m.start >= at)
+        {
+            return found.clone();
+        }
+        let found = self.search_once(regex, at);
+        if !self.exhausted() || found.is_some() {
+            self.memo.insert(key, (at, found.clone()));
+        }
+        found
     }
 
     /// The groups of the match of `regex` starting at `at`.
@@ -50,17 +85,21 @@ impl<'a> Painter<'a> {
         regex.captures_at(self.line, at)
     }
 
-    /// Where a region ends from `pos` on (its `end`), passing over the
-    /// matches of `skip`.
+    /// Where a region ends from `pos` on (its `end`, a grammar pattern
+    /// unless `captured`), passing over the matches of `skip`.
     pub fn find_end(
         &mut self,
-        end: &Regex,
+        (end, captured): (&Regex, bool),
         skip: Option<&Regex>,
         pos: usize,
     ) -> Option<Range<usize>> {
         let mut at = pos;
         loop {
-            let found = self.search(end, at)?;
+            let found = if captured {
+                self.search_once(end, at)?
+            } else {
+                self.search(end, at)?
+            };
             let skipped = match skip {
                 Some(skip) => self.search(skip, at),
                 None => None,
@@ -144,11 +183,12 @@ impl<'a> Painter<'a> {
         rule: &Rule,
         at: usize,
     ) -> Option<(Range<usize>, Option<Range<usize>>)> {
+        let whole = self.search(&rule.regex, at)?;
         if rule.group == 0 {
-            let whole = self.search(&rule.regex, at)?;
             return Some((whole.clone(), Some(whole)));
         }
-        let caps = self.captures(&rule.regex, at)?;
+        // The leftmost match from its own start is that same match.
+        let caps = self.captures(&rule.regex, whole.start)?;
         let whole = caps.get(0)?.range();
         Some((whole, caps.get(rule.group).map(|m| m.range())))
     }
@@ -179,5 +219,31 @@ impl<'a> Painter<'a> {
             }
         }
         tokens
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_search_still_ahead_is_not_repeated() {
+        let line = "aaaa b aa";
+        let b = Regex::new("b").unwrap();
+        let z = Regex::new("z").unwrap();
+        let mut painter = Painter::new(line);
+
+        assert_eq!(painter.search(&b, 0), Some(5..6));
+        let spent = painter.budget;
+        // From a later position the same match is still the leftmost one.
+        assert_eq!(painter.search(&b, 3), Some(5..6));
+        assert_eq!(painter.search(&z, 0), None);
+        assert_eq!(painter.search(&z, 7), None);
+        assert_eq!(painter.budget, spent - 1, "only z's first search scanned");
+        // Past the match: a new search.
+        assert_eq!(painter.search(&b, 6), None);
+        assert_eq!(painter.budget, spent - 2);
+        // An earlier position than the remembered one is searched again.
+        assert_eq!(painter.search(&b, 0), Some(5..6));
     }
 }

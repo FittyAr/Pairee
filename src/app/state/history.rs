@@ -81,9 +81,13 @@ impl PopupType {
 }
 
 impl HistoryState {
-    /// Writes the history to disk (errors are ignored, as history is best effort).
-    pub fn save(&self) {
-        let _ = self.to_store().save();
+    /// Writes the lists `settings` keep to disk (best effort: a failure is
+    /// only logged). The others are never written, even mid-run.
+    pub fn save(&self, settings: &crate::config::settings::Settings) {
+        let store = crate::app::session::persisted_history(self.to_store(), settings);
+        if let Err(e) = store.save() {
+            log::warn!("Failed to save the history: {e}");
+        }
     }
 
     pub fn clear(&mut self, kind: HistoryKind) {
@@ -164,13 +168,43 @@ impl AppState {
         self.history.push_viewed_file(path);
     }
 
-    /// Pushes a folder to the folders history.
+    /// Pushes a folder to the folders history. It keeps bare paths and is
+    /// replayed on the local disk, so folders of a server are left out.
     pub fn push_folders_history(&mut self, path: PathBuf) {
-        self.history.push_visited_folder(path);
+        if self.get_active_panel().source.remote().is_none() {
+            self.history.push_visited_folder(path);
+        }
     }
 
     /// Pushes a CLI command to the command history.
     pub fn push_command_history(&mut self, cmd: String) {
         self.history.push_command(cmd);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn saving_mid_run_skips_the_lists_the_user_does_not_keep() {
+        let dir = tempfile::tempdir().unwrap();
+        let _root = crate::config::paths::test_root::redirect(dir.path());
+        let settings = crate::config::settings::Settings {
+            save_commands_history: false,
+            save_folders_history: true,
+            ..Default::default()
+        };
+        let history = HistoryState {
+            commands: vec!["mysql -p hunter2".into()],
+            folders: vec![PathBuf::from("/kept")],
+            ..Default::default()
+        };
+
+        history.save(&settings);
+
+        let stored = HistoryStore::load();
+        assert!(stored.commands.is_empty(), "{:?}", stored.commands);
+        assert_eq!(stored.visited_folders.len(), 1);
     }
 }

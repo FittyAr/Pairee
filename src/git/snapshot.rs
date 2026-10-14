@@ -40,7 +40,7 @@ pub fn current_branch(repo: &git2::Repository) -> Option<String> {
 pub fn load(path: &Path, log_limit: usize) -> Option<RepoSnapshot> {
     let mut repo = crate::git::repo::find_repo(path)?;
     Some(RepoSnapshot {
-        workdir: crate::git::repo::get_workdir(&repo).unwrap_or_else(|| path.to_path_buf()),
+        workdir: repo.workdir().unwrap_or(path).to_path_buf(),
         branch: current_branch(&repo),
         status: crate::git::status::get_status(&repo),
         log: crate::git::log::get_log(&repo, log_limit),

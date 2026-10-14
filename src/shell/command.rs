@@ -121,6 +121,9 @@ mod tests {
         "100%^!.txt",
         "a b (1) <2> | 3.txt",
         "it's;$(id)`id`.txt",
+        // cmd's substitution syntax must not expand (nor unbalance carets).
+        "%COMSPEC:e=^^%&echo PWNED",
+        "%PATH:~0,3%.txt",
     ];
 
     #[test]

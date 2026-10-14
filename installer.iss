@@ -1,6 +1,16 @@
 ; installer.iss
+;
+; Built by .github/scripts/package.sh, which passes the release version, the
+; folder of pairee.exe and its architecture:
+;   iscc /DAppVersion=X.Y.Z /DSourceDir=target\<triple>\release /DAppArch=x64|arm64 installer.iss
+; The defaults below are for a local build of the x64 release binary.
 #define AppName "Pairee"
-#define AppVersion "0.10.0"
+#ifndef AppVersion
+  #define AppVersion "0.0.0"
+#endif
+#ifndef AppArch
+  #define AppArch "x64"
+#endif
 #define AppPublisher "FittyAr"
 #define AppURL "https://github.com/FittyAr/Pairee"
 #define AppExeName "pairee.exe"
@@ -34,6 +44,12 @@ UninstallDisplayIcon={app}\{#AppExeName}
 PrivilegesRequired=lowest
 ; Broadcast the PATH change so new terminals find pairee without a sign-out.
 ChangesEnvironment=yes
+; An ARM64 build runs only on ARM64 Windows; x64 builds also run there.
+#if AppArch == "arm64"
+ArchitecturesAllowed=arm64
+#else
+ArchitecturesAllowed=x64compatible
+#endif
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

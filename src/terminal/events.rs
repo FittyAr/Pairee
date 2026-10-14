@@ -71,9 +71,17 @@ struct InputPump {
 
 impl InputPump {
     fn run(mut self, tick_rate: Duration) {
+        use crate::terminal::suspend::child_owns_terminal;
         loop {
+            // While a child (a shell command, sudo, the "press Enter"
+            // prompt) owns the terminal, its input is left to it.
+            if child_owns_terminal() {
+                std::thread::sleep(tick_rate);
+                continue;
+            }
             // Poll for new input event with timeout
             let keep_going = match event::poll(tick_rate) {
+                Ok(true) if child_owns_terminal() => true,
                 Ok(true) => match event::read() {
                     Ok(ev) => self.forward(ev),
                     Err(_) => true,

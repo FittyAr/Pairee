@@ -100,8 +100,10 @@ fn switch_to_branch(repo: &git2::Repository, branch: &git2::Branch) -> anyhow::R
 
 /// Checks out a specific commit by its hash (full or short), leaving HEAD detached.
 pub fn checkout_commit(repo: &git2::Repository, commit_hash: &str) -> anyhow::Result<()> {
-    let obj = repo.revparse_single(commit_hash)?;
-    repo.checkout_tree(&obj, None)?;
+    let obj = repo
+        .revparse_single(commit_hash)?
+        .peel(git2::ObjectType::Commit)?;
+    crate::git::worktree::safe_checkout(repo, &obj)?;
     repo.set_head_detached(obj.id())?;
     Ok(())
 }

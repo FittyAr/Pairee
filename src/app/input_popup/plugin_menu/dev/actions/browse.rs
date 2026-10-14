@@ -86,7 +86,7 @@ pub fn handle_option_open_package_folder(
         let target = if let Some(specific) = specific.filter(|p| p.exists()) {
             specific
         } else {
-            let fallback = crate::config::paths::get_cache_dir().join("temp_registry");
+            let fallback = crate::plugin::developer_tool::temp_registry_dir();
             if fallback.exists() {
                 fallback
             } else {
@@ -105,7 +105,7 @@ pub fn handle_option_open_submit_folder(
     context: &AppContext,
     dev_results: &mut String,
 ) {
-    let target = crate::config::paths::get_cache_dir().join("temp_registry");
+    let target = crate::plugin::developer_tool::temp_registry_dir();
     if !target.exists() {
         *dev_results =
             t("plugin_dev_submit_folder_missing").replace("{:?}", &target.to_string_lossy());

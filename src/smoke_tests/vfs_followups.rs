@@ -85,6 +85,119 @@ fn f4_edits_a_zip_entry_and_saves_it_back() {
 }
 
 #[test]
+fn reload_of_a_zip_entry_reads_the_archive_again() {
+    let mut h = Harness::new();
+    let archive = h.left().join("bundle.zip");
+    write_zip(&archive, SAMPLE_TREE);
+    h.reread().focus("bundle.zip").keys("Enter");
+    h.focus("a.txt").keys("@edit");
+    h.wait_until("editor on the copy", |h| in_editor(h));
+    write_zip(&archive, &[("a.txt", b"theirs")]);
+    crate::app::editor::open::reload_active_editor(&mut h.state);
+    h.wait_until("the archive's text", |h| match h.state.screens.active() {
+        Screen::Editor(ed) => ed.lines == ["theirs"],
+        _ => false,
+    });
+}
+
+#[test]
+fn save_as_on_a_zip_entry_writes_a_new_entry_beside_it() {
+    let mut h = Harness::new();
+    let archive = h.left().join("bundle.zip");
+    write_zip(&archive, SAMPLE_TREE);
+    h.reread().focus("bundle.zip").keys("Enter");
+    h.focus("a.txt").keys("@edit");
+    h.wait_until("editor on the copy", |h| in_editor(h));
+    h.text("copy ").keys("Shift+F2");
+    assert!(matches!(
+        h.state.dialogs.top(),
+        Some(PopupType::EditorSaveAsPrompt(_))
+    ));
+    for _ in 0.."a.txt".len() {
+        h.keys("Backspace");
+    }
+    h.text("b.txt").keys("Enter");
+    h.wait_until("new entry uploaded", |h| {
+        let file = std::fs::File::open(h.left().join("bundle.zip")).unwrap();
+        zip::ZipArchive::new(file).unwrap().by_name("b.txt").is_ok()
+    });
+    assert_eq!(zip_entry(&archive, "b.txt"), "copy alpha");
+    assert_eq!(
+        zip_entry(&archive, "a.txt"),
+        "alpha",
+        "the original is kept"
+    );
+    h.wait_until("upload recorded", |h| {
+        h.state.first_unsaved_editor().is_none()
+    });
+    let Screen::Editor(ed) = h.state.screens.active() else {
+        panic!("the editor stays open");
+    };
+    assert!(ed.path.exists(), "the local copy is kept");
+    assert!(ed.display_path().ends_with("b.txt"));
+}
+
+#[test]
+fn deleting_inside_an_archive_never_claims_to_use_the_trash() {
+    use crate::app::actions::fs_ops::delete::{DeleteMode, request};
+    use crate::app::state::popup::ConfirmDelete;
+    let mut h = Harness::new();
+    write_zip(&h.left().join("bundle.zip"), SAMPLE_TREE);
+    h.reread().focus("bundle.zip").keys("Enter");
+    let target = vec![h.state.get_active_panel().current_path.join("a.txt")];
+    request(
+        &mut h.state,
+        &h.ctx,
+        target.clone(),
+        false,
+        DeleteMode::Trash,
+    );
+    assert!(matches!(h.state.dialogs.top(), Some(PopupType::Info(_))));
+    h.state.dialogs.clear();
+    h.ctx.config.settings.delete_to_recycle_bin = true;
+    h.ctx.config.settings.confirmations.confirm_delete = true;
+    request(&mut h.state, &h.ctx, target, false, DeleteMode::Configured);
+    assert!(matches!(
+        h.state.dialogs.top(),
+        Some(PopupType::ConfirmDelete(ConfirmDelete {
+            to_trash: false,
+            ..
+        }))
+    ));
+}
+
+#[test]
+fn local_tools_never_write_into_an_archive_panel_path() {
+    use crate::app::actions::fs_ops::capability::refuse_unsupported;
+    use crate::app::state::popup::CompressPrompt;
+    use crate::keybindings::Action;
+    let mut h = Harness::new();
+    h.write("work/left/notes.txt", "n");
+    write_zip(&h.right().join("bundle.zip"), SAMPLE_TREE);
+    h.reread().keys("Tab").focus("bundle.zip").keys("Enter Tab");
+    h.focus("notes.txt");
+    for action in [Action::CreateLink, Action::ExtractArchive] {
+        assert!(refuse_unsupported(&mut h.state, &action), "{action:?}");
+        h.state.dialogs.clear();
+    }
+    assert!(!refuse_unsupported(&mut h.state, &Action::CompressFiles));
+    crate::app::actions::fs_ops::compress::handle(&mut h.state, &mut h.ctx);
+    let Some(PopupType::CompressPrompt(CompressPrompt { dest_dir, .. })) = h.state.dialogs.top()
+    else {
+        panic!("compress prompt");
+    };
+    assert_eq!(dest_dir, &h.left(), "beside the files, not inside the zip");
+
+    // Inside the archive, tools that walk the local disk are refused.
+    h.state.dialogs.clear();
+    h.keys("Tab");
+    for action in [Action::FindFile, Action::TreeView, Action::GitInit] {
+        assert!(refuse_unsupported(&mut h.state, &action), "{action:?}");
+        h.state.dialogs.clear();
+    }
+}
+
+#[test]
 fn copying_into_a_zip_asks_about_existing_entries() {
     let mut h = Harness::new();
     let archive = h.left().join("bundle.zip");

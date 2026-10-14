@@ -149,13 +149,13 @@ fn plan(action: GitConfirmedAction) -> (Exec, &'static str, After) {
             "git_error_rebase_failed",
             After::Info(OK),
         ),
-        A::StashDrop(index) => (
-            Box::new(move |r| stash::stash_drop(r, index)),
+        A::StashDrop(oid) => (
+            Box::new(move |r| stash::stash_drop(r, &oid)),
             "git_error_stash_drop_failed",
             After::Nothing,
         ),
-        A::StashPop(index) => (
-            Box::new(move |r| stash::stash_pop(r, index)),
+        A::StashPop(oid) => (
+            Box::new(move |r| stash::stash_pop(r, &oid)),
             "git_error_stash_pop_failed",
             After::Nothing,
         ),

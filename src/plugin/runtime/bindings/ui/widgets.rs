@@ -7,6 +7,7 @@
 //! The 1.0 call forms keep working: `ui.Gauge(ratio, label)`,
 //! `ui.List({"a", "b"})`, `ui.Table(headers, rows)`.
 
+use super::budget::Budget;
 use super::layout::constraint_list;
 use super::style::{add_style_methods, style_arg};
 use super::text::{align_arg, line_arg, span_arg, text_arg};
@@ -166,7 +167,9 @@ impl UserData for WBorder {
     }
 }
 
-fn clamp_ratio(ratio: f64) -> f64 {
+/// A gauge ratio in `0..=1` (`0` for NaN and infinities, which the
+/// renderer would reject).
+pub(super) fn clamp_ratio(ratio: f64) -> f64 {
     if ratio.is_finite() {
         ratio.clamp(0.0, 1.0)
     } else {
@@ -179,10 +182,7 @@ fn row_arg(value: &Value) -> mlua::Result<WRow> {
     match value {
         Value::UserData(ud) => Ok(ud.borrow::<WRow>()?.clone()),
         Value::Table(cells) => Ok(WRow {
-            cells: cells
-                .sequence_values::<Value>()
-                .map(|cell| text_arg(&cell?))
-                .collect::<mlua::Result<_>>()?,
+            cells: texts_arg(cells)?,
             height: 1,
             style: WStyle::default(),
         }),
@@ -194,20 +194,32 @@ fn row_arg(value: &Value) -> mlua::Result<WRow> {
 }
 
 fn rows_arg(rows: &Table) -> mlua::Result<Vec<WRow>> {
+    let mut budget = Budget::default();
     rows.sequence_values::<Value>()
-        .map(|row| row_arg(&row?))
+        .map(|row| {
+            let row = row_arg(&row?)?;
+            budget.charge(1, 0)?;
+            row.cells.iter().try_for_each(|cell| budget.text(cell))?;
+            Ok(row)
+        })
         .collect()
 }
 
 /// Every item of a list as text.
 fn texts_arg(items: &Table) -> mlua::Result<Vec<WText>> {
+    let mut budget = Budget::default();
     items
         .sequence_values::<Value>()
-        .map(|item| text_arg(&item?))
+        .map(|item| {
+            let text = text_arg(&item?)?;
+            budget.text(&text)?;
+            Ok(text)
+        })
         .collect()
 }
 
-fn paragraph(text: WText) -> WParagraph {
+/// A plain (unwrapped, unstyled) paragraph of `text`.
+pub fn paragraph(text: WText) -> WParagraph {
     WParagraph {
         text,
         wrap: WWrap::No,

@@ -21,7 +21,7 @@
 - [ ] The code follows Pairee's developer guidelines (SRP, Zero Hardcoding, Centralized strings).
 - [ ] Lints (`cargo clippy`) and formatter (`cargo fmt`) pass cleanly.
 - [ ] Unit tests cover the new/changed behavior.
-- [ ] Updated `CHANGELOG.md` `[Unreleased]` section (if this contains user-facing changes).
+- [ ] Added the user-facing changes to `docs/UNRELEASED.md` (moved into `docs/CHANGELOG.md` at release time).
 
 ## Showcase
 

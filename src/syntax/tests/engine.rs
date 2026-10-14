@@ -158,6 +158,17 @@ fn pathological_patterns_stay_bounded() {
 }
 
 #[test]
+fn a_region_left_open_past_the_cut_does_not_leak_into_later_lines() {
+    let g = grammar(C_LIKE);
+    // A string that opens before the cap and closes after it.
+    let long = format!("x = \"{}\"; if", "A".repeat(MAX_LINE_BYTES));
+    let toks = run(&g, &[&long, "if y", "/* open", "still */ if"]);
+    assert_eq!(kind_at(&toks[1], "if y", "if"), Some(Keyword));
+    // A region that opened on a short line still carries over.
+    assert_eq!(kind_at(&toks[3], "still */ if", "still"), Some(Comment));
+}
+
+#[test]
 fn every_kind_has_a_definition_name() {
     for kind in SyntaxKind::ALL {
         let name = match kind {

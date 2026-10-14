@@ -73,10 +73,6 @@ fn jobs_are_attributed_once() {
         journal.finish_job(uuid::Uuid::new_v4()),
         JobOrigin::User
     ));
-
-    journal.begin_rename(Direction::Redo);
-    assert_eq!(journal.finish_rename(), Some(Direction::Redo));
-    assert_eq!(journal.finish_rename(), None);
 }
 
 #[test]

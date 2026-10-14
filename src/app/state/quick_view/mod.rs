@@ -43,9 +43,17 @@ impl AppState {
         if !self.panels.quick_view_active {
             return;
         }
+        // Another dialog is in use (an action just opened it): the preview
+        // comes back when it closes.
+        let quick_view_shown = matches!(self.dialogs.top(), Some(PopupType::QuickViewPanel(_)));
+        if self.dialogs.is_open() && !quick_view_shown {
+            return;
+        }
         let Some(entry) = self.quick_view_target() else {
             self.quick_view.pending = None;
-            self.dialogs.clear();
+            if quick_view_shown {
+                self.dialogs.pop();
+            }
             return;
         };
         emit_hover(&entry);

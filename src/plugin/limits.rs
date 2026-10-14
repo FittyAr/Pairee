@@ -148,6 +148,12 @@ pub fn apply(lua: &mlua::Lua, trusted: bool) {
     install_watchdog(lua, MAX_CONTINUOUS_RUN);
 }
 
+/// Replaces the watchdog of `lua` with one of budget `max_run` (tests).
+#[cfg(test)]
+pub(crate) fn set_test_budget(lua: &mlua::Lua, max_run: Duration) {
+    install_watchdog(lua, max_run);
+}
+
 fn install_watchdog(lua: &mlua::Lua, max_run: Duration) {
     let watchdog = Watchdog::new(max_run);
     lua.set_app_data(watchdog.clone());

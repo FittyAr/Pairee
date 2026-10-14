@@ -79,7 +79,7 @@ min_pairee  = "0.7.0"
 
 ### 3.2 Plugin `manifest.toml`
 
-Located inside the plugin workspace directory and at `registry/plugins/<initial>/<author>/<name>/manifest.toml`. During packaging, the file list with SHA-256 hashes is automatically appended to the end of the registry's copy under the `[files]` table:
+Located inside the plugin workspace directory and at `registry/plugins/<initial>/<author>/<name>/manifest.toml`. During packaging, the file list with SHA-256 hashes is automatically appended to the end of the registry's copy under the `[files]` table. The manifest itself is not listed (a file cannot contain its own hash; it is covered by its `.minisig`), nor are hidden files or symbolic links; keys always use `/`. `name` and `author` must be `[A-Za-z0-9_-]`:
 
 ```toml
 name         = "git.pairee"
@@ -121,7 +121,6 @@ type         = "hook"
 # Appended automatically by the packaging tool inside the registry:
 [files]
 "main.lua" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-"manifest.toml" = "fa25d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 "utils.lua" = "c081d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 "help/en.md" = "1a81d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 "help/es.md" = "2a81d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -136,7 +135,6 @@ Contains the lowercase hex SHA-256 hash of each file in the version folder:
 
 ```
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  main.lua
-fa25d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  manifest.toml
 c081d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  utils.lua
 1a81d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  help/en.md
 2a81d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  help/es.md
@@ -223,7 +221,9 @@ pairee plugin install <name>        (TUI: Plugin Manager → Search → i)
   ├─ 2. Fetch registry/index.toml (+ .minisig)          ≤ 4 MiB
   │       resolve the latest version and the author
   ├─ 3. Fetch plugins/<shard>/<author>/<name>/manifest.toml (+ .minisig)  ≤ 1 MiB
-  │       its [files] table pins the SHA-256 of every file
+  │       its [files] table pins the SHA-256 of every file; its name and
+  │       version must match the index entry (an older signed manifest is
+  │       refused); it is installed from this signed text
   ├─ 4. Validate every [files] key (no "..", absolute, drive, "\" or ":")
   │       at most 1000 files
   ├─ 5. Download each file into memory                  ≤ 16 MiB each, ≤ 64 MiB total

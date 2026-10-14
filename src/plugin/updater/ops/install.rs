@@ -1,6 +1,6 @@
 //! Plugin installation and download pipeline.
 
-use super::files::{download_verified, remove_stale, write_all};
+use super::files::{VerifiedFile, download_verified, remove_stale, write_all};
 use super::install_guard::validate_identifier;
 use crate::plugin::updater::http::{self, MAX_MANIFEST_BYTES};
 use crate::plugin::updater::lockfile::{read_lockfile, write_lockfile};
@@ -10,6 +10,10 @@ use crate::plugin::updater::registry::{
 use crate::plugin::updater::report::Report;
 use crate::plugin::updater::trust::RegistryTrust;
 use crate::plugin::updater::types::{PinnedPlugin, RegistryPluginManifestWrapper};
+
+/// The manifest's own file name: installed from the signed text, never
+/// from a `[files]` entry (a file cannot list its own hash).
+const MANIFEST_FILE: &str = "manifest.toml";
 
 /// Installs (or updates) plugin `name` from the registry.
 ///
@@ -65,12 +69,30 @@ pub async fn install(
     )
     .await?
     .ok_or_else(|| anyhow::anyhow!("Plugin manifest {manifest_path} not found"))?;
+    // The signed manifest names the plugin and version it belongs to, so
+    // an old signed manifest cannot be served for the version the index
+    // lists.
+    let meta = crate::plugin::loader::PluginManifest::parse(&manifest_text)?;
+    if meta.name != name || meta.version != plugin.version {
+        anyhow::bail!(
+            "Plugin manifest is for '{}' v{}, but the registry lists '{name}' v{}",
+            meta.name,
+            meta.version,
+            plugin.version
+        );
+    }
     let manifest: RegistryPluginManifestWrapper = toml::from_str(&manifest_text)?;
-    let files = manifest
+    let mut files = manifest
         .files
         .ok_or_else(|| anyhow::anyhow!("Plugin manifest is missing [files] section"))?;
+    files.remove(MANIFEST_FILE);
 
-    let verified = download_verified(author, name, &files, &plugin_dir, &mut report).await?;
+    let mut verified = download_verified(author, name, &files, &plugin_dir, &mut report).await?;
+    verified.push(VerifiedFile::new(
+        &plugin_dir,
+        MANIFEST_FILE,
+        manifest_text.into_bytes(),
+    )?);
     let written = write_all(verified)?;
 
     let mut lock = read_lockfile();

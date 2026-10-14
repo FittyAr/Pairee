@@ -133,12 +133,17 @@ pub use crate::fs::link::LinkKind;
 #[derive(Debug, Clone)]
 pub enum GitConfirmedAction {
     DeleteBranch(String),
-    DeleteRemoteBranch { remote: String, branch: String },
+    DeleteRemoteBranch {
+        remote: String,
+        branch: String,
+    },
     DeleteRemote(String),
     MergeBranch(String),
     RebaseBranch(String),
-    StashDrop(usize),
-    StashPop(usize),
+    /// The stash's commit id (its index may shift before the confirmation).
+    StashDrop(String),
+    /// The stash's commit id.
+    StashPop(String),
     StashClear,
     ResetCommit(String, crate::git::reset::ResetMode),
     DiscardFile(String),

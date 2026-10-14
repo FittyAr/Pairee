@@ -60,7 +60,7 @@ El título del panel muestra el protocolo y el servidor, p. ej. `[FTP: usuario@h
 
 * **Navegación:** `Intro` abre carpetas, `Retroceso` / `..` sube.
 * **F5 / F6 (Copiar / Mover):** entre un panel remoto y uno local, o entre dos paneles remotos de cualquier protocolo. Las transferencias corren en segundo plano con el progreso del panel de transferencias, preguntas de conflicto, reintentos, verificación y reanudación. Mover dentro de una misma conexión es un renombrado en el servidor (y se puede deshacer).
-* **F7 (Renombrar), Crear carpeta, F8 (Eliminar):** en el servidor (eliminar no se puede deshacer).
+* **Renombrar (`Shift+F6`; `F2` en el preset Estándar), F7 (Crear carpeta), F8 (Eliminar):** en el servidor (eliminar no se puede deshacer).
 * **F3 / F4:** ver, o editar mediante una copia local temporal que se sube al guardar (antes se comprueba si cambió en el servidor).
 * **Ctrl+A (Atributos):** solo SFTP.
 * La actualización automática consulta carpetas remotas solo con `auto_refresh_ssh` activado.

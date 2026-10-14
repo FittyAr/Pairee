@@ -62,20 +62,24 @@ impl LuaFile {
 }
 
 impl LuaFile {
-    /// Characteristics of the file, read from the disk when it is there,
-    /// else from what this `File` already knows (remote or vanished files).
+    /// Characteristics of the file, read from the disk when it is a local
+    /// file that is there, else from what this `File` already knows. A
+    /// remote file's path is never looked up locally (it would describe an
+    /// unrelated local file).
     pub fn cha(&self) -> super::LuaCha {
-        super::LuaCha::read(std::path::Path::new(&self.path), false).unwrap_or_else(|_| {
-            super::LuaCha {
-                is_dir: self.is_dir,
-                is_link: self.is_symlink,
-                is_hidden: self.is_hidden,
-                is_exec: self.is_exec,
-                len: self.size,
-                mtime: self.mtime,
-                ..Default::default()
-            }
-        })
+        let known = || super::LuaCha {
+            is_dir: self.is_dir,
+            is_link: self.is_symlink,
+            is_hidden: self.is_hidden,
+            is_exec: self.is_exec,
+            len: self.size,
+            mtime: self.mtime,
+            ..Default::default()
+        };
+        if super::LuaUrl::parse(&self.url).scheme.is_some() {
+            return known();
+        }
+        super::LuaCha::read(std::path::Path::new(&self.path), false).unwrap_or_else(|_| known())
     }
 }
 
@@ -162,6 +166,20 @@ mod tests {
         assert!(!is_dir);
         assert_eq!(mime, "text/plain");
         assert!(!hidden);
+    }
+
+    #[test]
+    fn remote_files_never_describe_a_local_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let local = dir.path().join("big.bin");
+        std::fs::write(&local, vec![0u8; 100]).unwrap();
+        let mut remote = sample();
+        remote.path = local.to_string_lossy().into_owned();
+        remote.url = format!("sftp://me@host/{}", remote.path.trim_start_matches('/'));
+        assert_eq!(remote.cha().len, 12);
+        let mut plain = remote.clone();
+        plain.url = plain.path.clone();
+        assert_eq!(plain.cha().len, 100);
     }
 
     #[test]

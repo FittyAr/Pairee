@@ -9,7 +9,7 @@ Standard SSH and terminal protocols do not transmit key-release events or the ra
 
 To support live updating of the bottom bar, Pairee implements two mechanisms:
 1. **Dynamic X11 Polling (Linux)**: When run over an SSH session with **X11 Forwarding** enabled, Pairee queries the host's physical keyboard status using X11's `XQueryKeymap`. This allows the interface to update instantly when you hold down `Ctrl` or `Alt`.
-2. **Manual Override (`Ctrl+p`)**: When X11 is not available, you can press `Ctrl+p` (or `Ctrl+P`) to cycle the bottom bar states manually (`None` -> `Control` -> `Alt` -> `None`).
+2. **Manual Override**: When X11 is not available, the action "Cycle key bar modifiers" (`Ctrl+Alt+K` in the Norton preset, or from the command palette) cycles the bottom bar states manually (`None` -> `Control` -> `Alt` -> `Shift` -> `None`).
 
 ---
 
@@ -106,9 +106,11 @@ Once logged into the container via SSH:
 #### Test Case 2: Manual Modifier Cycle (X11 disabled / Default SSH)
 1. Close your SSH session and reconnect **without** X11 forwarding (e.g., standard `ssh root@127.0.0.1 -p 2222` without `-Y` or X server running).
 2. Run `cargo run`.
-3. Press `Ctrl+p` (or `Ctrl+P`).
+3. Run "Cycle key bar modifiers" (`Ctrl+Alt+K` in the Norton preset, or from the command palette).
    - *Result*: The bottom bar should toggle to `CONTROL` mode (showing `F3: Name`, etc.) and stay locked there.
-4. Press `Ctrl+p` again.
+4. Run it again.
    - *Result*: The bottom bar should toggle to `ALT` mode (showing `F3: View`, etc.) and stay locked there.
-5. Press `Ctrl+p` a third time.
+5. Run it a third time.
+   - *Result*: The bottom bar should toggle to `SHIFT` mode and stay locked there.
+6. Run it a fourth time.
    - *Result*: The bottom bar should return to `Default` mode.

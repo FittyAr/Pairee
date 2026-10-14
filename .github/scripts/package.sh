@@ -24,7 +24,7 @@ case "$TARGET" in
       "Compress-Archive -Path '${STEM}' -DestinationPath 'dist/${ARCHIVE}' -Force"
 
     MSYS_NO_PATHCONV=1 "C:\\Program Files (x86)\\Inno Setup 6\\iscc.exe" \
-      /DAppVersion="$NUM" /DSourceDir="target\\${TARGET}\\release" \
+      /DAppVersion="$NUM" /DSourceDir="target\\${TARGET}\\release" /DAppArch="$ARCH" \
       /O"target\\release" /F"${SETUP%.exe}" installer.iss
     mv "target/release/${SETUP}" dist/
 

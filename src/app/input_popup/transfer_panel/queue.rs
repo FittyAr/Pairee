@@ -60,9 +60,10 @@ pub fn handle_queue_action(
                 .confirmations
                 .confirm_interrupt_operation =>
         {
-            dialogs.replace(crate::app::state::PopupType::ConfirmInterrupt(
-                ConfirmInterrupt,
-            ));
+            // The panel overlay is drawn above every dialog: minimize it
+            // while the question is open (its answer reopens the panel).
+            transfer.view_mode = crate::app::state::TransferViewMode::Minimized;
+            dialogs.replace(ConfirmInterrupt);
             return true;
         }
         _ => {}
@@ -84,12 +85,15 @@ fn apply_to_job(
 ) {
     let queue = &transfer.engine.queue;
     match op {
-        QueueOp::TogglePause => toggle_pause(transfer, jobs, job),
-        QueueOp::SkipFile => job.skip_file_flag.store(true, Ordering::SeqCst),
-        QueueOp::Cancel => {
-            job.cancel();
-            queue.update_job(job.id, |j| j.status = TransferJobStatus::Cancelled);
+        QueueOp::TogglePause => {
+            toggle_pause(transfer, jobs, job);
+            // Starting a queued job moves it to the top: keep it selected.
+            if let Some(idx) = queue.get_all().iter().position(|j| j.id == job.id) {
+                transfer.queue_cursor = idx;
+            }
         }
+        QueueOp::SkipFile => job.skip_file_flag.store(true, Ordering::SeqCst),
+        QueueOp::Cancel => cancel_job(transfer, job),
         QueueOp::RetryFailed => retry_failed(transfer, job),
         QueueOp::ExportReport => export_report(transfer, context, job),
         QueueOp::MoveUp => {
@@ -109,6 +113,18 @@ fn apply_to_job(
         }
         QueueOp::ClearCompleted => {}
     }
+}
+
+/// Cancels `job`; a finished one keeps its outcome (it is not relabelled).
+pub fn cancel_job(transfer: &TransferUIState, job: &TransferJob) {
+    if job.is_terminal() {
+        return;
+    }
+    job.cancel();
+    transfer
+        .engine
+        .queue
+        .update_job(job.id, |j| j.status = TransferJobStatus::Cancelled);
 }
 
 /// Scanning, transferring or verifying (not paused).
@@ -200,5 +216,76 @@ fn export_report(transfer: &TransferUIState, context: &AppContext, job: &Transfe
                 report_path.to_string_lossy()
             ));
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::popup::TransferPanel;
+    use crate::app::state::{AppState, PopupType, TransferViewMode};
+    use crate::config::AppConfig;
+    use crate::fs::transfer::job::TransferOperation;
+
+    #[tokio::test]
+    async fn cancel_keeps_finished_jobs_and_asks_above_the_panel() {
+        let mut state = AppState::new(".".into(), ".".into());
+        let mut context = AppContext::new(AppConfig::default());
+        crate::app::transfer_submit::ensure_transfer_ui(&mut state);
+        let ts = state.transfer.as_mut().unwrap();
+        let mut job = TransferJob::new(
+            TransferOperation::Copy,
+            Vec::new(),
+            Default::default(),
+            Default::default(),
+        );
+        job.status = TransferJobStatus::Completed;
+        let id = job.id;
+        ts.engine.queue.enqueue(job);
+        ts.view_mode = TransferViewMode::Expanded;
+        state.dialogs.replace(TransferPanel);
+
+        context
+            .config
+            .settings
+            .confirmations
+            .confirm_interrupt_operation = false;
+        let ts = state.transfer.as_mut().unwrap();
+        assert!(handle_queue_action(
+            ts,
+            &mut state.dialogs,
+            &context,
+            KeyCode::Char('x')
+        ));
+        let status = ts.engine.queue.get(id).unwrap().status;
+        assert_eq!(status, TransferJobStatus::Completed, "not relabelled");
+
+        context
+            .config
+            .settings
+            .confirmations
+            .confirm_interrupt_operation = true;
+        handle_queue_action(ts, &mut state.dialogs, &context, KeyCode::Char('x'));
+        assert_eq!(
+            ts.view_mode,
+            TransferViewMode::Minimized,
+            "question visible"
+        );
+        assert!(matches!(
+            state.dialogs.top(),
+            Some(PopupType::ConfirmInterrupt(_))
+        ));
+        let esc = crossterm::event::KeyEvent::from(KeyCode::Esc);
+        crate::app::input_popup::handle_popup_input(&mut state, esc, &mut context).unwrap();
+        assert!(matches!(
+            state.dialogs.top(),
+            Some(PopupType::TransferPanel(_))
+        ));
+        let ts = state.transfer.as_ref().unwrap();
+        assert_eq!(
+            ts.view_mode,
+            TransferViewMode::Expanded,
+            "back to the panel"
+        );
     }
 }

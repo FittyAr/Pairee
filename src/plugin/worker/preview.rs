@@ -84,11 +84,26 @@ fn job_table(
     Ok(table)
 }
 
+/// Most different files one widget may show as images.
+const MAX_DECODED_IMAGES: usize = 16;
+
 /// Decodes the images of `widget` (the plugin only named the files; the
-/// host reads at most the quick view's size cap of each).
+/// host reads at most the quick view's size cap of each). A file shown
+/// several times is decoded once and shared; files past
+/// [`MAX_DECODED_IMAGES`] stay blank.
 pub fn decode_images(widget: &mut Renderable) {
+    let mut decoded: std::collections::HashMap<PathBuf, Option<Arc<image::DynamicImage>>> =
+        std::collections::HashMap::new();
     for image in widget.images_mut() {
-        image.image = load_image(&image.path);
+        let known = decoded.len() < MAX_DECODED_IMAGES || decoded.contains_key(&image.path);
+        image.image = if known {
+            decoded
+                .entry(image.path.clone())
+                .or_insert_with(|| load_image(&image.path))
+                .clone()
+        } else {
+            None
+        };
     }
 }
 
@@ -107,30 +122,30 @@ fn load_image(path: &Path) -> Option<Arc<image::DynamicImage>> {
 
 impl Worker {
     /// Calls previewer `method` on `job` with the file recorded as the
-    /// preview target for the duration of the call.
-    async fn preview_call(
+    /// preview target for the duration of the call; `finish` converts the
+    /// results under the watchdog (see `call_method`).
+    async fn preview_call<T>(
         &self,
         method: &str,
         job: &PreviewJob,
         units: Option<i64>,
-    ) -> mlua::Result<Option<MultiValue>> {
+        finish: impl FnOnce(MultiValue) -> mlua::Result<T>,
+    ) -> mlua::Result<Option<T>> {
         let file = LuaFile::from_path(&job.file_path);
         let table = job_table(&self.lua, job, file, units)?;
         self.lua.set_app_data(PreviewTarget(job.file_path.clone()));
-        let result = self.call_method(method, table).await;
+        let result = self.call_method(method, table, finish).await;
         self.lua.remove_app_data::<PreviewTarget>();
         result
     }
 
     pub(crate) async fn peek(&self, job: PreviewJob) -> Option<Renderable> {
-        let result = async {
-            let Some(values) = self.preview_call("peek", &job, None).await? else {
-                return Ok(None);
-            };
-            to_renderable(&values.into_iter().next().unwrap_or(Value::Nil))
-        }
-        .await;
-        let mut widget = self.report("peek", result).flatten()?;
+        let result = self
+            .preview_call("peek", &job, None, |values| {
+                to_renderable(&values.into_iter().next().unwrap_or(Value::Nil))
+            })
+            .await;
+        let mut widget = self.report("peek", result).flatten().flatten()?;
         decode_images(&mut widget);
         Some(widget)
     }
@@ -143,19 +158,22 @@ impl Worker {
         if self.preloaded.contains(&key) {
             return true;
         }
-        let result = self.preview_call("preload", &job, None).await;
-        let Some(Some(values)) = self.report("preload", result) else {
+        let result = self
+            .preview_call("preload", &job, None, |values| {
+                let mut values = values.into_iter();
+                let complete = matches!(values.next(), Some(Value::Boolean(true)));
+                let err = match values.next().filter(|v| !v.is_nil()) {
+                    Some(err) => Some(err.to_string()?),
+                    None => None,
+                };
+                Ok((complete, err))
+            })
+            .await;
+        let Some(Some((complete, err))) = self.report("preload", result) else {
             return false;
         };
-        let mut values = values.into_iter();
-        let complete = matches!(values.next(), Some(Value::Boolean(true)));
-        if let Some(err) = values.next().filter(|v| !v.is_nil()) {
-            tracing::warn!(
-                "Plugin {} preload of {:?}: {}",
-                self.name,
-                job.file_path,
-                err.to_string().unwrap_or_default()
-            );
+        if let Some(err) = err {
+            tracing::warn!("Plugin {} preload of {:?}: {err}", self.name, job.file_path,);
         }
         if complete {
             self.preloaded.insert(key);
@@ -164,12 +182,15 @@ impl Worker {
     }
 
     pub(super) async fn seek(&self, job: PreviewJob, units: i64) -> Option<usize> {
-        let result = self.preview_call("seek", &job, Some(units)).await;
-        let values = self.report("seek", result)??;
-        match values.into_iter().next() {
-            Some(Value::Integer(skip)) => Some(skip.max(0) as usize),
-            Some(Value::Number(skip)) if skip.is_finite() => Some(skip.max(0.0) as usize),
-            _ => None,
-        }
+        let result = self
+            .preview_call("seek", &job, Some(units), |values| {
+                Ok(match values.into_iter().next() {
+                    Some(Value::Integer(skip)) => Some(skip.max(0) as usize),
+                    Some(Value::Number(skip)) if skip.is_finite() => Some(skip.max(0.0) as usize),
+                    _ => None,
+                })
+            })
+            .await;
+        self.report("seek", result)??
     }
 }

@@ -6,6 +6,8 @@
 //! typing into one step and tracks which revision was last saved so the
 //! editor knows whether the buffer is dirty.
 
+use std::collections::VecDeque;
+
 /// Position in the buffer: line index and byte offset within that line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Pos {
@@ -126,11 +128,15 @@ impl Step {
 /// Undo/redo stacks plus the saved-revision marker.
 #[derive(Debug, Clone, Default)]
 pub struct EditHistory {
-    undo: Vec<Step>,
+    undo: VecDeque<Step>,
     redo: Vec<Step>,
     next_revision: u64,
     current: u64,
     saved: u64,
+    /// Revision reached by undoing every kept step: 0, or the revision of
+    /// the last step dropped by the cap (undo can no longer get back to
+    /// older text, so a save before it stays dirty).
+    base: u64,
 }
 
 impl EditHistory {
@@ -154,30 +160,32 @@ impl EditHistory {
         self.redo.clear();
         self.next_revision += 1;
         self.current = self.next_revision;
-        if let Some(last) = self.undo.last_mut()
+        if let Some(last) = self.undo.back_mut()
             && last.try_merge(&edits)
         {
             last.revision = self.current;
             return cursor;
         }
-        self.undo.push(Step {
+        self.undo.push_back(Step {
             edits,
             cursor_before,
             revision: self.current,
             sealed: false,
         });
-        if self.undo.len() > MAX_UNDO_STEPS {
-            self.undo.remove(0);
+        if self.undo.len() > MAX_UNDO_STEPS
+            && let Some(dropped) = self.undo.pop_front()
+        {
+            self.base = dropped.revision;
         }
         cursor
     }
 
     /// Reverts the last step; returns where the cursor goes.
     pub fn undo(&mut self, lines: &mut Vec<String>) -> Option<Pos> {
-        let mut step = self.undo.pop()?;
+        let mut step = self.undo.pop_back()?;
         step.revert(lines);
         step.sealed = true;
-        self.current = self.undo.last().map_or(0, |s| s.revision);
+        self.current = self.undo.back().map_or(self.base, |s| s.revision);
         let cursor = step.cursor_before;
         self.redo.push(step);
         Some(cursor)
@@ -188,7 +196,7 @@ impl EditHistory {
         let step = self.redo.pop()?;
         let cursor = step.apply(lines);
         self.current = step.revision;
-        self.undo.push(step);
+        self.undo.push_back(step);
         Some(cursor)
     }
 
@@ -196,7 +204,7 @@ impl EditHistory {
     /// top of one of the stacks; the other top only lowers the bound).
     pub fn first_changed_line(&self) -> Option<usize> {
         self.undo
-            .last()
+            .back()
             .into_iter()
             .chain(self.redo.last())
             .flat_map(|step| &step.edits)
@@ -221,7 +229,7 @@ impl EditHistory {
 
     /// Ends the current typing run so the next edit starts a new undo step.
     pub fn seal(&mut self) {
-        if let Some(last) = self.undo.last_mut() {
+        if let Some(last) = self.undo.back_mut() {
             last.sealed = true;
         }
     }
@@ -297,6 +305,19 @@ mod tests {
         h.undo(&mut buf);
         assert!(!h.is_dirty());
         assert_eq!(buf, lines(&["a"]));
+    }
+
+    #[test]
+    fn steps_dropped_by_the_cap_keep_the_buffer_dirty() {
+        let mut buf = lines(&[""]);
+        let mut h = EditHistory::default();
+        for i in 0..=MAX_UNDO_STEPS {
+            h.apply(&mut buf, insert(0, i, "x"), Pos::new(0, i));
+            h.seal();
+        }
+        while h.undo(&mut buf).is_some() {}
+        assert_eq!(buf, lines(&["x"]), "the oldest step is gone");
+        assert!(h.is_dirty(), "the saved (empty) text is not restored");
     }
 
     #[test]

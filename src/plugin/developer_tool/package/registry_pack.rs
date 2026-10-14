@@ -6,7 +6,7 @@ use crate::app::state::DevProgress;
 use crate::config::localization::t;
 use crate::plugin::loader::PluginManifest;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::sync::mpsc::UnboundedSender;
 
 /// CLI packaging: `ask_license` asks for a license name when needed.
@@ -45,12 +45,12 @@ fn package_impl(
     }
 
     // 2. Clone or update the registry repo in temporary directory
-    let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+    let temp_dir = crate::plugin::developer_tool::temp_registry_dir();
     progress_status(&progress, t("plugin_dev_progress_fetching_registry"));
     let _repo = fetch_or_clone_registry(&temp_dir)?;
 
     // 3. Copy plugin files to the cloned repo
-    let dest_plugin_dir = registry_plugin_dir(&temp_dir, &manifest);
+    let dest_plugin_dir = crate::plugin::developer_tool::registry_plugin_dir(&temp_dir, &manifest)?;
     if dest_plugin_dir.exists() {
         let _ = std::fs::remove_dir_all(&dest_plugin_dir);
     }
@@ -85,24 +85,6 @@ fn write_manifest_license(manifest_path: &Path, content: &str, lic: &str) -> any
     Ok(())
 }
 
-/// `registry/plugins/<initial>/<author>/<name>` inside the registry clone.
-fn registry_plugin_dir(temp_dir: &Path, manifest: &PluginManifest) -> PathBuf {
-    let author = manifest.author.as_deref().unwrap_or("unknown").trim();
-    let author = if author.is_empty() { "unknown" } else { author };
-    let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
-    let first_char_str = if first_char.is_ascii_alphabetic() {
-        first_char.to_string()
-    } else {
-        "_".to_string()
-    };
-    temp_dir
-        .join("registry")
-        .join("plugins")
-        .join(&first_char_str)
-        .join(author)
-        .join(&manifest.name)
-}
-
 /// Copies the plugin files, returning the SHA-256 of each relative path.
 fn copy_plugin_files(
     plugin_dir: &Path,
@@ -113,6 +95,12 @@ fn copy_plugin_files(
     let files = crate::plugin::loader::get_plugin_files(plugin_dir);
     let total_files = files.len().max(1);
     progress_status(progress, t("plugin_dev_progress_copying_files"));
+    // The manifest is published with its `[files]` table (it cannot list
+    // its own hash) and `sha256.sum` is generated here.
+    let files: Vec<_> = files
+        .into_iter()
+        .filter(|(rel, _)| rel != "manifest.toml" && rel != "sha256.sum")
+        .collect();
     for (idx, (rel_path, src_file_path)) in files.into_iter().enumerate() {
         progress_progress(
             progress,
@@ -151,10 +139,16 @@ fn write_checksums(
     if !manifest_content.ends_with('\n') {
         manifest_content.push('\n');
     }
-    manifest_content.push_str("\n[files]\n");
-    for (f, h) in files_hash {
-        manifest_content.push_str(&format!("\"{}\" = \"{}\"\n", f, h));
+    // Serialized, so paths and hashes are quoted and escaped as TOML.
+    #[derive(serde::Serialize)]
+    struct FilesTable<'a> {
+        files: std::collections::BTreeMap<&'a String, &'a String>,
     }
+    let table = FilesTable {
+        files: files_hash.iter().collect(),
+    };
+    manifest_content.push('\n');
+    manifest_content.push_str(&toml::to_string(&table)?);
     std::fs::write(dest_plugin_dir.join("manifest.toml"), manifest_content)?;
     Ok(())
 }
@@ -166,8 +160,11 @@ fn update_index(index_path: &Path, manifest: &PluginManifest) -> anyhow::Result<
         plugins: HashMap::new(),
     };
     let mut index_data = if index_path.exists() {
+        // An unreadable index is an error: an empty one would drop every
+        // other plugin from the registry in the next commit.
         let content = std::fs::read_to_string(index_path)?;
-        toml::from_str::<RegistryIndex>(&content).unwrap_or_else(|_| empty())
+        toml::from_str::<RegistryIndex>(&content)
+            .map_err(|e| anyhow::anyhow!("{} is not a valid index: {e}", index_path.display()))?
     } else {
         std::fs::create_dir_all(index_path.parent().unwrap())?;
         empty()
@@ -210,5 +207,63 @@ version = \"1.0.0\"
         let index: crate::plugin::updater::RegistryIndex =
             toml::from_str(&std::fs::read_to_string(&index_path).unwrap()).unwrap();
         assert_eq!(index.plugins["demo"].hooks, None);
+    }
+
+    #[test]
+    fn a_broken_index_is_an_error_not_an_empty_registry() {
+        let manifest = PluginManifest::parse("name = \"demo\"\nversion = \"1.0.0\"\n").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let index_path = dir.path().join("index.toml");
+        std::fs::write(&index_path, "[plugins.other\nbroken").unwrap();
+        assert!(update_index(&index_path, &manifest).is_err());
+        assert_eq!(
+            std::fs::read_to_string(&index_path).unwrap(),
+            "[plugins.other\nbroken"
+        );
+    }
+
+    #[test]
+    fn packaged_files_exclude_the_manifest_and_hidden_files() {
+        let src = tempfile::tempdir().unwrap();
+        let dest = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(src.path().join("lang")).unwrap();
+        for f in ["manifest.toml", "main.lua", "lang/en.toml", ".env"] {
+            std::fs::write(src.path().join(f), "x = 1\n").unwrap();
+        }
+        let hashes = copy_plugin_files(src.path(), dest.path(), &None).unwrap();
+        let mut keys: Vec<_> = hashes.keys().cloned().collect();
+        keys.sort();
+        assert_eq!(keys, ["lang/en.toml", "main.lua"]);
+        write_checksums(&src.path().join("manifest.toml"), dest.path(), &hashes).unwrap();
+        let written = std::fs::read_to_string(dest.path().join("manifest.toml")).unwrap();
+        let parsed: crate::plugin::updater::types::RegistryPluginManifestWrapper =
+            toml::from_str(&written).unwrap();
+        assert_eq!(parsed.files.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn registry_folders_need_plain_names() {
+        let temp = Path::new("reg");
+        for (name, author) in [
+            ("../../x", "me"),
+            ("ok", "../x"),
+            ("ok", "Jane Doe"),
+            ("C:x", "me"),
+        ] {
+            let manifest = PluginManifest::parse(&format!(
+                "name = {name:?}\nversion = \"1\"\nauthor = {author:?}\n"
+            ))
+            .unwrap();
+            assert!(
+                crate::plugin::developer_tool::registry_plugin_dir(temp, &manifest).is_err(),
+                "{name} {author}"
+            );
+        }
+        let manifest =
+            PluginManifest::parse("name = \"demo\"\nversion = \"1\"\nauthor = \"Bob\"\n").unwrap();
+        assert_eq!(
+            crate::plugin::developer_tool::registry_plugin_dir(temp, &manifest).unwrap(),
+            temp.join("registry").join("plugins/b/Bob/demo")
+        );
     }
 }

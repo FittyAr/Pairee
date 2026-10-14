@@ -9,7 +9,7 @@ pub fn get_file_diff(
     is_staged: bool,
 ) -> anyhow::Result<String> {
     let mut opts = git2::DiffOptions::new();
-    opts.pathspec(file_path);
+    opts.pathspec(file_path).disable_pathspec_match(true);
 
     let diff = if is_staged {
         let head_tree = if let Ok(head_ref) = repo.head() {

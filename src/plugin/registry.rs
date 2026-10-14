@@ -102,6 +102,8 @@ pub struct LoadedPlugin {
     pub lua: mlua::Lua,
     pub table_key: mlua::RegistryKey,
     pub annotations: Annotations,
+    /// Which methods its table defines (read under the watchdog).
+    pub methods: PluginMethods,
 }
 
 /// Registers a loaded plugin and starts its worker task. `tx` is the
@@ -112,13 +114,11 @@ pub async fn register_plugin(
 ) -> anyhow::Result<()> {
     let name = plugin.manifest.name.clone();
     let registry = get_registry();
-    let table: mlua::Table = plugin.lua.registry_value(&plugin.table_key)?;
     let info = PluginInfo {
         manifest: plugin.manifest.clone(),
         path: plugin.path.clone(),
-        methods: PluginMethods::of(&table),
+        methods: plugin.methods,
     };
-    drop(table);
     registry.plugins.write().await.insert(name.clone(), info);
 
     // Its commands join the keymap (replacing those of an earlier load).
@@ -154,6 +154,16 @@ async fn tell(name: &str, req: PluginTaskRequest) {
     let tx = get_registry().channels.read().await.get(name).cloned();
     if let Some(tx) = tx {
         let _ = tx.send(req).await;
+    }
+}
+
+/// Like [`tell`], but drops the request when the plugin's queue is full.
+async fn try_tell(name: &str, req: PluginTaskRequest) {
+    let tx = get_registry().channels.read().await.get(name).cloned();
+    if let Some(tx) = tx
+        && let Err(mpsc::error::TrySendError::Full(_)) = tx.try_send(req)
+    {
+        tracing::debug!("Plugin {name} is busy; an event was dropped");
     }
 }
 
@@ -200,7 +210,7 @@ pub async fn emit_hook_event(
         data,
         sender,
     };
-    tell(plugin_name, req).await;
+    try_tell(plugin_name, req).await;
 }
 
 pub async fn get_loaded_plugins() -> Vec<PluginInfo> {

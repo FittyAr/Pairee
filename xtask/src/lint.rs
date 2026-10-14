@@ -3,8 +3,8 @@
 
 use crate::{Result, cmd, ui};
 
-/// rustfmt, typos and EN/ES translation parity. Tools that are not installed
-/// are reported and skipped; CI still runs them.
+/// rustfmt, typos, and the translation and help page checks. Tools that are
+/// not installed are reported and skipped; CI still runs them.
 pub fn run() -> Result {
     ui::step("rustfmt");
     cmd::run("cargo", &["fmt", "--all", "--", "--check"])
@@ -22,10 +22,10 @@ pub fn run() -> Result {
         .find(|p| cmd::available(p))
     {
         Some(python) => {
-            ui::step("translation key parity");
+            ui::step("translations and help pages");
             cmd::run(python, &["scripts/check_translations.py"])?;
         }
-        None => ui::warn("Python is not installed; skipping the translation key check"),
+        None => ui::warn("Python is not installed; skipping the translation check"),
     }
     ui::ok("lint passed");
     Ok(())

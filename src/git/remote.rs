@@ -152,3 +152,9 @@ pub fn fetch(
     remote.fetch(&[] as &[&str], Some(&mut opts), None)?;
     Ok(())
 }
+
+/// A branch setting libgit2 returns as a buffer (`branch_upstream_*`), or
+/// `None` when it is unset or not UTF-8.
+pub fn config_value(buf: Result<git2::Buf, git2::Error>) -> Option<String> {
+    buf.ok().and_then(|b| b.as_str().ok().map(str::to_string))
+}

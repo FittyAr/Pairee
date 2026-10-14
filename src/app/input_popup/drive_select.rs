@@ -25,7 +25,7 @@ pub fn handle(
         ListKey::Activate(idx) => {
             let panel = *panel;
             if let Some(drive) = drives.get(idx).map(std::path::PathBuf::from) {
-                state.panels.side_mut(panel).open_path(drive);
+                state.panels.side_mut(panel).open_local(drive);
                 state.dialogs.clear();
                 state.refresh_both_panels(context.config.settings.show_hidden);
             }

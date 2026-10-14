@@ -132,6 +132,11 @@ pub fn start_connection(
             t("remote_tls_insecure_warning").replacen("{}", &conn.name, 1),
         ));
     }
+    // Starting replaces a running connection: a restored tab waiting for
+    // it tries again later instead of waiting forever.
+    if state.remote_connect.is_running() {
+        crate::app::session::remote::requeue_pending(state);
+    }
     let timeout = std::time::Duration::from_secs(context.config.settings.ssh_timeout_secs);
     let asker = state.credential_requests.asker();
     state.remote_connect.start(move |_| {

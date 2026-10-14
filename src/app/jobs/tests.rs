@@ -94,6 +94,8 @@ async fn panicking_job_finishes_without_result() {
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
     assert!(!slot.is_running());
+    assert!(slot.take_panicked(), "reported to the caller");
+    assert!(!slot.take_panicked(), "once");
 }
 
 #[test]

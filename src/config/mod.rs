@@ -177,11 +177,20 @@ impl AppConfig {
             write_atomic(&keybindings_path, keybindings_toml.as_bytes())?;
         }
 
-        // Save active theme (never to a path outside the themes folder)
+        // Save active theme (never to a path outside the themes folder), only
+        // when it differs from what loading it gives: an unchanged built-in
+        // theme is not frozen into a file (later releases' updates would
+        // never reach it), and a hand-edited file keeps its comments.
         match loading::theme_path(&self.settings.theme) {
             Some(theme_path) if self.theme_state == ConfigLoadState::Loaded => {
-                let theme_toml = toml::to_string_pretty(&self.theme)?;
-                write_atomic(&theme_path, theme_toml.as_bytes())?;
+                let stored = loading::load_theme(&self.settings.theme)
+                    .ok()
+                    .filter(|(_, error)| error.is_none())
+                    .map(|(theme, _)| theme);
+                if stored.as_ref() != Some(&self.theme) {
+                    let theme_toml = toml::to_string_pretty(&self.theme)?;
+                    write_atomic(&theme_path, theme_toml.as_bytes())?;
+                }
             }
             Some(theme_path) => {
                 log::warn!("Not overwriting invalid {theme_path:?} until Save setup");
@@ -230,30 +239,31 @@ pub fn serialize_settings(settings: &Settings) -> Result<String> {
 pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
     use std::io::Write;
 
-    if let Some(parent) = path.parent()
-        && !parent.exists()
+    // A symlinked file (dotfile managers) is updated where it points to;
+    // renaming over the link would replace it with a regular file.
+    let resolved;
+    let path = if path
+        .symlink_metadata()
+        .is_ok_and(|m| m.file_type().is_symlink())
     {
+        resolved = fs::canonicalize(path).context("Resolving symlinked target")?;
+        resolved.as_path()
+    } else {
+        path
+    };
+    let parent = path
+        .parent()
+        .context("Atomic write target has no parent directory")?;
+    if !parent.as_os_str().is_empty() && !parent.exists() {
         fs::create_dir_all(parent).context("Creating parent directory for atomic write")?;
     }
-    let tmp_path = if let Some(parent) = path.parent() {
-        let name = format!(
-            ".{}.{}.tmp",
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("pairee"),
-            uuid::Uuid::new_v4()
-        );
-        parent.join(name)
-    } else {
-        // No parent — fall back to writing the file in place. This path
-        // is only reachable for pathological inputs (a relative
-        // `config.toml` with no parent), which the rest of the app does
-        // not produce.
-        let mut f = create_private_file(path).context("Atomic write fallback (no parent dir)")?;
-        return f
-            .write_all(data)
-            .context("Atomic write fallback (no parent dir)");
-    };
+    let tmp_path = parent.join(format!(
+        ".{}.{}.tmp",
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("pairee"),
+        uuid::Uuid::new_v4()
+    ));
 
     // Write the data to the temp file, fsync to flush to disk, then
     // rename onto the target. If any step fails we try to remove the
@@ -318,6 +328,35 @@ mod tests {
         assert_eq!(mode, 0o600);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn write_atomic_keeps_a_symlinked_file_a_symlink() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let target = dir.path().join("dotfiles-config.toml");
+        fs::write(&target, b"old").unwrap();
+        let link = dir.path().join("config.toml");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        write_atomic(&link, b"new").expect("atomic write");
+
+        assert!(
+            fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(fs::read(&target).unwrap(), b"new");
+    }
+
+    #[test]
+    fn write_atomic_replaces_an_existing_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("plain.toml");
+        write_atomic(&path, b"a").expect("atomic write");
+        write_atomic(&path, b"b").expect("atomic overwrite");
+        assert_eq!(fs::read(&path).unwrap(), b"b");
+    }
+
     #[test]
     fn save_lock_is_per_config_and_lifted_by_confirmation() {
         let mut locked = AppConfig {
@@ -334,6 +373,22 @@ mod tests {
         assert!(locked.take_load_error().is_none());
         locked.confirm_settings_overwrite();
         assert!(!locked.settings_save_locked());
+    }
+
+    #[test]
+    fn an_unchanged_built_in_theme_is_not_written_to_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let _root = paths::test_root::redirect(dir.path());
+        let mut config = AppConfig::default();
+        let path = loading::theme_path(&config.settings.theme).unwrap();
+        config.theme = loading::load_theme(&config.settings.theme).unwrap().0;
+
+        config.save().unwrap();
+        assert!(!path.exists(), "the built-in theme stays built in");
+
+        config.theme.panel_bg = "#123456".into();
+        config.save().unwrap();
+        assert!(fs::read_to_string(&path).unwrap().contains("#123456"));
     }
 
     #[test]

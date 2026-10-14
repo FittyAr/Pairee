@@ -13,6 +13,8 @@ pub struct NavHistory {
     /// The folder a back / forward step is heading to, so arriving there
     /// does not count as a new visit.
     travelling_to: Option<PathBuf>,
+    /// The remote connection the paths belong to (`None`: the local disk).
+    connection: Option<usize>,
 }
 
 /// Which way to travel.
@@ -23,6 +25,22 @@ pub enum Travel {
 }
 
 impl NavHistory {
+    /// The panel shows `connection` (`None`: the local disk). Paths are
+    /// bare, so another connection starts a new history: going back must
+    /// not open a server's path on the local disk, or the reverse.
+    /// Returns `true` when the history restarted (the move onto the new
+    /// connection is then not a step to go back through).
+    pub fn on_connection(&mut self, connection: Option<usize>) -> bool {
+        if connection == self.connection {
+            return false;
+        }
+        *self = Self {
+            connection,
+            ..Self::default()
+        };
+        true
+    }
+
     /// The panel moved from `from` to `to`.
     pub fn visited(&mut self, from: PathBuf, to: &Path) {
         if self.travelling_to.take().as_deref() == Some(to) {
@@ -82,5 +100,26 @@ mod tests {
         h.visited(p("/a"), &p("/z"));
         assert_eq!(h.travel(Travel::Forward, p("/z")), None);
         assert_eq!(h.travel(Travel::Back, p("/z")), Some(p("/a")));
+    }
+
+    #[test]
+    fn another_connection_starts_a_new_history() {
+        let mut h = NavHistory::default();
+        assert!(!h.on_connection(None));
+        h.visited(p("/a"), &p("/b"));
+        assert!(
+            h.on_connection(Some(7)),
+            "connected: /b is not on the server"
+        );
+        assert!(!h.on_connection(Some(7)));
+        h.visited(p("/srv"), &p("/srv/x"));
+        assert_eq!(h.travel(Travel::Back, p("/srv/x")), Some(p("/srv")));
+        assert_eq!(h.travel(Travel::Back, p("/srv")), None);
+        assert!(h.on_connection(None));
+        assert_eq!(
+            h.travel(Travel::Back, p("/b")),
+            None,
+            "remote steps are gone"
+        );
     }
 }

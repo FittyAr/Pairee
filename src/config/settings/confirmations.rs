@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Confirmation settings — which operations require an explicit confirmation dialog.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ConfirmationSettings {
     pub confirm_delete: bool,
     pub confirm_wipe: bool,

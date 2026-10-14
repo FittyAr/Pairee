@@ -42,7 +42,7 @@ impl DialogView for EditorConfirmOverwrite {
             .border_style(Style::default().fg(theme.popup_border))
             .title(t("editor_overwrite_title"))
             .style(Style::default().bg(theme.popup_bg));
-        let text = t(self.reason.message_key()).replacen("{}", &self.target.to_string_lossy(), 1);
+        let text = t(self.reason.message_key()).replacen("{}", &self.shown.to_string_lossy(), 1);
         f.render_widget(
             Paragraph::new(text)
                 .block(block)

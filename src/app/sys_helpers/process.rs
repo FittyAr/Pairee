@@ -235,22 +235,64 @@ pub fn refresh_env_vars() {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
-        let cmd = "[Environment]::GetEnvironmentVariables('Machine').GetEnumerator() | % { \"$($_.Key)=$($_.Value)\" }; [Environment]::GetEnvironmentVariables('User').GetEnumerator() | % { \"$($_.Key)=$($_.Value)\" }";
+        let cmd = "foreach ($s in 'Machine','User') { [Environment]::GetEnvironmentVariables($s).GetEnumerator() | % { \"$s`t$($_.Key)=$($_.Value)\" } }";
         if let Ok(output) = Command::new("powershell")
             .args(["-NoProfile", "-Command", cmd])
             .output()
             && output.status.success()
         {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                if let Some(pos) = line.find('=') {
-                    let key = &line[..pos];
-                    let val = &line[pos + 1..];
-                    unsafe {
-                        std::env::set_var(key, val);
-                    }
+            for (key, val) in merge_env_scopes(&String::from_utf8_lossy(&output.stdout)) {
+                // SAFETY: called on the UI thread before spawning a program;
+                // no other thread reads the environment at that moment.
+                unsafe {
+                    std::env::set_var(key, val);
                 }
             }
         }
+    }
+}
+
+/// The variables of `listing` (`Machine<TAB>KEY=VALUE` and `User<TAB>...`
+/// lines) as Windows builds a new process environment: user values win,
+/// except `Path`, which is the machine one followed by the user one.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+fn merge_env_scopes(listing: &str) -> Vec<(String, String)> {
+    let mut merged: Vec<(String, String)> = Vec::new();
+    for line in listing.lines() {
+        let Some((scope, pair)) = line.split_once('\t') else {
+            continue;
+        };
+        let Some((key, value)) = pair.split_once('=').filter(|(k, _)| !k.is_empty()) else {
+            continue;
+        };
+        match merged.iter_mut().find(|(k, _)| k.eq_ignore_ascii_case(key)) {
+            Some((_, existing)) if scope == "User" && key.eq_ignore_ascii_case("path") => {
+                if !value.is_empty() {
+                    existing.push(';');
+                    existing.push_str(value);
+                }
+            }
+            Some((_, existing)) => *existing = value.to_string(),
+            None => merged.push((key.to_string(), value.to_string())),
+        }
+    }
+    merged
+}
+
+#[cfg(test)]
+mod env_tests {
+    use super::merge_env_scopes;
+
+    #[test]
+    fn user_path_extends_the_machine_path() {
+        let listing = "Machine\tPath=C:\\Windows\nMachine\tTEMP=C:\\T\nUser\tPATH=C:\\Tools\nUser\tTEMP=C:\\U\nbroken line\n";
+        let merged = merge_env_scopes(listing);
+        assert_eq!(
+            merged,
+            [
+                ("Path".to_string(), "C:\\Windows;C:\\Tools".to_string()),
+                ("TEMP".to_string(), "C:\\U".to_string()),
+            ]
+        );
     }
 }

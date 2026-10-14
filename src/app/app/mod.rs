@@ -45,7 +45,6 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
         }
 
         // 1. Process background operation updates (e.g. copy progress)
-        let bg_before = state.redraw.dirty;
         background::process_background_updates(&mut state, &context, &mut terminal_backend);
         // 1.8 Process self-update checking, progress tracking, and installer execution
         updates::process_update_events(&mut state, &mut context);
@@ -54,25 +53,19 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
         plugin_effects::apply(&mut state, &mut context, &mut terminal_backend).await?;
 
         // Rate-limit transfer-driven redraws when only progress ticks changed.
-        if state.transfer.is_some() {
-            let active = state
-                .transfer
-                .as_ref()
-                .map(|ts| ts.engine.queue.get_all().iter().any(|j| j.is_active()))
-                .unwrap_or(false);
-            if active {
-                let now = Instant::now();
-                let allow = state
-                    .redraw
-                    .last_transfer_draw
-                    .map(|t| now.duration_since(t) >= TRANSFER_DRAW_MIN)
-                    .unwrap_or(true);
-                if allow {
-                    state.mark_ui_dirty();
-                    state.redraw.last_transfer_draw = Some(now);
-                } else if !bg_before {
-                    // Don't leave ui_dirty stuck true every tick from other noise.
-                }
+        if state
+            .transfer
+            .as_ref()
+            .is_some_and(|ts| ts.engine.queue.has_active())
+        {
+            let now = Instant::now();
+            let allow = state
+                .redraw
+                .last_transfer_draw
+                .is_none_or(|t| now.duration_since(t) >= TRANSFER_DRAW_MIN);
+            if allow {
+                state.mark_ui_dirty();
+                state.redraw.last_transfer_draw = Some(now);
             }
         }
 

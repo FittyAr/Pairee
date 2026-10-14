@@ -20,11 +20,13 @@
 
 mod cancel;
 pub mod file_search;
+mod queue;
 mod slot;
 
 #[cfg(test)]
 mod tests;
 
+pub use queue::JobQueue;
 pub use slot::{JobContext, JobSlot};
 
 /// Runs `f` on Tokio's blocking pool, or inline when no runtime is available.

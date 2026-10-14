@@ -4,11 +4,11 @@ pub mod rule;
 pub use defaults::get_default_rules;
 pub use rule::AssocRule;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use super::write_atomic;
+use super::toml_store::{self, Loaded};
 
 /// Holds all file association rules. Loaded from / saved to `associations.toml`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -17,43 +17,40 @@ pub struct AssociationsConfig {
 }
 
 impl AssociationsConfig {
-    /// Loads associations from disk; returns an empty config if the file is missing.
+    /// Loads associations from disk. A missing file is created with the
+    /// default rules; an invalid one is left alone (the defaults are used
+    /// in memory) so the user can fix it.
     pub fn load() -> Self {
-        match Self::try_load() {
-            Ok(mut config) => {
+        Self::load_from(&associations_path())
+    }
+
+    fn load_from(path: &Path) -> Self {
+        match toml_store::read::<Self>(path) {
+            Loaded::Ok(mut config) => {
                 if config.migrate()
-                    && let Err(e) = config.save()
+                    && let Err(e) = toml_store::save(path, &config)
                 {
                     log::warn!("Failed to refresh associations.toml: {}", e);
                 }
                 config
             }
-            Err(_) => {
+            Loaded::Missing => {
                 let default_rules = Self::default_rules();
-                if let Err(e) = default_rules.save() {
+                if let Err(e) = toml_store::save(path, &default_rules) {
                     log::warn!("Failed to write default associations.toml: {}", e);
                 }
                 default_rules
             }
+            Loaded::Invalid(e) => {
+                toml_store::set_aside(path, &e);
+                Self::default_rules()
+            }
         }
-    }
-
-    fn try_load() -> Result<Self> {
-        let path = associations_path();
-        let content = std::fs::read_to_string(&path)
-            .with_context(|| format!("Reading associations file {:?}", path))?;
-        toml::from_str(&content).context("Deserializing associations.toml")
     }
 
     /// Persists the configuration to `<config_dir>/pairee/associations.toml`.
     pub fn save(&self) -> Result<()> {
-        let path = associations_path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).context("Creating config directory")?;
-        }
-        let toml_str = toml::to_string_pretty(self).context("Serializing associations")?;
-        write_atomic(&path, toml_str.as_bytes())
-            .with_context(|| format!("Writing associations file {:?}", path))
+        toml_store::save(&associations_path(), self)
     }
 
     /// Upgrades rules written by older releases. Returns `true` when the rules
@@ -204,5 +201,25 @@ mod tests {
         let serialized = toml::to_string_pretty(&config).unwrap();
         let deserialized: AssociationsConfig = toml::from_str(&serialized).unwrap();
         assert_eq!(deserialized.rules.len(), config.rules.len());
+    }
+
+    #[test]
+    fn an_invalid_file_is_not_overwritten_with_the_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("associations.toml");
+        std::fs::write(&path, "rules = [broken").unwrap();
+
+        let loaded = AssociationsConfig::load_from(&path);
+
+        assert_eq!(
+            loaded.rules.len(),
+            AssociationsConfig::default_rules().rules.len()
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "rules = [broken");
+
+        // A missing file is created with the defaults.
+        let fresh = dir.path().join("fresh.toml");
+        AssociationsConfig::load_from(&fresh);
+        assert!(fresh.exists());
     }
 }

@@ -127,76 +127,35 @@ pub fn handle_option_install_local(
             let tx = begin_dev_op(state, t("plugin_dev_progress_copying_files"));
             let path_for_task = path.clone();
             tokio::task::spawn_blocking(move || {
-                use developer_tool::progress_progress;
-                let manifest_path = path_for_task.join("manifest.toml");
-                let res: Result<String, String> = (|| {
-                    let content =
-                        std::fs::read_to_string(&manifest_path).map_err(|e| format!("{:?}", e))?;
-                    let manifest = crate::plugin::loader::PluginManifest::parse(&content)
-                        .map_err(|e| format!("{:?}", e))?;
-                    let name = manifest.name.clone();
-                    let version = manifest.version.clone();
-                    let dest_base = crate::config::paths::get_config_dir().join("plugins");
-                    let mut lock = crate::plugin::updater::read_lockfile();
-                    let dest_dir = dest_base.join(format!("{}.pairee", name));
-                    let _ = std::fs::create_dir_all(&dest_dir);
-
-                    let files = crate::plugin::loader::get_plugin_files(&path_for_task);
-                    let total = files.len().max(1);
-                    let mut copied_files = Vec::new();
-                    progress_status(&Some(tx.clone()), t("plugin_dev_progress_copying_files"));
-                    for (idx, (rel_path_str, src_file_path)) in files.into_iter().enumerate() {
-                        progress_progress(
-                            &Some(tx.clone()),
-                            t("plugin_dev_progress_copying_file")
-                                .replace("{}", &rel_path_str)
-                                .replace("{n}", &(idx + 1).to_string())
-                                .replace("{t}", &total.to_string()),
-                            idx + 1,
-                            total,
-                        );
-                        let dest_file_path = dest_dir.join(&rel_path_str);
-                        if let Some(parent) = dest_file_path.parent() {
-                            let _ = std::fs::create_dir_all(parent);
+                use crate::app::plugin_install::{InstallStep, install_local};
+                progress_status(&Some(tx.clone()), t("plugin_dev_progress_copying_files"));
+                let report = |step: InstallStep<'_>, n: usize, total: usize| {
+                    let (key, file) = match step {
+                        InstallStep::Copying(file) => ("plugin_dev_progress_copying_file", file),
+                        InstallStep::Hashing(file) => {
+                            if n == 1 {
+                                let status = t("plugin_dev_progress_hashing_files");
+                                progress_status(&Some(tx.clone()), status);
+                            }
+                            ("plugin_dev_progress_hashing_file", file)
                         }
-                        if std::fs::copy(&src_file_path, &dest_file_path).is_ok() {
-                            copied_files.push(rel_path_str);
-                        }
-                    }
-
-                    progress_status(&Some(tx.clone()), t("plugin_dev_progress_hashing_files"));
-                    let mut files_hash: std::collections::HashMap<String, String> =
-                        std::collections::HashMap::new();
-                    let dest_files = crate::plugin::loader::get_plugin_files(&dest_dir);
-                    let total_hash = dest_files.len().max(1);
-                    for (idx, (rel, p)) in dest_files.into_iter().enumerate() {
-                        progress_progress(
-                            &Some(tx.clone()),
-                            t("plugin_dev_progress_hashing_file")
-                                .replace("{}", &rel)
-                                .replace("{n}", &(idx + 1).to_string())
-                                .replace("{t}", &total_hash.to_string()),
-                            idx + 1,
-                            total_hash,
-                        );
-                        if let Ok(h) = crate::update::downloader::compute_sha256(&p) {
-                            files_hash.insert(rel, h);
-                        }
-                    }
-                    lock.plugins.insert(
-                        name.clone(),
-                        crate::plugin::updater::PinnedPlugin {
-                            version,
-                            pinned: false,
-                            files: files_hash,
-                        },
+                    };
+                    developer_tool::progress_progress(
+                        &Some(tx.clone()),
+                        t(key)
+                            .replace("{}", file)
+                            .replace("{n}", &n.to_string())
+                            .replace("{t}", &total.to_string()),
+                        n,
+                        total,
                     );
-                    let _ = crate::plugin::updater::write_lockfile(&lock);
-                    Ok(t("plugin_dev_installed_locally")
-                        .replacen("{}", &name, 1)
-                        .replacen("{}", &copied_files.len().to_string(), 1)
-                        .replacen("{}", &t("plugin_dev_local_sync_ok"), 1))
-                })();
+                };
+                let res = install_local(&path_for_task, &report).map(|done| {
+                    t("plugin_dev_installed_locally")
+                        .replacen("{}", &done.name, 1)
+                        .replacen("{}", &done.files.to_string(), 1)
+                        .replacen("{}", &t("plugin_dev_local_sync_ok"), 1)
+                });
 
                 match res {
                     Ok(msg) => {

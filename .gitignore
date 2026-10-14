@@ -1,5 +1,10 @@
 # Build artifacts
 /target/
+# cargo-fuzz: fuzz/ is a workspace of its own
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
 **/*.rs.bk
 *.pdb
 

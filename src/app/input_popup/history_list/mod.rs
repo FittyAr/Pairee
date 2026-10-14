@@ -40,7 +40,7 @@ pub fn handle(
         _ => {
             let idx = *cursor_idx;
             if idx < len {
-                remove_entry(state, kind, idx);
+                remove_entry(state, context, kind, idx);
             }
         }
     }
@@ -66,7 +66,7 @@ fn activate(state: &mut AppState, context: &AppContext, popup: PopupType, idx: u
         {
             state
                 .get_active_panel_mut()
-                .open_path(entries.swap_remove(idx));
+                .open_local(entries.swap_remove(idx));
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
         _ => {}
@@ -86,15 +86,15 @@ fn clear_all(state: &mut AppState, context: &AppContext, kind: HistoryKind) {
         });
     } else {
         state.history.clear(kind);
-        state.history.save();
+        state.history.save(&context.config.settings);
         state.dialogs.clear();
     }
 }
 
 /// Del: remove the entry under the cursor.
-fn remove_entry(state: &mut AppState, kind: HistoryKind, idx: usize) {
+fn remove_entry(state: &mut AppState, context: &AppContext, kind: HistoryKind, idx: usize) {
     let remaining = state.history.remove(kind, idx);
-    state.history.save();
+    state.history.save(&context.config.settings);
     if remaining == 0 {
         state.dialogs.clear();
     } else {

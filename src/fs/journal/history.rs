@@ -35,8 +35,6 @@ pub struct Journal {
     redo: VecDeque<FsCommand>,
     /// Transfer jobs running an undo/redo.
     pending_jobs: HashMap<Uuid, (Direction, FsCommand)>,
-    /// The multi-rename job runs an undo/redo.
-    pending_rename: Option<Direction>,
     seen_jobs: VecDeque<Uuid>,
 }
 
@@ -100,16 +98,6 @@ impl Journal {
             Some((direction, command)) => JobOrigin::Journal(direction, command),
             None => JobOrigin::User,
         }
-    }
-
-    /// Notes that the next multi-rename result belongs to an undo/redo.
-    pub fn begin_rename(&mut self, direction: Direction) {
-        self.pending_rename = Some(direction);
-    }
-
-    /// The undo/redo the finished multi-rename ran (`None`: a user rename).
-    pub fn finish_rename(&mut self) -> Option<Direction> {
-        self.pending_rename.take()
     }
 
     pub fn len(&self, direction: Direction) -> usize {

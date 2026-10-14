@@ -4,9 +4,10 @@
 use crate::app::state::{AppState, Screen, ScreenId};
 use crate::ui::hit::WHEEL_LINES;
 
-/// A click on the close box of screen `id`.
+/// A click on the close box of screen `id` (an editor with unsaved
+/// changes asks first).
 pub fn close(state: &mut AppState, id: ScreenId) -> bool {
-    state.close_screen(id);
+    state.request_close_screen(id);
     true
 }
 

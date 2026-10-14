@@ -53,6 +53,7 @@ pub enum SyntaxKind {
 
 impl SyntaxKind {
     /// Every kind, in the order of their theme colors.
+    #[cfg(test)]
     pub const ALL: [Self; 8] = [
         Self::Comment,
         Self::String,
@@ -94,7 +95,8 @@ pub fn highlight_with_definition(definition: &str, text: &str) -> Result<Vec<Lin
     Ok(text.lines().map(|l| state.advance(grammars, l)).collect())
 }
 
-/// When highlighting applies, from the user's settings (off by default).
+/// When highlighting applies, from the user's settings (the derived
+/// `Default`, highlighting off, is for documents without settings).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SyntaxLimits {
     pub enabled: bool,

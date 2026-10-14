@@ -35,6 +35,8 @@ pub struct MouseState {
     file_drag: Option<file_drag::FileDrag>,
     /// The time gestures are measured with (double clicks, autoscroll).
     clock: gesture::MouseClock,
+    /// The scrollbar whose track or thumb is pressed (drags move it only).
+    scrollbar_drag: Option<crate::ui::scrollbar::ScrollTargetId>,
 }
 
 impl MouseState {

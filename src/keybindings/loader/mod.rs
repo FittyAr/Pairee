@@ -94,11 +94,17 @@ pub fn build_keymap(spec: &KeymapSpec, source: PresetSource) -> LoadedKeymap {
     let mut report = KeymapLoadReport::default();
     let name = normalize_preset_name(spec.preset);
     let chain = resolve_chain(&name, source, &mut report).unwrap_or_else(|| {
+        // The shipped copy of a built-in preset, else the default preset.
+        let fallback = if embedded::preset_toml(&name).is_some() {
+            name.as_str()
+        } else {
+            FALLBACK_PRESET
+        };
         report.warnings.push(format!(
-            "Preset '{}' not found — falling back to {FALLBACK_PRESET}",
+            "Preset '{}' not found or unreadable — falling back to the shipped {fallback}",
             spec.preset
         ));
-        resolve_chain(FALLBACK_PRESET, &embedded_source, &mut report).unwrap_or_default()
+        resolve_chain(fallback, &embedded_source, &mut report).unwrap_or_default()
     });
     let defaults = embedded::preset_toml(&name).and_then(|_| {
         resolve_chain(&name, &embedded_source, &mut KeymapLoadReport::default()).map(|c| c.layers)

@@ -39,6 +39,15 @@ impl EditorState {
         }
     }
 
+    /// The empty match the last find stopped at, if the cursor is still
+    /// there with nothing selected.
+    fn found_empty_match(&self) -> Option<(usize, Range<usize>)> {
+        let at = self
+            .empty_match
+            .filter(|&at| at == self.cursor() && self.selection.is_none())?;
+        Some((at.y, at.x..at.x))
+    }
+
     /// Moves to the next match of `search` (previous one when `backward`)
     /// and selects it, scrolling it into a `height`-row view.
     pub fn find_match(
@@ -63,6 +72,8 @@ impl EditorState {
         );
         let (anchor, head) = if backward { (end, start) } else { (start, end) };
         self.selection = (anchor != head).then_some(Selection::Stream { anchor });
+        // An empty match cannot be selected: remember it for "Replace".
+        self.empty_match = (anchor == head).then_some(head);
         self.set_cursor(head);
         self.scroll_to_cursor(height);
         FindOutcome::Found
@@ -78,6 +89,7 @@ impl EditorState {
     ) -> FindOutcome {
         let current = self
             .selected_span()
+            .or_else(|| self.found_empty_match())
             .filter(|(y, r)| search.matcher.is_match_at(&self.lines[*y], r));
         if let Some((y, range)) = current {
             let replacement = search.replacement.as_deref().unwrap_or_default();
@@ -196,6 +208,18 @@ mod tests {
         assert_eq!(ed.cursor(), Pos::new(0, 6), "backward wraps to a3");
         assert!(ed.undo());
         assert_eq!(ed.lines[0], "b1 a2 a3", "each replacement is one undo step");
+    }
+
+    #[test]
+    fn replace_handles_empty_matches() {
+        let mut ed = EditorState::from_text("a\nb");
+        let s = search("^", "// ", |o| o.regex = true);
+        ed.set_cursor(Pos::new(1, 1));
+        ed.replace_match(&s, false, 10);
+        assert_eq!(ed.lines, vec!["a", "b"], "first press only finds");
+        ed.replace_match(&s, false, 10);
+        ed.replace_match(&s, false, 10);
+        assert_eq!(ed.lines, vec!["// a", "// b"]);
     }
 
     #[test]

@@ -5,7 +5,8 @@ pub fn stage_file(repo: &git2::Repository, file_path: &str) -> anyhow::Result<()
     let mut index = repo.index()?;
     let path = Path::new(file_path);
     let workdir = crate::git::repo::workdir(repo)?;
-    if workdir.join(path).exists() {
+    // `symlink_metadata`: a dangling symlink is still a file on disk.
+    if workdir.join(path).symlink_metadata().is_ok() {
         index.add_path(path)?;
     } else {
         // File was deleted in working tree, stage the deletion
@@ -26,17 +27,35 @@ pub fn stage_all(repo: &git2::Repository) -> anyhow::Result<()> {
 
 /// Unstages a single file (removes it from the index, matching HEAD or removing it if no commits exist).
 pub fn unstage_file(repo: &git2::Repository, file_path: &str) -> anyhow::Result<()> {
-    if let Ok(head_ref) = repo.head() {
-        let commit = head_ref.peel_to_commit()?;
-        let obj = commit.into_object();
-        repo.reset_default(Some(&obj), Some(file_path))?;
-    } else {
-        // Empty repository, just remove the path from index if it is there
-        let mut index = repo.index()?;
-        let path = Path::new(file_path);
-        let _ = index.remove_path(path);
-        index.write()?;
+    // Index edits rather than `reset_default`, whose pathspec would treat
+    // a name such as `[id].tsx` as a glob and unstage its siblings too.
+    let path = Path::new(file_path);
+    let mut index = repo.index()?;
+    let head_entry = match repo.head() {
+        Ok(head) => head.peel_to_tree()?.get_path(path).ok(),
+        // Empty repository: nothing to restore.
+        Err(_) => None,
+    };
+    match head_entry {
+        Some(entry) => index.add(&git2::IndexEntry {
+            ctime: git2::IndexTime::new(0, 0),
+            mtime: git2::IndexTime::new(0, 0),
+            dev: 0,
+            ino: 0,
+            mode: entry.filemode() as u32,
+            uid: 0,
+            gid: 0,
+            file_size: 0,
+            id: entry.id(),
+            flags: 0,
+            flags_extended: 0,
+            path: file_path.as_bytes().to_vec(),
+        })?,
+        None => {
+            let _ = index.remove_path(path);
+        }
     }
+    index.write()?;
     Ok(())
 }
 
@@ -67,7 +86,7 @@ pub fn discard_file_changes(repo: &git2::Repository, file_path: &str) -> anyhow:
         let tree = commit.tree()?;
         if tree.get_path(Path::new(file_path)).is_ok() {
             let mut opts = git2::build::CheckoutBuilder::new();
-            opts.force().path(file_path);
+            opts.force().disable_pathspec_match(true).path(file_path);
             repo.checkout_head(Some(&mut opts))?;
             return Ok(());
         }
@@ -77,6 +96,13 @@ pub fn discard_file_changes(repo: &git2::Repository, file_path: &str) -> anyhow:
     if full_path.is_file() {
         std::fs::remove_file(&full_path)?;
     } else if full_path.is_dir() {
+        // Git lists an untracked nested repository as one directory entry;
+        // deleting it would lose its history.
+        if full_path.join(".git").symlink_metadata().is_ok() {
+            anyhow::bail!(crate::config::localization::t(
+                "git_error_discard_nested_repo"
+            ));
+        }
         std::fs::remove_dir_all(&full_path)?;
     }
 

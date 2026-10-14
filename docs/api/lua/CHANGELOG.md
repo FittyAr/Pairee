@@ -11,6 +11,36 @@ Policy:
 
 ## [Unreleased]
 
+### Changed
+
+- Secure Mode: trusted plugins no longer get `io`, `package`, `load` /
+  `loadfile` / `dofile` or the non-clock part of `os` (`execute`,
+  `remove`, `rename`, `getenv`, `exit`, ...); they keep `coroutine` and
+  `os.time` / `os.date` / `os.clock` / `os.difftime`.
+- Secure Mode refuses more Git arguments that run programs (`git config`
+  of such keys, `--git-dir`, `rebase -x`, `difftool -x`, `grep -O`,
+  `submodule foreach`, `bisect run`, `filter-branch`, `send-email`, ...)
+  and runs `git` with `-c safe.bareRepository=explicit`.
+- `pairee.fs` refuses writes inside any `.git` folder for jailed plugins.
+- `pairee.fs.spawn` runs through the same checks as `pairee.Command` and
+  no longer reads the terminal's input.
+- `pairee.ps.pub` refuses payloads over 1 MiB (as JSON) and raises an
+  error while 64 messages are still being delivered; an event reaching a
+  plugin whose queue is full is dropped instead of waiting.
+- `pairee.fs.read` refuses files over 64 MiB (local and remote alike;
+  remote reads used to be cut silently at that size).
+- Widget constructors refuse lists nested deeper than 16 levels, more
+  than 256 constraints, `Bar` / `Fill` symbols over 16 bytes, and stop as
+  soon as the collected text passes the widget size limits.
+- A plugin whose manifest `name` differs from its folder name is not
+  loaded; `default_language` must be a plain code.
+
+### Fixed
+
+- The function returned by `pairee.sync(fn)` passes its arguments to `fn`
+  and returns all of `fn`'s results; the snapshot is dropped even when
+  `fn` fails.
+
 ## [1.3.0]
 
 ### Added

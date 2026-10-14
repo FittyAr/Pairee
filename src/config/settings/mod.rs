@@ -25,8 +25,11 @@ pub use types::{
 ///
 /// Unknown keys are ignored when reading, so `config.toml` files written by
 /// older releases (which stored options that were removed because they had no
-/// effect, e.g. `default_editor` or `viewer_command`) still load.
+/// effect, e.g. `default_editor` or `viewer_command`) still load. Missing
+/// keys take their default, so a file without one option (an older release,
+/// a hand edit) keeps every other option.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Settings {
     /// Whether to display hidden files/directories (starting with `.`)
     pub show_hidden: bool,

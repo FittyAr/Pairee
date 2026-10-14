@@ -41,6 +41,8 @@ pub struct JobSlot<T, P = ()> {
     rx: mpsc::UnboundedReceiver<Delivery<T>>,
     cancel: CancelToken,
     progress: Option<watch::Receiver<Option<P>>>,
+    /// The current job panicked (it ended without a result).
+    panicked: bool,
 }
 
 impl<T, P> std::fmt::Debug for JobSlot<T, P> {
@@ -62,6 +64,7 @@ impl<T, P> Default for JobSlot<T, P> {
             rx,
             cancel: CancelToken::new(),
             progress: None,
+            panicked: false,
         }
     }
 }
@@ -84,6 +87,7 @@ where
         self.cancel.cancel();
         self.generation = self.generation.wrapping_add(1);
         self.running = true;
+        self.panicked = false;
         let cancel = CancelToken::new();
         self.cancel = cancel.clone();
         let (progress_tx, progress_rx) = watch::channel(None);
@@ -116,11 +120,18 @@ where
             }
             self.running = false;
             self.progress = None;
+            self.panicked = outcome.is_none();
             if outcome.is_some() {
                 current = outcome;
             }
         }
         current
+    }
+
+    /// Whether the current job ended by panicking (reported once): its
+    /// caller then closes the progress it shows instead of waiting forever.
+    pub fn take_panicked(&mut self) -> bool {
+        std::mem::take(&mut self.panicked)
     }
 
     /// Cancels the current job and makes sure its result is ignored.

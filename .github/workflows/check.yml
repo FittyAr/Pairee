@@ -45,7 +45,7 @@ jobs:
           fi
           echo "Policy OK: no crate-level clippy::all / warnings allow in ${#roots[@]} crate roots"
 
-      - name: EN/ES translation key parity
+      - name: Translations and help pages (scripts/check_translations.py)
         shell: bash
         run: python scripts/check_translations.py
 

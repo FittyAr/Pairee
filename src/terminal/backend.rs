@@ -58,7 +58,12 @@ fn enable_keyboard_enhancement(stdout: &mut Stdout) -> bool {
 impl TerminalBackend {
     /// Enables raw mode, switches to alternate screen, and returns the Terminal instance.
     /// `capture_mouse` turns on mouse reporting (see [`super::mouse`]).
+    /// A failure part way gives the terminal back as it was.
     pub fn init(capture_mouse: bool) -> Result<Self> {
+        Self::init_modes(capture_mouse).inspect_err(|_| super::panic_hook::restore_terminal())
+    }
+
+    fn init_modes(capture_mouse: bool) -> Result<Self> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen, Hide)?;
@@ -110,8 +115,10 @@ impl TerminalBackend {
     }
 
     /// Restores the original terminal state by disabling raw mode and leaving alternate screen.
+    /// Every step runs even when an earlier one fails; the first error is
+    /// returned.
     pub fn restore(&mut self) -> Result<()> {
-        disable_raw_mode()?;
+        let raw_mode = disable_raw_mode();
         if self.keyboard_enhancement {
             let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags);
             self.keyboard_enhancement = false;
@@ -126,7 +133,9 @@ impl TerminalBackend {
         }
 
         super::mouse::release();
-        execute!(io::stdout(), LeaveAlternateScreen, Show)?;
+        let screen = execute!(io::stdout(), LeaveAlternateScreen, Show);
+        raw_mode?;
+        screen?;
         Ok(())
     }
 }

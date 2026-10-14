@@ -27,13 +27,19 @@ pub async fn run() -> Result<()> {
 
 async fn run_app() -> Result<()> {
     // Non-interactive subcommands (elevated helper, plugin and developer CLIs)
-    let args: Vec<String> = env::args().collect();
-    if cli::run_subcommand(&args).await? {
+    // `args_os`: `env::args` panics on an argument that is not UTF-8 (a
+    // folder name in a legacy encoding on Unix).
+    let args: Vec<std::ffi::OsString> = env::args_os().collect();
+    let text_args: Vec<String> = args
+        .iter()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    if cli::run_subcommand(&text_args).await? {
         return Ok(());
     }
 
     // 0. Check if we need to spawn a standalone terminal window
-    if terminal::standalone::check_and_launch_standalone().unwrap_or(false) {
+    if terminal::standalone::check_and_launch_standalone(&args).unwrap_or(false) {
         return Ok(());
     }
 

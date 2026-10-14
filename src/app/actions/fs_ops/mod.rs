@@ -33,9 +33,6 @@ pub fn handle_fs_action(
     context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> bool {
-    if capability::refuse_unsupported(state, action) {
-        return true;
-    }
     if file_clipboard::handle(state, action, context) {
         return true;
     }

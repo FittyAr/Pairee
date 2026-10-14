@@ -124,15 +124,17 @@ fn handle_results(
             let Some((path, is_dir)) = results.get(idx) else {
                 return Ok(None);
             };
-            let target = if *is_dir {
-                path.clone()
-            } else {
-                path.parent()
-                    .map(|p| p.to_path_buf())
-                    .unwrap_or_else(|| path.clone())
-            };
+            let (path, is_dir) = (path.clone(), *is_dir);
             state.search.cancel();
-            state.get_active_panel_mut().open_path(target);
+            // The search walks the local disk: a folder is opened, a file
+            // is shown with the cursor on it.
+            let panel = state.get_active_panel_mut();
+            if is_dir || path.parent().is_none() {
+                panel.open_local(path);
+            } else {
+                panel.source = crate::fs::vfs::PanelSource::Local;
+                panel.reveal(&path);
+            }
             state.dialogs.clear();
             state.refresh_both_panels(context.config.settings.show_hidden);
         }

@@ -625,12 +625,13 @@ trusted = true        # Requests permission to spawn external tools (Trusted mod
 
 ### 13.2 Trusted Mode (`trusted = true`)
 When a plugin is explicitly trusted by the user, it runs in **Trusted Mode**:
-* The plugin can use Lua's standard file and module management (`io`, `os`, `package`).
+* The plugin can use Lua's standard file and module management (`io`, `os`, `package`, `load`) — outside Secure Mode only (13.3).
 * The plugin can execute external system commands using the `pairee.fs.spawn()` API.
 
 ### 13.3 Global Secure Mode (`secure_mode = true`)
 To prevent data exfiltration, users can enable a global **Secure Mode** in their settings. This mode acts as an overriding runtime firewall:
 * **Activation:** Configured in `pairee.toml` under `[settings]` -> `secure_mode = true`. This configuration is read-only at runtime and completely immutable from Lua.
+* **Restricted standard library:** a trusted plugin gets the same Lua libraries as an untrusted one plus `coroutine` and a clock-only `os` (`os.time`, `os.date`, `os.clock`, `os.difftime`): no `io`, `package`, `load` / `loadfile` / `dofile`, `os.execute`, `os.remove`, `os.rename`, `os.getenv` or `os.exit`, which would bypass the jail and the process allowlist below.
 * **Network & Socket Ban:** TCP/UDP socket creation and HTTP requests are completely disabled at the engine level for all plugins, including those with `trusted = true`.
 * **Process Allowlist:** In Secure Mode a trusted plugin may only spawn (`pairee.Command`, `pairee.fs.spawn`) programs it declares in its manifest:
   ```toml
@@ -641,7 +642,8 @@ To prevent data exfiltration, users can enable a global **Secure Mode** in their
   * Shells, interpreters, network utilities and command wrappers (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) are **always** refused, even if declared, and also when a declared name is a symlink to one of them.
   * Undeclared commands fail with `Security violation: ... is not declared in the plugin manifest`. The Plugin Manager shows the declared commands in the plugin details so the user can review them before trusting the plugin.
 * **Environment and working directory:** `Command:env` is limited to locale/terminal/colour variables and `Command:cwd` to folders inside the jail (see `pairee.Command`), so a declared tool cannot be turned into a code runner through `GIT_SSH_COMMAND`, `LD_PRELOAD`, `PAGER` and similar variables.
-* **FS Sandboxing:** For trusted plugins, file **reads** (`pairee.fs`) are locked to the active workspace folder, the user's config and cache directories, and the plugin's own and data directories. **Writes** are limited to the workspace, the cache and the plugin's data directory: Pairee's config directory (`config.toml`, `keybindings.toml`, associations, the user menu, `plugins/`, `plugins.lock`) is read-only, so a plugin cannot switch Secure Mode off or trust itself. Untrusted plugins keep their stricter jail (13.1).
+* **Arguments:** options that make a declared tool run another program are refused (Git config keys naming programs via `-c` or `git config`, `--upload-pack`, `--exec`, `--git-dir`, `rebase -x`, `difftool -x`, `grep -O`, `submodule foreach`, `bisect run`, `filter-branch`, `send-email`; `tar --to-command` / `-I`; `rg --pre`; `fd --exec`; `fzf --preview`; ...). `git` always runs with `-c safe.bareRepository=explicit` before the plugin's arguments.
+* **FS Sandboxing:** For trusted plugins, file **reads** (`pairee.fs`) are locked to the active workspace folder, the user's config and cache directories, and the plugin's own and data directories. **Writes** are limited to the workspace, the cache and the plugin's data directory: Pairee's config directory (`config.toml`, `keybindings.toml`, associations, the user menu, `plugins/`, `plugins.lock`) is read-only, so a plugin cannot switch Secure Mode off or trust itself. Nothing inside a `.git` folder is writable (its `config` and hooks run programs). Untrusted plugins keep their stricter jail (13.1).
 * **Fails closed:** if `config.toml` cannot be parsed, plugins run in Secure Mode until it is fixed (the startup error says so).
 
 ### 13.4 Resource limits

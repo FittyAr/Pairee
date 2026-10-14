@@ -145,6 +145,11 @@ pub fn resolve_chain(
                 report.errors.push(format!(
                     "Failed to parse keymap for preset '{current}': {e}"
                 ));
+                // The selected preset itself is unusable: the caller falls
+                // back to a shipped one instead of an empty keymap.
+                if files.is_empty() {
+                    return None;
+                }
                 PresetFile::default()
             }
         };

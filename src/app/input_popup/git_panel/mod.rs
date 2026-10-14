@@ -13,6 +13,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Number of Git panel tabs (Status, Log, Branches, Stash, Tags).
 const TABS: usize = 5;
+/// Position of the Tags tab.
+const TAGS_TAB: usize = 4;
 
 /// Handles keyboard input for the main Git panel popup.
 pub fn handle(
@@ -34,7 +36,8 @@ pub fn handle(
     match key.code {
         KeyCode::Char('f' | 'F') => remote::handle_fetch(state, repo),
         KeyCode::Char('l' | 'L') => remote::handle_pull(state, repo, tab, cursor),
-        KeyCode::Char('u' | 'U') => remote::handle_push(state, repo),
+        // On the Tags tab `u` pushes the tags (handled by the tab).
+        KeyCode::Char('u' | 'U') if tab != TAGS_TAB => remote::handle_push(state, repo),
         _ if tab_action(state, &panel, key.code) => {}
         KeyCode::Char('r' | 'R') | KeyCode::F(5) => {
             state.refresh_git_panel(repo, tab, cursor);
@@ -88,7 +91,7 @@ fn tab_action(
             &panel.current_branch,
         ),
         3 => tabs::handle_stash_tab(state, code, repo, &panel.stash_entries, cursor),
-        4 => tabs::handle_tag_tab(state, code, repo, &panel.tag_entries, cursor),
+        TAGS_TAB => tabs::handle_tag_tab(state, code, repo, &panel.tag_entries, cursor),
         _ => false,
     }
 }

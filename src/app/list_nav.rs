@@ -93,6 +93,17 @@ pub fn wrap_next(idx: usize, len: usize) -> usize {
     if idx + 1 >= len { 0 } else { idx + 1 }
 }
 
+/// The item after the one `is_current` matches, wrapping; the first item
+/// when none matches; `None` for an empty list (option cycles: presets,
+/// languages, encodings...).
+pub fn next_after<T>(items: &[T], is_current: impl Fn(&T) -> bool) -> Option<&T> {
+    let next = items
+        .iter()
+        .position(is_current)
+        .map_or(0, |i| wrap_next(i, items.len()));
+    items.get(next)
+}
+
 /// Which navigation keys a list popup accepts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ListKeys {
@@ -285,6 +296,15 @@ mod tests {
             list_key(ListKeys::FULL, KeyCode::Down, &mut cursor, 0),
             ListKey::Moved
         );
+    }
+
+    #[test]
+    fn next_after_wraps_and_restarts() {
+        let items = ["a", "b", "c"];
+        assert_eq!(next_after(&items, |i| *i == "b"), Some(&"c"));
+        assert_eq!(next_after(&items, |i| *i == "c"), Some(&"a"));
+        assert_eq!(next_after(&items, |i| *i == "zz"), Some(&"a"));
+        assert_eq!(next_after::<&str>(&[], |_| true), None);
     }
 
     #[test]

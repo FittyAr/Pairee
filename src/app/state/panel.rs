@@ -135,22 +135,16 @@ impl PanelState {
     /// Moves the cursor index up by one, wrapping at boundaries.
     pub fn move_cursor_up(&mut self) {
         if !self.entries.is_empty() {
-            if self.cursor_index > 0 {
-                self.cursor_index -= 1;
-            } else {
-                self.cursor_index = self.entries.len() - 1;
-            }
+            self.cursor_index =
+                crate::app::list_nav::wrap_prev(self.cursor_index, self.entries.len());
         }
     }
 
     /// Moves the cursor index down by one, wrapping at boundaries.
     pub fn move_cursor_down(&mut self) {
         if !self.entries.is_empty() {
-            if self.cursor_index < self.entries.len() - 1 {
-                self.cursor_index += 1;
-            } else {
-                self.cursor_index = 0;
-            }
+            self.cursor_index =
+                crate::app::list_nav::wrap_next(self.cursor_index, self.entries.len());
         }
     }
 
@@ -267,6 +261,20 @@ impl PanelState {
         self.current_path = path;
         self.cursor_index = 0;
         self.clear_selection();
+    }
+
+    /// [`Self::open_path`] for a local folder (drives, tree, histories,
+    /// search results, frecency): a panel showing a server or an archive
+    /// goes back to the local disk (an archive path is reopened as one).
+    pub fn open_local(&mut self, path: PathBuf) {
+        self.source = crate::fs::vfs::PanelSource::Local;
+        self.open_path(path);
+    }
+
+    /// [`Self::open_path`] on the server of a new connection `conn`.
+    pub fn open_remote(&mut self, conn: crate::fs::remote::RemoteConn, path: PathBuf) {
+        self.source = crate::fs::vfs::PanelSource::Remote(conn);
+        self.open_path(path);
     }
 
     /// Starts computing the size of the listed folders among `paths`

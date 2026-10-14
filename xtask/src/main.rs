@@ -32,7 +32,7 @@ Commands:
   changelog <vX.Y.Z|Unreleased>
       Print one changelog section (the GitHub release body).
   lint
-      Fast checks run by the pre-push hook: rustfmt, typos, translation parity.
+      Fast checks run by the pre-push hook: rustfmt, typos, translations and help pages.
   install-hooks
       Point git at .githooks so every `git push` runs `cargo xtask lint`.
   dev [<action>]

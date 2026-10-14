@@ -78,6 +78,14 @@ impl FsPolicy {
             .roots(access, &resolved)
             .into_iter()
             .find_map(|root| jailed_in(root, &resolved, &lexical));
+        if access == Access::Write
+            && let Some(Target::Jailed { rel, .. }) = &matched
+            && rel.components().any(|c| is_git_dir_name(c.as_os_str()))
+        {
+            return Err(format!(
+                "Security violation: path {path:?} is inside a Git folder (.git), which plugins cannot write"
+            ));
+        }
         matched.ok_or_else(|| {
             let mode = if self.trusted {
                 "Secure Mode"
@@ -115,6 +123,18 @@ impl FsPolicy {
     fn inside_config(&self, resolved: &Path) -> bool {
         canonical_root(&self.config_dir).is_some_and(|cfg| resolved.starts_with(cfg))
     }
+}
+
+/// Whether a path component names a Git folder: `.git` in any case, also
+/// with the trailing dots / spaces or `:stream` suffix Windows ignores.
+/// Its `config` and `hooks/` run programs whenever `git` is used there
+/// (by a Secure Mode plugin's declared `git` or later by the user), so no
+/// jailed plugin may write inside one.
+fn is_git_dir_name(name: &std::ffi::OsStr) -> bool {
+    let name = name.to_string_lossy();
+    let name = name.split(':').next().unwrap_or_default();
+    name.trim_end_matches(['.', ' '])
+        .eq_ignore_ascii_case(".git")
 }
 
 /// `resolved` as a target under `root` when it lies inside it (`lexical`
@@ -323,6 +343,38 @@ mod tests {
         f.policy.workspace = f.policy.config_dir.clone();
         let cfg = f.policy.config_dir.join("config.toml");
         assert!(f.policy.check(&s(&cfg), Access::Write).is_err());
+    }
+
+    #[test]
+    fn git_folders_are_never_writable() {
+        for (trusted, secure) in [(false, false), (true, true)] {
+            let f = fixture(trusted, secure);
+            let roots = if trusted {
+                vec![&f.policy.workspace, &f.policy.data_dir]
+            } else {
+                vec![&f.policy.data_dir]
+            };
+            for root in roots {
+                std::fs::create_dir_all(root.join("repo").join(".git")).unwrap();
+                for rel in [
+                    "repo/.git/config",
+                    "repo/.git/hooks/pre-commit",
+                    "repo/.GIT/config",
+                    "repo/.git./config",
+                    "new/.git",
+                    "new/.git ",
+                    "new/.git::$INDEX_ALLOCATION",
+                ] {
+                    let target = s(&root.join(rel));
+                    let err = f.policy.check(&target, Access::Write).unwrap_err();
+                    assert!(err.contains(".git"), "{rel}: {err}");
+                }
+                let config = s(&root.join("repo").join(".git").join("config"));
+                assert!(f.policy.check(&config, Access::Read).is_ok() || !trusted);
+                let fine = s(&root.join("repo").join(".gitignore"));
+                assert!(f.policy.check(&fine, Access::Write).is_ok());
+            }
+        }
     }
 
     #[test]

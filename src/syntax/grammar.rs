@@ -130,7 +130,7 @@ impl Grammar {
 }
 
 /// Compiles `pattern` with the size limit of every pattern.
-fn build(pattern: &str, case_insensitive: bool) -> Result<Regex, regex::Error> {
+pub(super) fn build(pattern: &str, case_insensitive: bool) -> Result<Regex, regex::Error> {
     RegexBuilder::new(pattern)
         .case_insensitive(case_insensitive)
         .size_limit(PATTERN_SIZE_LIMIT)

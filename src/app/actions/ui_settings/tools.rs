@@ -178,8 +178,7 @@ fn check_for_updates(state: &mut AppState) {
             }));
         return;
     }
-    let cache = crate::config::paths::get_config_dir().join("update_cache.json");
-    let _ = std::fs::remove_file(&cache);
+    crate::update::checker::UpdateChecker::forget_cache();
     let (tx, rx) = tokio::sync::oneshot::channel();
     crate::update::checker::UpdateChecker::check_in_background(tx);
     state.update.check_rx = Some(rx);

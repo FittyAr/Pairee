@@ -3,21 +3,13 @@
 //! own key handling.
 
 use super::Click;
+use super::dialog_drag::key_of;
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
 use crate::terminal::TerminalBackend;
 use crate::ui::hit::{HitTarget, WHEEL_LINES};
 use crate::ui::popup::kit::mouse::presses;
 use crossterm::event::{KeyCode, KeyEvent, MouseButton};
-use std::mem::Discriminant;
-
-/// The dialog keys go to: stack depth and dialog kind.
-fn identity(state: &AppState) -> Option<(usize, Discriminant<PopupType>)> {
-    state
-        .dialogs
-        .top()
-        .map(|popup| (state.dialogs.depth(), std::mem::discriminant(popup)))
-}
 
 /// Presses `keys` in order on the open dialog. Stops as soon as the dialog
 /// closes or another one takes its place (the rest was meant for it).
@@ -27,9 +19,9 @@ pub async fn press(
     terminal_backend: &mut TerminalBackend,
     keys: impl IntoIterator<Item = KeyEvent>,
 ) -> anyhow::Result<()> {
-    let dialog = identity(state);
+    let dialog = key_of(&state.dialogs);
     for key in keys {
-        if identity(state) != dialog {
+        if key_of(&state.dialogs) != dialog {
             break;
         }
         crate::app::app::events::dispatch_popup_key(state, context, terminal_backend, key).await?;
@@ -52,9 +44,13 @@ pub async fn click(
         HitTarget::PopupKeys(keys) => keys.clone(),
         HitTarget::PopupRow { steps, focus } => {
             let mut keys = focus.clone();
-            keys.extend(presses(i64::from(*steps), KeyCode::Down, KeyCode::Up));
             if click.is_double() {
+                // The first click already put the cursor on the row; the
+                // list may have scrolled since, so the cell now shows
+                // another row: open the one the cursor is on.
                 keys.push(KeyEvent::from(KeyCode::Enter));
+            } else {
+                keys.extend(presses(i64::from(*steps), KeyCode::Down, KeyCode::Up));
             }
             keys
         }

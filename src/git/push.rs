@@ -45,17 +45,33 @@ pub fn push(
     hooks: NetHooks<'_>,
 ) -> anyhow::Result<()> {
     let mut remote = repo.find_remote(remote_name)?;
-    let refspec = format!("refs/heads/{branch_name}:refs/heads/{branch_name}");
-    push_refspecs(&mut remote, &[refspec], hooks)?;
+    let local_ref = format!("refs/heads/{branch_name}");
+    let destination = if set_upstream {
+        local_ref.clone()
+    } else {
+        upstream_merge_ref(repo, &local_ref, remote_name).unwrap_or_else(|| local_ref.clone())
+    };
+    push_refspecs(&mut remote, &[format!("{local_ref}:{destination}")], hooks)?;
 
-    if set_upstream
-        && let Ok(mut local_branch) = repo.find_branch(branch_name, git2::BranchType::Local)
-    {
-        let upstream_ref = format!("{remote_name}/{branch_name}");
-        let _ = local_branch.set_upstream(Some(&upstream_ref));
+    if set_upstream {
+        let mut local_branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
+        local_branch.set_upstream(Some(&format!("{remote_name}/{branch_name}")))?;
     }
 
     Ok(())
+}
+
+/// The branch `local_ref` tracks on `remote_name` (`branch.<name>.merge`),
+/// which may be named differently from the local branch.
+fn upstream_merge_ref(
+    repo: &git2::Repository,
+    local_ref: &str,
+    remote_name: &str,
+) -> Option<String> {
+    use crate::git::remote::config_value as value;
+    (value(repo.branch_upstream_remote(local_ref))? == remote_name)
+        .then(|| value(repo.branch_upstream_merge(local_ref)))
+        .flatten()
 }
 
 /// Deletes a remote branch on the specified remote.
