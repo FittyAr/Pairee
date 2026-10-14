@@ -1,5 +1,6 @@
 //! Directory hotlist and folder shortcut dialog rendering.
 
+use crate::ui::text_width::pad_to_width;
 use super::super::centered_rect_in;
 use crate::app::input_popup::folder_shortcuts::{SLOT_COUNT, slot_for_row};
 use crate::config::bookmarks::HotlistEntry;
@@ -23,7 +24,11 @@ pub fn render_hotlist(
         .iter()
         .map(|e| {
             (
-                format!(" {:<20} ->  {} ", e.name, e.path.to_string_lossy()),
+                format!(
+                    " {} ->  {} ",
+                    pad_to_width(&e.name, 20),
+                    e.path.to_string_lossy()
+                ),
                 style,
             )
         })

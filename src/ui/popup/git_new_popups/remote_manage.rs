@@ -1,3 +1,4 @@
+use crate::ui::text_width::pad_to_width;
 use crate::app::state::popup::GitRemoteManageState;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
@@ -46,7 +47,7 @@ pub fn render_remote_manage(
                 let url = remote.url.as_deref().unwrap_or("-");
                 Line::from(vec![
                     Span::styled(
-                        format!(" {:<16} ", remote.name),
+                        format!(" {} ", pad_to_width(&remote.name, 16)),
                         Style::default()
                             .fg(Color::Yellow)
                             .bg(bg)

@@ -2,7 +2,7 @@ use crate::app::state::popup::FileAssociationsDialog;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use crate::ui::text_width::truncate_to_width;
+use crate::ui::text_width::fit_to_width;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -32,13 +32,10 @@ impl Columns {
 
     fn row(&self, mask: &str, open: &str, view: &str) -> String {
         format!(
-            " {:<mw$} | {:<ow$} | {:<vw$} ",
-            truncate_to_width(mask, self.mask),
-            truncate_to_width(open, self.open),
-            truncate_to_width(view, self.view),
-            mw = self.mask,
-            ow = self.open,
-            vw = self.view
+            " {} | {} | {} ",
+            fit_to_width(mask, self.mask),
+            fit_to_width(open, self.open),
+            fit_to_width(view, self.view),
         )
     }
 }

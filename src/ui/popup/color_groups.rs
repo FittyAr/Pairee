@@ -1,6 +1,7 @@
 //! "Color groups" and "Files highlighting" dialogs: a scrolled list of
 //! `name < color >` rows with the cursor row highlighted.
 
+use crate::ui::text_width::pad_to_width;
 use super::centered_rect_in;
 use crate::app::state::popup::{ColorGroupsDialog, FilesHighlightingDialog};
 use crate::app::text_input::TextField;
@@ -58,7 +59,7 @@ impl DialogView for FilesHighlightingDialog {
             .map(|rule| {
                 let fg = parse_color(&rule.color);
                 ColorRow {
-                    label: format!("{:<30}", rule.mask),
+                    label: pad_to_width(&rule.mask, 30),
                     color: rule.color.clone(),
                     style: Style::default().bg(theme.popup_bg).fg(fg),
                     selected: Style::default()

@@ -1,3 +1,4 @@
+use crate::ui::text_width::pad_to_width;
 use crate::app::state::CompareStatus;
 use crate::app::state::popup::CompareFoldersResult;
 use crate::config::localization::t;
@@ -23,7 +24,11 @@ impl DialogView for CompareFoldersResult {
                     CompareStatus::Equal => ("compare_status_equal", Color::DarkGray),
                 };
                 (
-                    format!(" {:<40} | {:<20} ", entry.name, t(status_key)),
+                    format!(
+                        " {} | {} ",
+                        pad_to_width(&entry.name, 40),
+                        pad_to_width(&t(status_key), 20)
+                    ),
                     Style::default().fg(color),
                 )
             })

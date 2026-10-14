@@ -75,6 +75,21 @@ pub fn split_at_column(s: &str, col: usize) -> (&str, &str) {
     (s, "")
 }
 
+/// `s` followed by spaces up to `width` display columns (`{:<w$}` by
+/// columns instead of chars, so CJK names keep the next column aligned).
+pub fn pad_to_width(s: &str, width: usize) -> String {
+    let pad = width.saturating_sub(display_width(s));
+    let mut out = String::with_capacity(s.len() + pad);
+    out.push_str(s);
+    out.extend(std::iter::repeat_n(' ', pad));
+    out
+}
+
+/// `s` truncated (with `…`) and padded to exactly `width` columns.
+pub fn fit_to_width(s: &str, width: usize) -> String {
+    pad_to_width(&truncate_to_width(s, width), width)
+}
+
 const TAB: char = '\t';
 
 /// Replaces each tab with spaces up to the next multiple of `tab_size` columns
@@ -141,6 +156,16 @@ mod tests {
     fn expand_tabs_measures_graphemes() {
         // A skin-toned emoji is one 2-column grapheme of two chars.
         assert_eq!(expand_tabs("👍🏽\tx", 4), "👍🏽  x");
+    }
+
+    #[test]
+    fn pad_and_fit_count_columns() {
+        assert_eq!(pad_to_width("日本", 6), "日本  ");
+        assert_eq!(pad_to_width("abcdef", 3), "abcdef");
+        assert_eq!(fit_to_width("abcdef", 4), "abc…");
+        // A wide grapheme cut at the edge leaves a column to pad.
+        assert_eq!(fit_to_width("日本語", 4), "日… ");
+        assert_eq!(fit_to_width("ab", 0), "");
     }
 
     #[test]
