@@ -783,6 +783,7 @@ git checkout master
 5. Ejecutar la opción "Enviar". El asistente te solicitará:
    - **Descripción del Commit:** Una descripción detallada de los cambios o características.
    - **Token de GitHub (Opcional):** Si se suministra, Pairee realizará automáticamente un fork del repositorio, subirá la rama y creará una Pull Request. Si se omite, Pairee realizará un commit git local e imprimirá los comandos manuales para que los copies y ejecutes para subir la rama y abrir la Pull Request por ti mismo.
+6. **Las firmas las pone el registro, no tú.** No incluyas archivos `.minisig` en tu Pull Request. Cuando se fusiona, el workflow de firma del registro firma tu `manifest.toml` y un `index.toml` nuevo (con un número de serie y una fecha que Pairee comprueba para rechazar copias viejas o congeladas del índice) con la clave de Pairee. Los usuarios pueden instalar tu plugin una vez publicado ese índice firmado.
 
 ---
 

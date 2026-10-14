@@ -39,11 +39,27 @@ pub struct SecuritySettings {
     /// the key pinned in Pairee).
     #[serde(default)]
     pub registry_public_key: String,
-    /// Refuse plugin registry files that have no signature once the
-    /// registry has been seen signed (on by default; until the first signed
-    /// file, unsigned ones are only warned about). Off: always only warn.
+    /// Refuse plugin registry files that have no signature (on by default).
+    /// Until the official registry is declared signed in the binary
+    /// (`plugin::updater::trust::REGISTRY_SIGNED`), this applies once this
+    /// installation has verified a signed registry file; before that,
+    /// unsigned files are only warned about. Off: always only warn.
     #[serde(default = "enabled_by_default")]
     pub registry_require_signature: bool,
+    /// Oldest signed registry index (and blocklist) accepted, in days since
+    /// it was signed: an older one means a frozen registry or mirror. `0`
+    /// accepts any age (the anti-rollback check still applies).
+    #[serde(default = "default_registry_max_age_days")]
+    pub registry_max_age_days: u32,
+}
+
+/// Default of [`SecuritySettings::registry_max_age_days`]. The registry is
+/// re-signed on every change and by a weekly refresh (see
+/// `docs/technical/plugin-registry-spec.md`), so this leaves margin.
+pub const DEFAULT_REGISTRY_MAX_AGE_DAYS: u32 = 30;
+
+fn default_registry_max_age_days() -> u32 {
+    DEFAULT_REGISTRY_MAX_AGE_DAYS
 }
 
 impl Default for SecuritySettings {
@@ -52,6 +68,7 @@ impl Default for SecuritySettings {
             passwords_in_config: false,
             registry_public_key: String::new(),
             registry_require_signature: true,
+            registry_max_age_days: DEFAULT_REGISTRY_MAX_AGE_DAYS,
         }
     }
 }

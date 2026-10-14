@@ -219,7 +219,8 @@ pairee plugin install <name>        (TUI: Plugin Manager → Search → i)
   ├─ 1. Fetch registry/blocklist.toml (+ .minisig)      ≤ 4 MiB
   │       blocked → abort
   ├─ 2. Fetch registry/index.toml (+ .minisig)          ≤ 4 MiB
-  │       resolve the latest version and the author
+  │       signed: serial not below the last accepted one, not older than
+  │       registry_max_age_days (6.1); resolve the latest version and author
   ├─ 3. Fetch plugins/<shard>/<author>/<name>/manifest.toml (+ .minisig)  ≤ 1 MiB
   │       its [files] table pins the SHA-256 of every file; its name and
   │       version must match the index entry (an older signed manifest is
@@ -246,61 +247,138 @@ of the files that carry those hashes:
 
 | Signed file | Signature | Trusted comment must contain |
 |-------------|-----------|------------------------------|
-| `registry/index.toml` | `registry/index.toml.minisig` | `file:index.toml` |
-| `registry/blocklist.toml` | `registry/blocklist.toml.minisig` | `file:blocklist.toml` |
+| `registry/index.toml` | `registry/index.toml.minisig` | `file:index.toml serial:<N> timestamp:<unix>` |
+| `registry/blocklist.toml` | `registry/blocklist.toml.minisig` | `file:blocklist.toml serial:<N> timestamp:<unix>` |
 | `registry/plugins/<s>/<author>/<name>/manifest.toml` | same path + `.minisig` | `file:plugins/<s>/<author>/<name>/manifest.toml` |
 
-Pairee verifies them with the same minisign code as its self-updater
-(`update::signature::verify_with_key`): prehashed signatures only, and the
-trusted comment (covered by the global signature) must name the file by its
-path inside `registry/`, so a signature cannot be replayed for another file.
+**Pinned key, no trust on first use.** Pairee verifies them with the same
+minisign code as its self-updater (`update::signature::verify_with_key`)
+against the **Pairee release key embedded in the binary**
+(`RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6`, the key that
+signs releases): the registry is published by the same maintainers, and one
+key means one secret to protect and one verification helper. Nothing is
+learned from the network: the very first signed file an installation sees
+is checked against that key like every later one. Prehashed signatures
+only; the trusted comment (covered by the global signature) must name the
+file by its path inside `registry/`, so a signature cannot be replayed for
+another file. A fork or a private registry can set
+`registry_public_key = "<base64 key>"` under `[security]` in `config.toml`.
+
+**Freshness (anti-rollback).** The trusted comment of `index.toml` and
+`blocklist.toml` also carries `serial:<N>` (one more on every signing) and
+`timestamp:<unix seconds>` (when it was signed). Pairee records the highest
+serial it accepted for each file, with the key, in `registry_state.toml` in
+the config folder (not in a plugin data folder, which plugins can write),
+and refuses:
+
+* a signed index or blocklist **without** `serial:` and `timestamp:`;
+* one whose serial is **lower** than the recorded one (an old signed index
+  replayed by a mirror or an attacker: rollback). The same serial again is
+  a refetch and is accepted;
+* one signed more than `registry_max_age_days` days ago (`[security]`,
+  default **30**; `0` turns the age check off): a frozen registry or mirror
+  that keeps serving an old index. The error names the setting.
+
+Plugin manifests need no freshness: the signed index names the version each
+manifest must carry, and an older signed manifest is refused against it.
+An unsigned file (see below) has no freshness to check.
+
+**Missing signatures.**
 
 * A signature that is present but does not verify **always** fails the
-  operation (also for the blocklist).
-* A missing signature is refused once the installation has verified a
-  registry file signed with the configured key (recorded in
-  `registry_signed` in the config folder), so stripping the signatures does
-  not downgrade a signed registry. Before that first signed file it is
-  accepted with an **"unsigned" warning** (CLI report line, TUI toast): the
-  grace period while the registry gets signed. This is the default,
-  `registry_require_signature = true` under `[security]` in `config.toml`;
-  `false` accepts unsigned files with the warning, always.
-* The public key defaults to the Pairee release key embedded in the binary
-  (`RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6`). A fork or a
-  private registry can set `registry_public_key = "<base64 key>"` under
-  `[security]`.
+  operation (also for the blocklist), whatever the settings.
+* `registry_require_signature = true` under `[security]` (the default):
+  once the binary declares the official registry signed
+  (`plugin::updater::trust::REGISTRY_SIGNED = true`), a missing signature is
+  refused from the very first fetch. Until then (the transition, while the
+  `plugin-registry` branch is not signed yet) a missing signature is refused
+  only after the installation has verified a registry file signed with the
+  configured key (recorded in `registry_state.toml`), so stripping the
+  signatures does not downgrade a signed registry; before that it is
+  accepted with an **"unsigned" warning** (CLI report line, TUI toast).
+* `registry_require_signature = false` accepts unsigned files with the
+  warning, always.
 
-**How the registry is signed.** The `plugin-registry` branch has a **Sign
-registry** workflow (`.github/workflows/sign-registry.yml` on that branch):
-after every push that changes `index.toml`, `blocklist.toml` or a
-`manifest.toml`, it signs them with master's `.github/scripts/sign.sh` (the
-release signing script; repository secrets `MINISIGN_SECRET_KEY` and, if the
-key has one, `MINISIGN_PASSWORD`), verifies each signature against the key
-embedded in Pairee and commits the `.minisig` files that changed (with
-`GITHUB_TOKEN` and `[skip ci]`, so it does not trigger itself; signing is
-deterministic, so a rerun commits nothing). Because every push gets signed,
-the branch must only take reviewed pull requests; required reviewers on the
-`registry-signing` environment can also gate each run.
+**How the registry is signed.** `cargo xtask sign-registry <registry-dir>`
+(from a Pairee checkout) signs `index.toml` and `blocklist.toml` with
+`file:<name> serial:<N> timestamp:<now>`, where `N` is one more than the
+serial in their current `.minisig` (or `--serial N`, which must be higher),
+and every `manifest.toml` under `plugins/` with `file:<path>`. It shells
+out to `minisign`, reads the secret key like the release signing does (the
+contents of `MINISIGN_SECRET_KEY`, written to a private temporary file, or a
+key file with `--key`; its password from `MINISIGN_PASSWORD`, otherwise
+minisign asks), and checks every signature with `minisign -V` against the
+key in `src/update/signature.rs` before it finishes.
 
-By hand (same result, with the offline release secret key):
+On GitHub this runs in the **Sign registry** workflow of the
+`plugin-registry` branch. Its template lives on master at
+`.github/registry/sign-index.yml` (it is not a workflow of master). To
+install it:
 
 ```bash
-cd registry
-# index and blocklist
-minisign -S -s pairee.key -m index.toml     -t "file:index.toml"
-minisign -S -s pairee.key -m blocklist.toml -t "file:blocklist.toml"
-# every plugin manifest (its [files] table pins the plugin's files)
-find plugins -name manifest.toml | while read -r m; do
-  minisign -S -s pairee.key -m "$m" -t "file:$m"
-done
-git add -A && git commit -m "registry: sign index, blocklist and manifests"
+git switch plugin-registry
+mkdir -p .github/workflows
+git show master:.github/registry/sign-index.yml > .github/workflows/sign-index.yml
+git add .github/workflows/sign-index.yml
+git commit -m "ci: sign the registry index with a serial and a timestamp"
+git push origin plugin-registry
 ```
 
-Re-sign a manifest whenever it changes (new plugin version) and the index on
-every merge. `minisign -S` writes `<file>.minisig` next to the file; the
-default (prehashed) mode is the one Pairee accepts. `-t` sets the whole
-trusted comment; it may hold more words (`file:index.toml date:2026-10-13`),
-Pairee only requires the `file:` word to match.
+It needs the repository secrets `MINISIGN_SECRET_KEY` and, if the key has
+one, `MINISIGN_PASSWORD` (the ones `release.yml` uses). On every push that
+changes a `.toml` under `registry/`, and when started by hand, it checks out
+the branch tip and master, runs `cargo xtask sign-registry`, and commits the
+`.minisig` files with `GITHUB_TOKEN` (`[skip ci]`; pushes made with
+`GITHUB_TOKEN` never start workflows, so it does not loop). Runs are
+serialized, so serials never collide. Because every push gets signed, the
+branch must only take reviewed pull requests; required reviewers on a
+`registry-signing` environment (commented out in the template) can also gate
+each run.
+
+**Keeping the index fresh.** Clients refuse an index older than 30 days by
+default, so the index must be re-signed at least that often even when no
+plugin changes. GitHub runs `schedule` triggers only from the default
+branch, so the weekly refresh is a small workflow on **master** that starts
+the one on `plugin-registry`:
+
+```yaml
+# .github/workflows/refresh-registry.yml (on master)
+name: Refresh registry signature
+on:
+  schedule:
+    - cron: '17 4 * * 1'   # every Monday
+  workflow_dispatch:
+permissions:
+  actions: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh workflow run sign-index.yml --ref plugin-registry -R "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+```
+
+(`workflow_dispatch` events are allowed from `GITHUB_TOKEN`.)
+
+By hand, with the offline release secret key:
+
+```bash
+cargo xtask sign-registry /path/to/plugin-registry/registry --key ~/pairee.key
+cd /path/to/plugin-registry
+git add -A -- 'registry/*.minisig'
+git commit -m "registry: sign index, blocklist and manifests"
+```
+
+`minisign -S` writes `<file>.minisig` next to the file; the default
+(prehashed) mode is the one Pairee accepts. Signing the index by hand with
+plain `minisign` must keep the trusted comment format above, with a serial
+higher than the published one.
+
+**Turning on strict mode** (once, after the first signed index is
+published): set `REGISTRY_SIGNED` to `true` in `src/plugin/updater/trust.rs`
+and release. From that release on, `registry_require_signature = true`
+refuses unsigned registry files on every installation, including fresh ones.
 
 ---
 

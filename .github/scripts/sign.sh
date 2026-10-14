@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Signs files with the Pairee release key (minisign) and checks each
 # signature against the public key embedded in the updater. Used by
-# release.yml for the release assets and by the plugin-registry branch's
-# sign-registry.yml for the registry files.
+# release.yml for the release assets. The plugin registry is signed by
+# `cargo xtask sign-registry` instead (its index needs a serial and a
+# timestamp; template: .github/registry/sign-index.yml).
 #
 #   sign.sh [file...]    files to sign, relative to SIGN_DIR; none: every
 #                        file directly in SIGN_DIR except .sha256 / .minisig

@@ -16,23 +16,26 @@ pub const RELEASE_PUBLIC_KEY: &str = "RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d
 
 /// Verify `data` against the `.minisig` text using the embedded release key.
 pub fn verify_release_asset(data: &[u8], minisig_text: &str, asset_name: &str) -> Result<()> {
-    verify_with_key(RELEASE_PUBLIC_KEY, data, minisig_text, asset_name)
+    verify_with_key(RELEASE_PUBLIC_KEY, data, minisig_text, asset_name).map(drop)
 }
 
 /// Verify `data` against the `.minisig` text with `public_key_b64`; the
-/// trusted comment must contain `file:<asset_name>`. Shared with the plugin
-/// registry, which signs its index and manifests the same way.
+/// trusted comment must contain `file:<asset_name>`. Returns that trusted
+/// comment (authenticated by the global signature) so the caller can read
+/// its other words with [`comment_field`]: the plugin registry, which signs
+/// its files the same way, takes the `serial:` and `timestamp:` of its
+/// index from it.
 pub fn verify_with_key(
     public_key_b64: &str,
     data: &[u8],
     minisig_text: &str,
     asset_name: &str,
-) -> Result<()> {
+) -> Result<String> {
     let pk = PublicKey::from_base64(public_key_b64).context("invalid embedded public key")?;
     let sig = Signature::decode(minisig_text).context("malformed minisign signature")?;
     // Legacy (non-prehashed) signatures are refused.
     pk.verify(data, &sig, false)
-        .context("minisign signature does not match the release key")?;
+        .context("minisign signature does not match the pinned key")?;
     let expected = format!("file:{asset_name}");
     if !sig
         .trusted_comment()
@@ -44,7 +47,14 @@ pub fn verify_with_key(
             sig.trusted_comment()
         );
     }
-    Ok(())
+    Ok(sig.trusted_comment().to_string())
+}
+
+/// The value of the `<name>:<value>` word of a trusted comment, if any.
+pub fn comment_field<'a>(trusted_comment: &'a str, name: &str) -> Option<&'a str> {
+    trusted_comment
+        .split_whitespace()
+        .find_map(|word| word.strip_prefix(name)?.strip_prefix(':'))
 }
 
 #[cfg(test)]
@@ -62,7 +72,11 @@ trusted comment: timestamp:1700000000\tfile:payload.tar.gz\thashed
 
     #[test]
     fn valid_signature_verifies() {
-        verify_with_key(TEST_PK, PAYLOAD, SIG, "payload.tar.gz").unwrap();
+        let comment = verify_with_key(TEST_PK, PAYLOAD, SIG, "payload.tar.gz").unwrap();
+        assert_eq!(comment_field(&comment, "timestamp"), Some("1700000000"));
+        assert_eq!(comment_field(&comment, "file"), Some("payload.tar.gz"));
+        assert_eq!(comment_field(&comment, "serial"), None);
+        assert_eq!(comment_field("filex:a", "file"), None);
     }
 
     #[test]

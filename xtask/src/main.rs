@@ -7,6 +7,7 @@ mod changelog;
 mod cmd;
 mod dev;
 mod lint;
+mod registry;
 mod release;
 // The release asset name table, shared with the updater.
 #[path = "../../src/update/assets.rs"]
@@ -43,6 +44,10 @@ Commands:
   winget-manifests <vX.Y.Z> <dist-dir> <out-dir>
       WinGet manifests of a release: the versioned folder under manifests/
       with the installer URLs and the SHA-256 from <dist-dir>/*.exe.sha256.
+  sign-registry <registry-dir> [--key <file>] [--serial N] [--public-key <key>]
+      Sign the plugin registry with minisign: index.toml and blocklist.toml
+      with a serial and a timestamp (anti-rollback), every manifest.toml by
+      path. Secret key from --key or MINISIGN_SECRET_KEY, like the release.
 ";
 
 fn main() -> ExitCode {
@@ -64,6 +69,7 @@ fn main() -> ExitCode {
         Some("dev") => dev::run(rest),
         Some("asset-names") => assets::print(rest),
         Some("winget-manifests") => release::winget_manifests(rest),
+        Some("sign-registry") => registry::run(rest),
         Some("help" | "-h" | "--help") | None => {
             print!("{USAGE}");
             Ok(())
