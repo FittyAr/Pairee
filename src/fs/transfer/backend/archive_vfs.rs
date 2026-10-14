@@ -7,7 +7,7 @@
 
 use super::super::conflict_resolver::{ConflictAction, ConflictResolver};
 use super::super::conflict_slot::ConflictSlot;
-use super::super::job::{TransferJob, TransferOperation, TransferResults};
+use super::super::job::{DestinationKind, TransferJob, TransferOperation, TransferResults};
 use super::super::options::TransferOptions;
 use super::ops_jobs::archive::run_archive_blocking;
 use crate::config::localization::t;
@@ -141,11 +141,17 @@ pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
 /// target stands for its parent.
 fn target_folder(job: &TransferJob) -> PathBuf {
     let dest = &job.destination;
+    if job.destination_kind == DestinationKind::Folder {
+        return dest.clone();
+    }
     let same_name = matches!(job.sources.as_slice(), [single]
         if dest.file_name().is_some() && dest.file_name() == single.file_name());
     match dest.parent() {
         Some(parent)
-            if same_name && !is_destination_parent_dir(&job.sources, dest, |p| p.is_dir()) =>
+            if same_name
+                && !is_destination_parent_dir(&job.sources, dest, job.destination_kind, |p| {
+                    p.is_dir()
+                }) =>
         {
             parent.to_path_buf()
         }

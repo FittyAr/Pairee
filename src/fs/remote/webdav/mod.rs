@@ -6,7 +6,9 @@ mod propfind;
 
 use super::http::{self, Upload};
 use super::tls::{self, Handshake, TlsTrust};
-use super::{REMOTE, Remote, credentials, file_name, invalid, not_found, remote_path};
+use super::{
+    REMOTE, Remote, credentials, file_name, invalid, not_found, percent_decoded, remote_path,
+};
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name};
 use propfind::DavItem;
 use reqwest::Method;
@@ -120,14 +122,7 @@ impl WebDavVfs {
 
     /// The adapter path of a `href` the server sent.
     fn path_of(&self, href: &str) -> PathBuf {
-        let decoded = percent_encoding::percent_decode_str(href).decode_utf8_lossy();
-        // Absolute URLs are allowed in `href` too.
-        let path = Url::parse(&decoded)
-            .map(|u| u.path().to_string())
-            .unwrap_or_else(|_| decoded.into_owned());
-        let base = percent_encoding::percent_decode_str(self.base.path()).decode_utf8_lossy();
-        let inner = path.strip_prefix(base.as_ref()).unwrap_or(&path);
-        PathBuf::from(remote_path(Path::new(inner)))
+        PathBuf::from(href_path(self.base.path(), href))
     }
 
     fn entry(&self, item: DavItem) -> VfsEntry {
@@ -154,6 +149,28 @@ impl WebDavVfs {
             .header("Overwrite", if overwrite { "T" } else { "F" });
         http::send(request, "MOVE").map(drop)
     }
+}
+
+/// The adapter path of `href` below the server path `base`: an absolute
+/// URL or a path, parsed first and percent-decoded after (decoding first
+/// would let an encoded `?` or `#` in a name cut it short, and the URL
+/// parser would re-encode the rest). Paths outside `base` are kept whole.
+fn href_path(base: &str, href: &str) -> String {
+    let raw = Url::parse(href)
+        .map(|u| u.path().to_string())
+        .unwrap_or_else(|_| {
+            href.split(['?', '#'])
+                .next()
+                .unwrap_or_default()
+                .to_string()
+        });
+    let path = percent_decoded(&raw);
+    let base = percent_decoded(base);
+    // Component-wise: `/dav` is not a prefix of `/davfoo/x`.
+    let inner = Path::new(&path)
+        .strip_prefix(Path::new(&base))
+        .unwrap_or(Path::new(&path));
+    remote_path(inner)
 }
 
 impl Vfs for WebDavVfs {
@@ -233,5 +250,32 @@ impl Vfs for WebDavVfs {
 
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
         self.move_to(from, to, false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::href_path;
+
+    #[test]
+    fn hrefs_are_decoded_after_parsing() {
+        assert_eq!(
+            href_path("/dav", "/dav/My%20Docs/a%25b.txt"),
+            "/My Docs/a%b.txt"
+        );
+        assert_eq!(
+            href_path("/dav", "https://h:8080/dav/%C3%A9l/ni%C3%B1o.txt"),
+            "/él/niño.txt"
+        );
+        // An encoded `?` belongs to the name, not to a query.
+        assert_eq!(href_path("", "/q%3Fx/f"), "/q?x/f");
+    }
+
+    #[test]
+    fn the_base_is_stripped_by_whole_components() {
+        assert_eq!(href_path("/dav", "/dav/x"), "/x");
+        assert_eq!(href_path("/dav", "/davfoo/x"), "/davfoo/x");
+        assert_eq!(href_path("/dav", "/dav"), "/");
+        assert_eq!(href_path("/My Docs", "/My%20Docs/f"), "/f");
     }
 }

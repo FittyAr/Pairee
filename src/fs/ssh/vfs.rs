@@ -25,19 +25,42 @@ fn io_err(e: ssh2::Error) -> io::Error {
     io::Error::new(kind, e)
 }
 
-/// A remote file whose `flush` also asks the server to sync it (where the
-/// server supports the `fsync` extension).
-struct SyncOnFlush(ssh2::File);
+/// A remote file whose `flush` completes it: the data is flushed, synced
+/// where the server has the `fsync` extension, and the handle closed, with
+/// every error returned (a failed close is a failed upload, as a dropped
+/// handle would hide it). Nothing can be written afterwards.
+struct SyncOnFlush(Option<ssh2::File>);
+
+/// The result of the optional `fsync` request: a server that answers with an
+/// SFTP status (no such extension, `SSH_FX_OP_UNSUPPORTED` or a plain
+/// failure) is skipped; a broken session is an error.
+fn sync_result(result: Result<(), ssh2::Error>) -> io::Result<()> {
+    match result {
+        Err(e) if matches!(e.code(), ssh2::ErrorCode::SFTP(_)) => Ok(()),
+        other => other.map_err(io_err),
+    }
+}
+
+impl SyncOnFlush {
+    fn open(&mut self) -> io::Result<&mut ssh2::File> {
+        self.0
+            .as_mut()
+            .ok_or_else(|| io::Error::other("upload already finished"))
+    }
+}
 
 impl Write for SyncOnFlush {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
+        self.open()?.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()?;
-        let _ = self.0.fsync();
-        Ok(())
+        let Some(mut file) = self.0.take() else {
+            return Ok(());
+        };
+        file.flush()?;
+        sync_result(file.fsync())?;
+        file.close().map_err(io_err)
     }
 }
 
@@ -103,7 +126,7 @@ impl Vfs for SharedSshClient {
 
     fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
         let file = self.lock().sftp.create(path).map_err(io_err)?;
-        Ok(Box::new(SyncOnFlush(file)))
+        Ok(Box::new(SyncOnFlush(Some(file))))
     }
 
     /// Opened for writing without truncation, positioned after the last
@@ -117,7 +140,7 @@ impl Vfs for SharedSshClient {
             .open_mode(path, ssh2::OpenFlags::WRITE, 0o644, ssh2::OpenType::File)
             .map_err(io_err)?;
         file.seek(SeekFrom::Start(size))?;
-        Ok(Box::new(SyncOnFlush(file)))
+        Ok(Box::new(SyncOnFlush(Some(file))))
     }
 
     /// SFTP v3 servers (OpenSSH) refuse to rename over an existing file.

@@ -57,6 +57,10 @@ pub fn rewrite_zip(archive: &Path, edit: &ArchiveEdit, on_added: &mut OnAdded) -
     replace_archive(archive, |tmp| {
         let mut old = ZipArchive::new(fs::File::open(archive)?)?;
         let mut out = zip::ZipWriter::new(tmp);
+        // The archive's own comment survives the rewrite.
+        if !old.comment().is_empty() {
+            out.set_raw_comment(old.comment().into())?;
+        }
         let dropper = edit.dropper();
         for i in 0..old.len() {
             let file = old.by_index_raw(i)?;

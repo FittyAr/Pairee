@@ -20,15 +20,24 @@ fn private_script(name: &str, body: &str) -> Result<(tempfile::TempDir, PathBuf)
 }
 
 /// One entry of the helper's output: `name|size|<kind>|<time>` with
-/// `fields` fields after the name (a name may itself hold `|`).
-fn split_line(line: &str, fields: usize) -> Option<(&str, Vec<&str>)> {
-    let mut parts: Vec<&str> = line.rsplitn(fields + 1, '|').collect();
+/// `fields` fields after the name (a name may itself hold `|`). Bytes, not
+/// text: a Unix name need not be UTF-8.
+fn split_line(line: &[u8], fields: usize) -> Option<(&[u8], Vec<&[u8]>)> {
+    let mut parts: Vec<&[u8]> = line.rsplitn(fields + 1, |&b| b == b'|').collect();
     if parts.len() != fields + 1 {
         return None;
     }
     let name = parts.pop()?;
     parts.reverse();
     Some((name, parts))
+}
+
+/// A numeric field of the helper's output (`default` when unreadable).
+fn number<T: std::str::FromStr + Default>(field: &[u8]) -> T {
+    std::str::from_utf8(field)
+        .ok()
+        .and_then(|text| text.trim().parse().ok())
+        .unwrap_or_default()
 }
 
 #[cfg(target_os = "windows")]
@@ -79,12 +88,13 @@ try {
     let content = std::fs::read_to_string(&temp_file)?;
     let mut entries = Vec::new();
     for line in content.lines() {
-        let Some((name, fields)) = split_line(line, 3) else {
+        let Some((name, fields)) = split_line(line.as_bytes(), 3) else {
             continue;
         };
-        let size: u64 = fields[0].parse().unwrap_or(0);
-        let mode = fields[1];
-        let ticks: i64 = fields[2].parse().unwrap_or(0);
+        let name = String::from_utf8_lossy(name);
+        let size: u64 = number(fields[0]);
+        let mode = String::from_utf8_lossy(fields[1]);
+        let ticks: i64 = number(fields[2]);
         // .NET ticks (100 ns since 0001-01-01) to Unix time.
         let unix_ticks = ticks - 621_355_968_000_000_000i64;
         let modified = (ticks > 0 && unix_ticks > 0).then(|| {
@@ -92,7 +102,7 @@ try {
         });
         entries.push(FileEntry {
             name: name.to_string(),
-            path: path.join(name),
+            path: path.join(&*name),
             size,
             is_dir: mode.contains('d') || mode.contains('D'),
             is_symlink: mode.contains('l') || mode.contains('L'),
@@ -105,45 +115,63 @@ try {
 
 #[cfg(not(target_os = "windows"))]
 pub(super) fn read_directory_as_admin(path: &Path) -> Result<Vec<FileEntry>> {
-    use std::process::Command;
+    use std::os::unix::ffi::OsStrExt;
 
-    // Static script: the folder arrives as `sys.argv[1]` and is never
-    // parsed as Python source.
+    // Static script: the folder and the output file arrive as `sys.argv`
+    // and are never parsed as Python source. Names go out as the raw bytes
+    // the filesystem has (`print` would die on a name that is not UTF-8);
+    // a name with a line break cannot be told apart in the output and is
+    // left out.
     let script_body = r#"import os, sys
-path = sys.argv[1]
-for e in os.scandir(path):
-    try:
-        st = e.stat(follow_symlinks=False)
-    except OSError:
-        continue
-    is_dir = 1 if e.is_dir(follow_symlinks=False) else 0
-    is_sym = 1 if e.is_symlink() else 0
-    print(f"{e.name}|{st.st_size}|{is_dir}|{is_sym}|{int(st.st_mtime)}")
+path, out = sys.argv[1], sys.argv[2]
+fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+with os.fdopen(fd, "wb") as f:
+    for e in os.scandir(path):
+        name = os.fsencode(e.name)
+        if b"\n" in name or b"\r" in name:
+            continue
+        try:
+            st = e.stat(follow_symlinks=False)
+        except OSError:
+            continue
+        is_dir = 1 if e.is_dir(follow_symlinks=False) else 0
+        is_sym = 1 if e.is_symlink() else 0
+        f.write(name + b"|%d|%d|%d|%d\n" % (st.st_size, is_dir, is_sym, int(st.st_mtime)))
 "#;
-    let (_private, script) = private_script("ListDirectory.py", script_body)?;
+    let (private, script) = private_script("ListDirectory.py", script_body)?;
+    let listing = private.path().join("listing.txt");
 
-    let output = Command::new("sudo")
-        .arg("python3")
-        .arg("-B")
-        .arg(&script)
-        .arg(path)
-        .output()?;
-    if !output.status.success() {
+    // On the user's terminal, TUI suspended: `sudo` asks for its password
+    // there (captured pipes and a null stdin leave it nowhere to ask, and a
+    // prompt under the running TUI would eat the keys). The listing comes
+    // back through a file, as on Windows.
+    let status = crate::fs::privileges::run_sudo(
+        "Requesting administrator privileges to list the folder...",
+        &[
+            std::ffi::OsStr::new("python3"),
+            std::ffi::OsStr::new("-B"),
+            script.as_os_str(),
+            path.as_os_str(),
+            listing.as_os_str(),
+        ],
+    )?;
+    if !(status.success() && listing.exists()) {
         anyhow::bail!("Failed to read directory as admin via sudo")
     }
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = std::fs::read(&listing)?;
     let mut entries = Vec::new();
-    for line in stdout.lines() {
+    for line in stdout.split(|&b| b == b'\n') {
         let Some((name, fields)) = split_line(line, 4) else {
             continue;
         };
-        let mtime: u64 = fields[3].parse().unwrap_or(0);
+        let mtime: u64 = number(fields[3]);
+        let os_name = std::ffi::OsStr::from_bytes(name);
         entries.push(FileEntry {
-            name: name.to_string(),
-            path: path.join(name),
-            size: fields[0].parse().unwrap_or(0),
-            is_dir: fields[1] == "1",
-            is_symlink: fields[2] == "1",
+            name: os_name.to_string_lossy().into_owned(),
+            path: path.join(os_name),
+            size: number(fields[0]),
+            is_dir: fields[1] == b"1",
+            is_symlink: fields[2] == b"1",
             modified: (mtime > 0).then(|| SystemTime::UNIX_EPOCH + Duration::from_secs(mtime)),
             ..Default::default()
         });
@@ -157,10 +185,19 @@ mod tests {
 
     #[test]
     fn names_may_hold_the_separator() {
-        let (name, fields) = split_line("a|b.txt|12|0|0|99", 4).unwrap();
-        assert_eq!(name, "a|b.txt");
-        assert_eq!(fields, ["12", "0", "0", "99"]);
-        assert!(split_line("short|1", 4).is_none());
+        let (name, fields) = split_line(b"a|b.txt|12|0|0|99", 4).unwrap();
+        assert_eq!(name, b"a|b.txt");
+        assert_eq!(fields, [&b"12"[..], b"0", b"0", b"99"]);
+        assert!(split_line(b"short|1", 4).is_none());
+    }
+
+    /// A name that is not UTF-8 survives the split, byte for byte.
+    #[test]
+    fn names_may_be_arbitrary_bytes() {
+        let (name, fields) = split_line(b"caf\xe9|3|0|0|7", 4).unwrap();
+        assert_eq!(name, b"caf\xe9");
+        assert_eq!(number::<u64>(fields[0]), 3);
+        assert_eq!(number::<u64>(b"x"), 0);
     }
 
     #[test]

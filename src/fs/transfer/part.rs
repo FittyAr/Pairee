@@ -3,6 +3,7 @@
 //! cancelled or failed copy never leaves a truncated file behind and never
 //! loses the file it was replacing.
 
+use std::ffi::{OsStr, OsString};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -10,10 +11,33 @@ use std::path::{Path, PathBuf};
 pub const PART_SUFFIX: &str = ".pairee-part";
 
 /// The temporary file `dst` is written to before it is committed.
+///
+/// A name that is already near the filesystem's limit (255 bytes) would not
+/// fit the suffix: its part file gets the start of the name, a hash of the
+/// whole name (so two long names never share a part, and a resumed copy
+/// finds its own) and the suffix.
 pub fn part_path(dst: &Path) -> PathBuf {
-    let mut name = dst.file_name().unwrap_or_default().to_os_string();
-    name.push(PART_SUFFIX);
-    dst.with_file_name(name)
+    let name = dst.file_name().unwrap_or_default();
+    let mut part = name.to_os_string();
+    part.push(PART_SUFFIX);
+    if part.len() > NAME_MAX {
+        part = shortened_part_name(name);
+    }
+    dst.with_file_name(part)
+}
+
+/// Longest file name (bytes) the filesystems Pairee runs on accept.
+const NAME_MAX: usize = 255;
+
+fn shortened_part_name(name: &OsStr) -> OsString {
+    let hash = blake3::hash(name.as_encoded_bytes()).to_hex();
+    let tag = format!(".{}{PART_SUFFIX}", &hash[..16]);
+    let text = name.to_string_lossy();
+    let mut end = (NAME_MAX - tag.len()).min(text.len());
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    OsString::from(format!("{}{tag}", &text[..end]))
 }
 
 /// Deletes a temporary file (or link) that will not be committed; a
@@ -120,6 +144,31 @@ mod tests {
     fn part_path_appends_the_suffix() {
         let dst = Path::new("dir").join("a.txt");
         assert_eq!(part_path(&dst), Path::new("dir").join("a.txt.pairee-part"));
+    }
+
+    #[test]
+    fn long_names_get_a_shortened_part_name_that_fits() {
+        let dir = Path::new("dir");
+        // Two names that only differ at their very end, made of 2-byte chars.
+        let long = |end: char| format!("{}{end}", "\u{e9}".repeat(127));
+        let (a, b) = (dir.join(long('a')), dir.join(long('b')));
+        let (pa, pb) = (part_path(&a), part_path(&b));
+        for part in [&pa, &pb] {
+            let name = part.file_name().unwrap();
+            assert!(name.len() <= 255, "{}", name.len());
+            assert!(name.to_string_lossy().ends_with(PART_SUFFIX));
+            assert_eq!(part.parent(), Some(dir));
+        }
+        assert_ne!(pa, pb);
+        assert_eq!(pa, part_path(&a));
+        // A name with room for the suffix keeps the plain form.
+        let fits = dir.join("x".repeat(243));
+        assert_eq!(part_path(&fits).file_name().unwrap().len(), 255);
+        assert!(
+            part_path(&fits)
+                .to_string_lossy()
+                .ends_with("x.pairee-part")
+        );
     }
 
     #[test]

@@ -1,17 +1,24 @@
 use crate::config::localization::t;
 use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::events::TransferEvent;
+use crate::fs::transfer::job::DestinationKind;
 use std::path::{Path, PathBuf};
 
 /// Determines if `destination` should be treated as a parent directory into which
 /// source items are placed (appending source item filenames), or if `destination` is
 /// the target path for a single source item itself.
+///
+/// A `kind` of [`DestinationKind::Folder`] settles it: the path is the parent
+/// even when it has the name of the single source. Otherwise an existing
+/// folder named like the source is its target (the dialog pre-fills
+/// `<folder>/<name>`), so copying onto it merges.
 pub fn is_destination_parent_dir(
     sources: &[PathBuf],
     destination: &std::path::Path,
+    kind: DestinationKind,
     is_dir_fn: impl FnOnce(&std::path::Path) -> bool,
 ) -> bool {
-    if sources.len() > 1 {
+    if kind == DestinationKind::Folder || sources.len() > 1 {
         return true;
     }
     let s = destination.to_string_lossy();
@@ -89,23 +96,47 @@ mod tests {
     fn test_is_destination_parent_dir_single_file_target_path() {
         let sources = vec![PathBuf::from("/home/user/reporte.md")];
         let destination = PathBuf::from("/home/user/docs/reporte.md");
-        assert!(!is_destination_parent_dir(&sources, &destination, |_| {
-            false
-        }));
+        assert!(!is_destination_parent_dir(
+            &sources,
+            &destination,
+            DestinationKind::Inferred,
+            |_| false
+        ));
     }
 
     #[test]
     fn test_is_destination_parent_dir_trailing_slash() {
         let sources = vec![PathBuf::from("/home/user/reporte.md")];
         let destination = PathBuf::from("/home/user/docs/");
-        assert!(is_destination_parent_dir(&sources, &destination, |_| false));
+        assert!(is_destination_parent_dir(
+            &sources,
+            &destination,
+            DestinationKind::Inferred,
+            |_| false
+        ));
     }
 
     #[test]
     fn test_is_destination_parent_dir_existing_folder_different_name() {
         let sources = vec![PathBuf::from("/home/user/reporte.md")];
         let destination = PathBuf::from("/home/user/docs");
-        assert!(is_destination_parent_dir(&sources, &destination, |_| true));
+        assert!(is_destination_parent_dir(
+            &sources,
+            &destination,
+            DestinationKind::Inferred,
+            |_| true
+        ));
+    }
+
+    /// The panel at `/backup/project` receives `/a/project`: told it is a
+    /// folder, the item nests; inferred, the same path is the merge target.
+    #[test]
+    fn a_folder_named_like_the_source_nests_when_it_is_the_destination_folder() {
+        let sources = vec![PathBuf::from("/a/project")];
+        let destination = PathBuf::from("/backup/project");
+        let check = |kind| is_destination_parent_dir(&sources, &destination, kind, |_| true);
+        assert!(!check(DestinationKind::Inferred));
+        assert!(check(DestinationKind::Folder));
     }
 
     #[test]
@@ -115,6 +146,11 @@ mod tests {
             PathBuf::from("/home/user/file2.md"),
         ];
         let destination = PathBuf::from("/home/user/docs/file1.md");
-        assert!(is_destination_parent_dir(&sources, &destination, |_| false));
+        assert!(is_destination_parent_dir(
+            &sources,
+            &destination,
+            DestinationKind::Inferred,
+            |_| false
+        ));
     }
 }

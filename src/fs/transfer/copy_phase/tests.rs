@@ -43,7 +43,13 @@ async fn run_with(
         options,
     );
     let ctl = JobControl::for_job(&job, tx);
-    let roots = top_targets(sources, destination, operation, endpoints.dst.as_ref());
+    let roots = top_targets(
+        sources,
+        destination,
+        operation,
+        Default::default(),
+        endpoints.dst.as_ref(),
+    );
     let request = ScanRequest {
         roots: &roots,
         operation,

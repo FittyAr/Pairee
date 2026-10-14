@@ -230,11 +230,31 @@ impl FileCopy {
         Ok((hash, size))
     }
 
+    /// The part file on an adapter holds as many bytes as the source: what
+    /// the server reports after the upload closed, not what was sent (a
+    /// server that dropped data on close must never be committed over the
+    /// destination, nor lead a move to delete the source).
+    fn ensure_part_complete(&self) -> io::Result<()> {
+        let expected = self.fs.src.metadata(&self.src)?.size;
+        let stored = self.fs.dst.stat(&self.part)?.size;
+        if stored == expected {
+            return Ok(());
+        }
+        Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            crate::config::localization::t_fill(
+                "transfer_part_size_mismatch",
+                &[&stored.to_string(), &expected.to_string()],
+            ),
+        ))
+    }
+
     /// Moves the part file over the destination.
     fn commit(&self) -> io::Result<Replaced> {
         if self.fs.local {
             return commit(&self.part, &self.dst, self.options.trash_replaced);
         }
+        self.ensure_part_complete()?;
         // WebDAV's MOVE with overwrite deletes a folder at the target with
         // everything in it: a folder is never replaced, as locally.
         let replaced = match self.fs.dst.stat(&self.dst) {

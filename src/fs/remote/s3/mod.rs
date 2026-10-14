@@ -178,7 +178,7 @@ impl S3Vfs {
         let credentials = super::credentials(url)
             .map(|(key, secret)| Credentials::new(key, secret))
             .or_else(Credentials::from_env);
-        let prefix = url.path().trim_matches('/').to_string();
+        let prefix = super::url_path(url).trim_matches('/').to_string();
         let store = Store {
             client: crate::update::http::builder()
                 .connect_timeout(CONNECT_TIMEOUT)
@@ -234,6 +234,23 @@ impl S3Vfs {
             }
         })?;
         Ok(entries)
+    }
+
+    /// Copy and delete: one object, or every key below a folder; whatever is
+    /// at `to` is overwritten.
+    fn move_keys(&self, from: &Path, to: &Path) -> io::Result<()> {
+        if !self.stat(from)?.is_dir {
+            let (src, dst) = (self.store.key(from, false), self.store.key(to, false));
+            self.store.copy(&src, &dst)?;
+            return self.store.delete(&src);
+        }
+        let (src, dst) = (self.store.key(from, true), self.store.key(to, true));
+        for key in self.keys_below(from)? {
+            let moved = format!("{dst}{}", &key[src.len()..]);
+            self.store.copy(&key, &moved)?;
+            self.store.delete(&key)?;
+        }
+        Ok(())
     }
 
     /// Every key below the folder `dir` (markers included).
@@ -315,7 +332,7 @@ impl Vfs for S3Vfs {
     }
 
     fn replace(&self, from: &Path, to: &Path) -> io::Result<()> {
-        self.rename(from, to)
+        self.move_keys(from, to)
     }
 
     /// A zero-byte `name/` marker.
@@ -342,19 +359,15 @@ impl Vfs for S3Vfs {
         self.store.delete(&self.store.key(path, true))
     }
 
-    /// Copy and delete: one object, or every key below a folder.
+    /// Copy and delete, refused when something is at `to` (a copy would
+    /// silently overwrite it; [`Vfs::replace`] is the overwriting move).
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
-        if !self.stat(from)?.is_dir {
-            let (src, dst) = (self.store.key(from, false), self.store.key(to, false));
-            self.store.copy(&src, &dst)?;
-            return self.store.delete(&src);
+        if self.stat(to).is_ok() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                to.to_string_lossy().into_owned(),
+            ));
         }
-        let (src, dst) = (self.store.key(from, true), self.store.key(to, true));
-        for key in self.keys_below(from)? {
-            let moved = format!("{dst}{}", &key[src.len()..]);
-            self.store.copy(&key, &moved)?;
-            self.store.delete(&key)?;
-        }
-        Ok(())
+        self.move_keys(from, to)
     }
 }

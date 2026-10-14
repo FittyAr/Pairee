@@ -92,9 +92,21 @@ pub fn send(request: reqwest::RequestBuilder, what: &str) -> io::Result<reqwest:
     })
 }
 
-/// The body of `response` as text.
+/// Most bytes of an XML reply (a `PROPFIND` or a key listing) read into
+/// memory: a hostile or broken server cannot make the panel buffer more.
+const MAX_TEXT: usize = 64 * 1024 * 1024;
+
+/// The body of `response` as text (UTF-8, lossy), refused beyond
+/// [`MAX_TEXT`] bytes.
 pub fn text(response: reqwest::Response) -> io::Result<String> {
-    block_on(async move { response.text().await.map_err(io_error) })
+    text_limited(response, MAX_TEXT)
+}
+
+fn text_limited(response: reqwest::Response, max: usize) -> io::Result<String> {
+    let bytes =
+        block_on(async move { crate::update::http::read_limited(response, max, |_, _| {}).await })
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// The body of a `GET` sent with `Range: bytes=<offset>-`, from `offset`:
@@ -260,6 +272,26 @@ impl Drop for Upload {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A reply larger than the limit is refused, not buffered.
+    #[test]
+    fn oversized_text_is_refused() {
+        use std::io::Write as _;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 1024];
+            let _ = io::Read::read(&mut stream, &mut buf);
+            let body = vec![b'x'; 100];
+            let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n");
+            let _ = stream.write_all(&body);
+        });
+        let client = crate::update::http::builder().build().unwrap();
+        let url = format!("http://127.0.0.1:{port}/");
+        let response = block_on(async move { client.get(url).send().await }).unwrap();
+        assert!(text_limited(response, 10).is_err());
+    }
 
     /// A failed request never shows its (signed) URL.
     #[test]

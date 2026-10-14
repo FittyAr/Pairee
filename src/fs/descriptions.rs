@@ -1,6 +1,7 @@
 use crate::config::write_atomic;
 use crate::fs::error::LocalizedResult;
 use anyhow::Result;
+use std::borrow::Cow;
 use std::path::Path;
 
 /// Filename used for per-directory file descriptions (Norton Commander style).
@@ -64,11 +65,18 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
     // A file that cannot be read is left alone (rewriting it from nothing
     // would lose every other description); lines of other files are kept
     // byte for byte, whatever their encoding.
-    let mut lines: Vec<Vec<u8>> = read_lines(&desc_path)
-        .localized("fs_error_read_file", &desc_path)?
+    let existing = read_lines(&desc_path).localized("fs_error_read_file", &desc_path)?;
+    let before = existing.len();
+    let mut lines: Vec<Vec<u8>> = existing
         .into_iter()
         .filter(|line| !describes(line, filename))
         .collect();
+    let removed = before != lines.len();
+
+    if description.trim().is_empty() && !removed {
+        // Nothing to drop: the file stays as it is (line endings, times).
+        return Ok(());
+    }
 
     if !description.trim().is_empty() {
         // Quote the entry name. The Norton Commander / Far Manager
@@ -110,10 +118,10 @@ pub fn forget_description(path: &Path) {
 }
 
 /// Parses a single `descript.ion` line into `(filename, description)`.
-/// Handles both quoted and unquoted filenames, including the standard
-/// `""` escape sequence used to embed a literal `"` inside a quoted
-/// filename.
-pub(crate) fn parse_description_line(line: &str) -> Option<(&str, &str)> {
+/// Handles both quoted and unquoted filenames; in a quoted one `""` stands
+/// for a literal `"`, and the returned name is the unescaped one (borrowed
+/// unless it had an escape to collapse).
+pub(crate) fn parse_description_line(line: &str) -> Option<(Cow<'_, str>, &str)> {
     let line = line.trim();
     if line.is_empty() {
         return None;
@@ -141,24 +149,20 @@ pub(crate) fn parse_description_line(line: &str) -> Option<(&str, &str)> {
         if name_end == 0 {
             return None;
         }
-        // Collapse `""` into a single `"` for the parsed name. The
-        // returned `&str` is a borrow of `line`; the caller treats the
-        // value as opaque so the doubled form is fine semantically and
-        // we keep the round-trip lossless for the file system layer.
-        let name_with_escapes = &line[1..name_end];
+        let name = &line[1..name_end];
         let desc = line[name_end + 1..].trim_start();
-        // Note: we intentionally return the raw quoted form (with `""`)
-        // because the match in `read_description` does an ASCII-case
-        // insensitive comparison; users that store a file whose name
-        // contains a quote are exceedingly rare, and matching the
-        // unescaped form would require an owned String allocation here.
-        Some((name_with_escapes, desc))
+        let name = if name.contains("\"\"") {
+            Cow::Owned(name.replace("\"\"", "\""))
+        } else {
+            Cow::Borrowed(name)
+        };
+        Some((name, desc))
     } else {
         // Unquoted: first whitespace-delimited token is the filename
         let mut parts = line.splitn(2, |c: char| c.is_whitespace());
         let name = parts.next()?;
         let desc = parts.next().unwrap_or("").trim();
-        Some((name, desc))
+        Some((Cow::Borrowed(name), desc))
     }
 }
 
@@ -249,5 +253,49 @@ mod tests {
             raw.contains("\"evil\"\"name .txt\" hi"),
             "expected doubled-quote escape, got: {raw:?}"
         );
+    }
+
+    /// A name with a quote is stored escaped and found by its real name.
+    #[test]
+    fn names_with_quotes_round_trip() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_description(dir.path(), "say \"hi\".txt", "greeting").unwrap();
+        assert_eq!(
+            read_description(dir.path(), "say \"hi\".txt"),
+            Some("greeting".to_string())
+        );
+        assert_eq!(read_description(dir.path(), "say hi.txt"), None);
+        write_description(dir.path(), "say \"hi\".txt", "").unwrap();
+        assert_eq!(read_description(dir.path(), "say \"hi\".txt"), None);
+    }
+
+    #[test]
+    fn parsing_unescapes_doubled_quotes() {
+        let (name, desc) = parse_description_line("\"a\"\"b c\" d").unwrap();
+        assert_eq!(name, "a\"b c");
+        assert_eq!(desc, "d");
+    }
+
+    /// Forgetting an entry that has no description leaves the file alone:
+    /// bytes (CRLF included) and modification time.
+    #[test]
+    fn forgetting_an_undescribed_entry_does_not_rewrite_the_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join(DESCRIPTIONS_FILE);
+        std::fs::write(&path, b"a.txt first\r\nb.txt second\r\n").unwrap();
+        let before = std::fs::metadata(&path).unwrap().modified().unwrap();
+        forget_description(&dir.path().join("other.txt"));
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            b"a.txt first\r\nb.txt second\r\n"
+        );
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().modified().unwrap(),
+            before
+        );
+        // No file at all: none is created.
+        let empty = tempfile::tempdir().expect("tempdir");
+        forget_description(&empty.path().join("x.txt"));
+        assert!(!empty.path().join(DESCRIPTIONS_FILE).exists());
     }
 }

@@ -256,3 +256,24 @@ fn a_failed_stream_keeps_the_archive_and_leaves_no_temporary_file() {
     assert_eq!(std::fs::read(&archive).unwrap(), before);
     assert_eq!(staged_len(&stream.name), None);
 }
+
+/// The comment of a zip archive is kept when its entries are edited.
+#[test]
+fn zip_rewrite_keeps_the_archive_comment() {
+    let dir = tempfile::tempdir().unwrap();
+    let archive = dir.path().join("a.zip");
+    let mut out = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
+    out.set_comment("made by hand").unwrap();
+    out.start_file("a.txt", zip::write::SimpleFileOptions::default())
+        .unwrap();
+    io::Write::write_all(&mut out, b"alpha").unwrap();
+    out.finish().unwrap();
+
+    let edit = ArchiveEdit {
+        remove: vec![PathBuf::from("a.txt")],
+        add: vec![],
+    };
+    rewrite(&archive, &edit);
+    let reopened = zip::ZipArchive::new(std::fs::File::open(&archive).unwrap()).unwrap();
+    assert_eq!(reopened.comment(), b"made by hand");
+}

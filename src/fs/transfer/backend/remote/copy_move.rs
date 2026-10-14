@@ -65,6 +65,7 @@ async fn free_targets(
             &job.sources,
             &job.destination,
             job.operation,
+            job.destination_kind,
             fs.dst.as_ref(),
         );
         let free = roots.iter().all(|(_, dst)| !fs.dst.exists(dst));
@@ -85,6 +86,7 @@ async fn scan_blocking(
             &job.sources,
             &job.destination,
             job.operation,
+            job.destination_kind,
             fs.dst.as_ref(),
         );
         let request = ScanRequest {
