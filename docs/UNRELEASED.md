@@ -41,6 +41,7 @@
 - FTPS and WebDAV over HTTPS work with self-signed and private-authority certificates: Pairee shows the SHA-256 fingerprint of a certificate the system does not trust and, when you accept it, remembers it for that server; the TLS options of a connection can also name a trusted PEM file (`ca=`) or turn checks off (`insecure=true`, with a warning on every connection).
 
 ### Improved
+- The frequent-folder list leaves out (and forgets) local folders that no longer exist when it opens, not only when one is chosen.
 - The branch view is kept in the session (a restored tab shows it again) and refreshes itself when files change in any subfolder (watched natively, or polled on network folders and SFTP).
 - When a plugin copies text of several lines to the clipboard, Pairee says so ("Plugin X copied N lines to the clipboard"), so a command hidden on a later line does not get pasted unnoticed.
 - Plugins in Secure Mode can no longer use arguments of an allowed tool to run other programs (`git -c core.sshCommand=…`, `--upload-pack`, `tar --to-command`, `fd --exec`, `rg --pre`, `fzf --preview`, ...); `sed` and editors can no longer be declared.

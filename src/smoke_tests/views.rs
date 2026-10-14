@@ -98,6 +98,37 @@ fn folder_jump_list_and_z_go_to_frequent_folders() {
 }
 
 #[test]
+fn folder_jump_list_hides_folders_that_are_gone() {
+    let mut h = Harness::new();
+    h.mkdir("work/left/kept");
+    h.mkdir("work/left/doomed");
+    let start = h.left();
+    for name in ["kept", "doomed"] {
+        h.text(&format!("cd {}", start.join(name).display()))
+            .keys("Enter");
+        h.text(&format!("cd {}", start.display())).keys("Enter");
+    }
+    std::fs::remove_dir(start.join("doomed")).unwrap();
+
+    h.keys("@folder_jump");
+
+    let jump = h.state.dialogs.top_as::<FolderJump>().unwrap();
+    assert!(jump.items.contains(&start.join("kept")), "{:?}", jump.items);
+    assert!(
+        !jump.items.contains(&start.join("doomed")),
+        "{:?}",
+        jump.items
+    );
+    assert!(
+        h.state
+            .frecency
+            .ranked("doomed", crate::config::frecency::now())
+            .is_empty(),
+        "forgotten, not only hidden"
+    );
+}
+
+#[test]
 fn compare_files_shows_a_diff_or_hashes() {
     let mut h = Harness::new();
     h.write("work/left/a.txt", "one\ntwo\nthree\n");

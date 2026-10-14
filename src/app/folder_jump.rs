@@ -9,8 +9,13 @@ use crate::config::frecency::now;
 use crate::config::localization::t;
 use std::path::PathBuf;
 
-/// Opens the folder jump list.
+/// Opens the folder jump list, without the local folders that no longer
+/// exist (forgotten). Folders on network shares are kept unchecked: an
+/// unreachable server must not stall the list, and may come back.
 pub fn open(state: &mut AppState) -> bool {
+    state
+        .frecency
+        .prune(|path| !crate::fs::watch::needs_polling(path) && !path.is_dir());
     let items = matches(state, "");
     state.dialogs.replace(FolderJump {
         query: TextField::default(),
