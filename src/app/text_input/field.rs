@@ -27,19 +27,47 @@ impl FieldEdit {
 }
 
 /// A single-line text input with a cursor kept on grapheme boundaries.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default)]
 pub struct TextField {
     text: String,
     /// Byte offset, always on a grapheme boundary.
     cursor: usize,
+    /// Display columns scrolled out on the left when last drawn (kept so
+    /// the text only scrolls when the cursor leaves the view, like the
+    /// panels' `scroll_top`). Only `ui::popup::kit::FieldView` sets it.
+    view_start: std::cell::Cell<usize>,
 }
+
+/// Two fields are equal when their text and cursor are: how far one was
+/// scrolled when drawn is not part of its value.
+impl PartialEq for TextField {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text && self.cursor == other.cursor
+    }
+}
+
+impl Eq for TextField {}
 
 impl TextField {
     /// A field holding `text` with the cursor at the end.
     pub fn new(text: impl Into<String>) -> Self {
         let text = text.into();
         let cursor = text.len();
-        Self { text, cursor }
+        Self {
+            text,
+            cursor,
+            view_start: Default::default(),
+        }
+    }
+
+    /// Display columns scrolled out on the left when last drawn.
+    pub fn view_start(&self) -> usize {
+        self.view_start.get()
+    }
+
+    /// Records how far the field is scrolled as drawn.
+    pub fn set_view_start(&self, columns: usize) {
+        self.view_start.set(columns);
     }
 
     pub fn text(&self) -> &str {

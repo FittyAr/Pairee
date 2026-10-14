@@ -132,13 +132,13 @@ impl FormFocus {
         keys
     }
 
-    /// Text field on `row`, drawn at `area` with its text from `text_x`.
-    pub fn field(&self, area: Rect, row: usize, text_x: u16) {
+    /// Text field on `row`, drawn at `area` as `field` says.
+    pub fn field(&self, area: Rect, row: usize, field: super::FieldHit) {
         hit::register(
             area,
             HitTarget::PopupField {
                 keys: self.keys_to(row),
-                text_x,
+                field,
             },
         );
     }

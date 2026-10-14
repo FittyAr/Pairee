@@ -1,7 +1,7 @@
 use crate::app::state::LinkKind;
 use crate::app::state::popup::CreateLinkPrompt;
 use crate::config::localization::t;
-use crate::ui::popup::kit::{self, TextBox};
+use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{Frame, style::Color};
 
@@ -18,14 +18,13 @@ impl DialogView for CreateLinkPrompt {
             LinkKind::Hard => t("prompt_hardlink_title"),
         };
         let template = t("prompt_link_text").replacen("{}", &crate::fs::file_name_lossy(src), 1);
-        TextBox {
+        kit::PromptBox {
             size: (60, 9),
             title,
             border: kit::fg(Color::Yellow),
-            body: kit::prompt_text(&template, dest_input, theme),
-            body_style: theme.popup_fg(),
+            template: &template,
+            field: dest_input,
         }
-        .with_field(kit::field_at(&template))
         .render(f, size, theme);
     }
 }

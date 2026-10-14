@@ -162,22 +162,24 @@ fn render_fields(
         .zip(area.y + 1..area.bottom())
     {
         let row = Rect::new(area.x, y, area.width, 1);
-        f.render_widget(field_line(prompt, field, styles), row);
-        if field == ConnectionField::Kind {
-            form.option(row, field.row());
-        } else {
-            form.field(row, field.row(), row.x + LABEL_WIDTH);
+        let (line, hit) = field_line(prompt, field, styles, row);
+        f.render_widget(line, row);
+        match hit {
+            Some(hit) => form.field(row, field.row(), hit),
+            None => form.option(row, field.row()),
         }
     }
 }
 
-/// `" Label:          value"` for one row (password masked, protocol
-/// between arrows), with a cursor when focused.
+/// `" Label:          value"` for one row drawn at `row` (password
+/// masked, protocol between arrows), with a cursor when focused, and where
+/// a text value went (for clicks).
 fn field_line(
     prompt: &ConnectionPromptState,
     field: ConnectionField,
     styles: kit::FocusStyles,
-) -> Paragraph<'static> {
+    row: Rect,
+) -> (Paragraph<'static>, Option<kit::FieldHit>) {
     let focused = prompt.cursor_idx == field.row();
     let style = styles.pick(focused);
     let mut label = t(field.label_key(prompt.kind)).trim().to_string();
@@ -186,18 +188,25 @@ fn field_line(
     }
     let width = usize::from(LABEL_WIDTH - 2);
     let mut spans = vec![Span::styled(format!(" {label:<width$} "), style)];
-    match (field, prompt.text_field(field)) {
+    let room = usize::from(row.width.saturating_sub(LABEL_WIDTH));
+    let text_x = row.x + LABEL_WIDTH;
+    let hit = match (field, prompt.text_field(field)) {
         (ConnectionField::Kind, _) | (_, None) => {
             let kind = t(prompt.kind.label_key());
             spans.push(Span::styled(format!("< {kind} >"), style));
+            None
         }
         (ConnectionField::Password, Some(value)) => {
             let shown = kit::masked(value);
-            spans.extend(kit::field_spans(&shown, style, styles.cursor(), focused));
+            let view = kit::FieldView::new(&shown, room);
+            spans.extend(view.spans(style, styles.cursor(), focused));
+            Some(view.hit(text_x))
         }
         (_, Some(value)) => {
-            spans.extend(kit::field_spans(value, style, styles.cursor(), focused));
+            let view = kit::FieldView::new(value, room);
+            spans.extend(view.spans(style, styles.cursor(), focused));
+            Some(view.hit(text_x))
         }
-    }
-    Paragraph::new(Line::from(spans))
+    };
+    (Paragraph::new(Line::from(spans)), hit)
 }

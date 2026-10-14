@@ -6,7 +6,7 @@ use crate::app::context::AppContext;
 use crate::app::state::AppState;
 use crate::app::state::file_clipboard::ClipMode;
 use crate::config::localization::t;
-use crate::ui::popup::kit::field_spans_scrolled;
+use crate::ui::popup::kit::FieldView;
 use crate::ui::text_width::{display_width, skip_columns};
 use ratatui::{
     Frame,
@@ -35,12 +35,10 @@ pub fn render_cli(f: &mut Frame, area: Rect, state: &AppState, context: &AppCont
     let text_style = Style::default().fg(theme.cli_fg);
     let room = width.saturating_sub(display_width(&prompt));
     let mut spans = vec![Span::styled(prompt, Style::default().fg(theme.header_fg))];
-    spans.extend(field_spans_scrolled(
-        &state.cli.field,
+    spans.extend(FieldView::new(&state.cli.field, room).spans(
         text_style,
         text_style.add_modifier(Modifier::REVERSED),
         editing,
-        room,
     ));
     let paragraph = Paragraph::new(Line::from(spans)).style(Style::default().bg(theme.cli_bg));
     f.render_widget(paragraph, area);

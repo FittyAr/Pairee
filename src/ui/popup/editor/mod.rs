@@ -16,14 +16,13 @@ use ratatui::{Frame, widgets::Paragraph};
 impl DialogView for EditorSaveAsPrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let theme = cx.theme;
-        kit::TextBox {
+        kit::PromptBox {
             size: (60, 7),
             title: t("editor_save_as_title"),
             border: kit::fg(theme.popup_border),
-            body: kit::prompt_text(&t("editor_save_as_text"), &self.input, theme),
-            body_style: theme.popup_fg(),
+            template: &t("editor_save_as_text"),
+            field: &self.input,
         }
-        .with_field(kit::field_at(&t("editor_save_as_text")))
         .render(f, cx.area, theme);
     }
 }

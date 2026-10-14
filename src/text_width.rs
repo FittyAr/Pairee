@@ -18,7 +18,7 @@ pub fn display_width(s: &str) -> usize {
 }
 
 /// Columns of one grapheme as drawn (0 for one holding a control char).
-fn grapheme_width(g: &str) -> usize {
+pub fn grapheme_width(g: &str) -> usize {
     if g.contains(char::is_control) {
         0
     } else {

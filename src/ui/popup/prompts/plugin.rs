@@ -170,12 +170,9 @@ fn render_input(
     } else {
         input.clone()
     };
-    spans.extend(crate::ui::popup::kit::field_spans(
-        &shown,
-        style,
-        theme.selection(),
-        true,
-    ));
+    let room = usize::from(chunks[0].width.saturating_sub(3));
+    let view = crate::ui::popup::kit::FieldView::new(&shown, room);
+    spans.extend(view.spans(style, theme.selection(), true));
     f.render_widget(Paragraph::new(ratatui::text::Line::from(spans)), chunks[0]);
     f.render_widget(
         Paragraph::new(t("plugin_dialog_input_hint")).style(Style::default().fg(Color::DarkGray)),

@@ -1,6 +1,6 @@
 use crate::app::state::popup::DescribeFilePrompt;
 use crate::config::localization::t;
-use crate::ui::popup::kit::{self, TextBox};
+use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{Frame, style::Color};
 
@@ -15,14 +15,13 @@ impl DialogView for DescribeFilePrompt {
         let template = t("prompt_describe_text")
             .replacen("{}", &crate::fs::file_name_lossy(path), 1)
             .replacen("{}", current_desc, 1);
-        TextBox {
+        kit::PromptBox {
             size: (60, 10),
             title: t("prompt_description_title"),
             border: kit::fg(Color::Cyan),
-            body: kit::prompt_text(&template, input, theme),
-            body_style: theme.popup_fg(),
+            template: &template,
+            field: input,
         }
-        .with_field(kit::field_at(&template))
         .render(f, size, theme);
     }
 }

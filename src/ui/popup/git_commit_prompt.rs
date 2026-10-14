@@ -44,7 +44,10 @@ impl DialogView for GitCommitPromptState {
         );
         let cursor = theme.selection();
         f.render_widget(
-            Paragraph::new(Line::from(kit::field_spans(&state.input, fg, cursor, true))),
+            Paragraph::new(Line::from(
+                kit::FieldView::new(&state.input, usize::from(chunks[2].width))
+                    .spans(fg, cursor, true),
+            )),
             chunks[2],
         );
         f.render_widget(

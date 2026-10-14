@@ -60,11 +60,12 @@ impl DialogView for RenamePrompt {
         );
 
         let form = FormFocus::new(RENAME_FORM, *cursor_idx);
-        form.field(chunks[1], 0, chunks[1].x + 2);
+        let view = kit::FieldView::new(input, usize::from(chunks[1].width.saturating_sub(2)));
+        form.field(chunks[1], 0, view.hit(chunks[1].x + 2));
         let focused = *cursor_idx == 0;
         let style = styles.pick(focused);
         let mut field = vec![Span::styled("> ", style)];
-        field.extend(kit::field_spans(input, style, styles.cursor(), focused));
+        field.extend(view.spans(style, styles.cursor(), focused));
         f.render_widget(Paragraph::new(Line::from(field)).style(style), chunks[1]);
 
         // Live collision warning: only if the typed name actually differs from

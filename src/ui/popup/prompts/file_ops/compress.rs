@@ -1,6 +1,6 @@
 use crate::app::state::popup::CompressPrompt;
 use crate::config::localization::t;
-use crate::ui::popup::kit::{self, TextBox};
+use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{Frame, style::Color};
 
@@ -19,14 +19,13 @@ impl DialogView for CompressPrompt {
             t("prompt_copy_dest").replacen("{}", &dest_dir.to_string_lossy(), 1),
             t("prompt_confirm_cancel_hint")
         );
-        TextBox {
+        kit::PromptBox {
             size: (60, 9),
             title: t("prompt_compress_title"),
             border: kit::fg(Color::Yellow),
-            body: kit::prompt_text(&template, input, theme),
-            body_style: theme.popup_fg(),
+            template: &template,
+            field: input,
         }
-        .with_field(kit::field_at(&template))
         .render(f, size, theme);
     }
 }

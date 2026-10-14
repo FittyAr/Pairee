@@ -7,10 +7,13 @@ mod field;
 mod filter_list;
 mod list_popup;
 pub mod mouse;
+mod prompt_box;
 
-pub use field::{field_spans, field_spans_scrolled, masked, template_with_field};
+use field::template_with_field;
+pub use field::{FieldHit, FieldView, masked};
 pub use filter_list::FilterListView;
 pub use list_popup::{ListPopup, Scroll, list_area, marked};
+pub use prompt_box::PromptBox;
 
 use crate::app::text_input::TextField;
 use crate::ui::popup::centered_rect_fixed;
@@ -106,12 +109,6 @@ impl<'a> TextBox<'a> {
         self.draw(f, screen, theme, true);
     }
 
-    /// The body holds the prompt's text field at `at` (see [`field_at`]):
-    /// a click on that row puts the field's cursor under the pointer.
-    pub fn with_field(self, at: (u16, u16)) -> FieldBox<'a> {
-        FieldBox { text_box: self, at }
-    }
-
     fn draw(self, f: &mut Frame, screen: Rect, theme: &ResolvedTheme, wrap: bool) -> Rect {
         let area = centered_rect_fixed(self.size.0, self.size.1, screen);
         f.render_widget(Clear, area);
@@ -124,57 +121,6 @@ impl<'a> TextBox<'a> {
         f.render_widget(paragraph, area);
         area
     }
-}
-
-/// A [`TextBox`] whose body holds a text field (a one-field prompt).
-pub struct FieldBox<'a> {
-    pub text_box: TextBox<'a>,
-    /// Row and column of the field's first character inside the body.
-    pub at: (u16, u16),
-}
-
-impl FieldBox<'_> {
-    pub fn render(self, f: &mut Frame, screen: Rect, theme: &ResolvedTheme) {
-        let area = self.text_box.draw(f, screen, theme, false);
-        let inner = area.inner(ratatui::layout::Margin::new(1, 1));
-        let y = inner.y + self.at.0;
-        if y < inner.bottom() {
-            crate::ui::hit::register(
-                Rect::new(inner.x, y, inner.width, 1),
-                crate::ui::hit::HitTarget::PopupField {
-                    keys: Vec::new(),
-                    text_x: inner.x + self.at.1,
-                },
-            );
-        }
-    }
-}
-
-/// Where [`prompt_text`] puts the field of `template`: its line and the
-/// display column it starts at.
-pub fn field_at(template: &str) -> (u16, u16) {
-    let before = template
-        .split_once("{}")
-        .map_or(template, |(before, _)| before);
-    let line = before.matches('\n').count();
-    let head = before.rsplit('\n').next().unwrap_or_default();
-    (
-        line as u16,
-        crate::ui::text_width::display_width(head) as u16,
-    )
-}
-
-/// A one-field prompt body: `template` with its first `{}` replaced by the
-/// (always focused) `field`, in the popup foreground with a reversed cursor.
-pub fn prompt_text(template: &str, field: &TextField, theme: &ResolvedTheme) -> Text<'static> {
-    let style = theme.popup_fg();
-    template_with_field(
-        template,
-        field,
-        style,
-        style.add_modifier(Modifier::REVERSED),
-        true,
-    )
 }
 
 /// "1 item" / "N items" label: `single_key` gets the file name of the only
@@ -192,9 +138,16 @@ pub fn items_label(paths: &[std::path::PathBuf], single_key: &str, plural_key: &
     }
 }
 
-/// A [`TextField`] in its own bordered box (Git dialogs): yellow border and
-/// bold text with a cursor when focused, dim border otherwise.
-pub fn input_box(field: &TextField, focused: bool, theme: &ResolvedTheme) -> Paragraph<'static> {
+/// A [`TextField`] in its own bordered box at `area` (Git dialogs):
+/// yellow border and bold text with a cursor when focused, dim border
+/// otherwise. Returns where its text went, for clicks.
+pub fn input_box(
+    f: &mut Frame,
+    area: Rect,
+    field: &TextField,
+    focused: bool,
+    theme: &ResolvedTheme,
+) -> FieldHit {
     let (border, style) = if focused {
         (
             Color::Yellow,
@@ -205,12 +158,13 @@ pub fn input_box(field: &TextField, focused: bool, theme: &ResolvedTheme) -> Par
     } else {
         (Color::DarkGray, theme.popup_fg())
     };
-    let spans = field_spans(field, style, theme.selection(), focused);
-    Paragraph::new(Line::from(spans)).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(fg(border)),
-    )
+    let view = FieldView::new(field, usize::from(area.width.saturating_sub(2)));
+    let spans = view.spans(style, theme.selection(), focused);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(fg(border));
+    f.render_widget(Paragraph::new(Line::from(spans)).block(block), area);
+    view.hit(area.x + 1)
 }
 
 /// Style with the given foreground (borders, hints).
@@ -262,16 +216,16 @@ pub fn marked_row<'a>(text: &str, focused: bool, styles: FocusStyles) -> Paragra
 
 /// Two lines: `"► label"` and `"   > field"`, the field with a cursor when
 /// focused.
-pub fn labelled_field<'a>(
+fn labelled_field<'a>(
     label: &str,
-    field: &TextField,
+    field: &FieldView,
     focused: bool,
     styles: FocusStyles,
 ) -> Paragraph<'a> {
     let style = styles.pick(focused);
     let marker = focus_marker(focused);
-    let mut value = vec![Span::styled("   > ", style)];
-    value.extend(field_spans(field, style, styles.cursor(), focused));
+    let mut value = vec![Span::styled(LABELLED_INDENT, style)];
+    value.extend(field.spans(style, styles.cursor(), focused));
     Paragraph::new(vec![
         Line::from(format!("{marker}{label}")),
         Line::from(value),
@@ -279,17 +233,19 @@ pub fn labelled_field<'a>(
     .style(style)
 }
 
+/// What comes before the field on the second line of a [`labelled_field`].
+const LABELLED_INDENT: &str = "   > ";
+
 /// One line: `"► label value"`, the field with a cursor when focused.
-pub fn inline_field<'a>(
-    label: &str,
-    field: &TextField,
+fn inline_field<'a>(
+    prefix: String,
+    field: &FieldView,
     focused: bool,
     styles: FocusStyles,
 ) -> Paragraph<'a> {
     let style = styles.pick(focused);
-    let marker = focus_marker(focused);
-    let mut spans = vec![Span::styled(format!("{marker}{label} "), style)];
-    spans.extend(field_spans(field, style, styles.cursor(), focused));
+    let mut spans = vec![Span::styled(prefix, style)];
+    spans.extend(field.spans(style, styles.cursor(), focused));
     Paragraph::new(Line::from(spans)).style(style)
 }
 
@@ -330,8 +286,10 @@ pub fn form_labelled_field(
     styles: FocusStyles,
 ) {
     let focused = focus.focus == row;
-    f.render_widget(labelled_field(label, field, focused, styles), area);
-    focus.field(area, row, area.x + 5);
+    let indent = LABELLED_INDENT.len() as u16;
+    let view = FieldView::new(field, usize::from(area.width.saturating_sub(indent)));
+    f.render_widget(labelled_field(label, &view, focused, styles), area);
+    focus.field(area, row, view.hit(area.x + indent));
 }
 
 /// [`inline_field`] for form row `row`, drawn at `area` and clickable.
@@ -344,11 +302,11 @@ pub fn form_inline_field(
     styles: FocusStyles,
 ) {
     let focused = focus.focus == row;
-    f.render_widget(inline_field(label, field, focused, styles), area);
-    let prefix = crate::ui::text_width::display_width(focus_marker(focused))
-        + crate::ui::text_width::display_width(label)
-        + 1;
-    focus.field(area, row, area.x + prefix as u16);
+    let prefix = format!("{}{label} ", focus_marker(focused));
+    let width = crate::ui::text_width::display_width(&prefix);
+    let view = FieldView::new(field, usize::from(area.width).saturating_sub(width));
+    f.render_widget(inline_field(prefix, &view, focused, styles), area);
+    focus.field(area, row, view.hit(area.x + width as u16));
 }
 
 /// [`marked_row`] for option row `row` (checkbox, cycle), drawn at `area`;

@@ -8,14 +8,13 @@ use ratatui::{Frame, style::Color};
 impl DialogView for ApplyCommandPrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let template = t("prompt_apply_cmd_text").replacen("{}", &files_label(&self.targets), 1);
-        TextBox {
+        kit::PromptBox {
             size: (65, 10),
             title: t("prompt_apply_cmd_title"),
             border: kit::fg(Color::Yellow),
-            body: kit::prompt_text(&template, &self.input, cx.theme),
-            body_style: cx.theme.popup_fg(),
+            template: &template,
+            field: &self.input,
         }
-        .with_field(kit::field_at(&template))
         .render(f, cx.area, cx.theme);
     }
 }
@@ -31,14 +30,13 @@ impl DialogView for SelectGroupPrompt {
             t(label),
             t("prompt_confirm_cancel_hint")
         );
-        TextBox {
+        kit::PromptBox {
             size: (50, 9),
             title: t(title),
             border: kit::fg(Color::Cyan),
-            body: kit::prompt_text(&template, &self.query, cx.theme),
-            body_style: cx.theme.popup_fg(),
+            template: &template,
+            field: &self.query,
         }
-        .with_field(kit::field_at(&template))
         .render(f, cx.area, cx.theme);
     }
 }
