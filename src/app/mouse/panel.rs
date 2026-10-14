@@ -84,7 +84,7 @@ async fn row(
     if index >= state.get_active_panel().entries.len() {
         return Ok(());
     }
-    state.get_active_panel_mut().cursor_index = index;
+    state.get_active_panel_mut().put_cursor(index);
     match click.button {
         MouseButton::Left if click.is_double() && click.modifiers.is_empty() => {
             act(state, context, terminal_backend, Action::Execute).await?;
@@ -133,7 +133,7 @@ pub fn drag(state: &mut AppState, target: Option<&HitTarget>) -> bool {
         return true;
     }
     set_range(state, drag.last, index, drag.selected);
-    state.get_active_panel_mut().cursor_index = index;
+    state.get_active_panel_mut().put_cursor(index);
     state.mouse.mark_drag = Some(MarkDrag {
         last: index,
         ..drag
@@ -149,6 +149,7 @@ pub fn wheel(state: &mut AppState, side: ActivePanel, down: bool) -> bool {
     } else {
         panel.page_up(WHEEL_LINES);
     }
+    panel.extend_visual();
     true
 }
 

@@ -33,6 +33,13 @@ impl PanelState {
         }
     }
 
+    /// Moves the cursor to entry `index` (a click), extending the visual
+    /// range like a cursor key would.
+    pub fn put_cursor(&mut self, index: usize) {
+        self.cursor_index = index;
+        self.extend_visual();
+    }
+
     /// Re-applies the visual range after the cursor moved. An anchor that
     /// is no longer listed counts as the cursor's entry.
     pub fn extend_visual(&mut self) {

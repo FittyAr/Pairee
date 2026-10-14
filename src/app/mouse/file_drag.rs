@@ -96,7 +96,7 @@ pub fn follow(state: &mut AppState, at: (u16, u16), modifiers: KeyModifiers) -> 
         return false;
     };
     if drag.at.is_none() {
-        if at == drag.from {
+        if !past_threshold(drag.from, at) {
             state.mouse.file_drag = Some(drag);
             return false;
         }
@@ -110,6 +110,15 @@ pub fn follow(state: &mut AppState, at: (u16, u16), modifiers: KeyModifiers) -> 
     state.mouse.file_drag = Some(drag);
     autoscroll(state, state.mouse.now());
     true
+}
+
+/// How far the pointer must go from the pressed cell before a press turns
+/// into a drag: a column of jitter while clicking is not a drag, while a
+/// move to another row always is.
+const DRAG_THRESHOLD: (u16, u16) = (2, 1);
+
+fn past_threshold(from: (u16, u16), at: (u16, u16)) -> bool {
+    from.0.abs_diff(at.0) >= DRAG_THRESHOLD.0 || from.1.abs_diff(at.1) >= DRAG_THRESHOLD.1
 }
 
 /// Scrolls the view of the panel under the pointer by one row when the

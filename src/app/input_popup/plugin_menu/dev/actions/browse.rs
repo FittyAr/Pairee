@@ -81,8 +81,10 @@ pub fn handle_option_open_package_folder(
     dev_results: &mut String,
     active_plugin: Option<String>,
 ) {
-    if let Some(plugin_folder) = active_plugin.as_ref() {
-        let specific = packaged_plugin_dir(plugin_folder);
+    if active_plugin.is_some() {
+        // The active plugin's name is relative to the development folder
+        // (not to the current directory): resolve it like option 6 does.
+        let specific = packaged_plugin_dir(&dev_plugin_dir(context));
         let target = if let Some(specific) = specific.filter(|p| p.exists()) {
             specific
         } else {

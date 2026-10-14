@@ -26,6 +26,55 @@ fn transfer_prompt(
     }
 }
 
+/// A column of jitter while pressing is a click, not a drag.
+#[test]
+fn a_one_column_wobble_is_not_a_drag() {
+    use crossterm::event::MouseEventKind as K;
+    let mut h = panels(0);
+    let (x, y) = h.locate("alpha.txt");
+    h.mouse(K::Down(MouseButton::Left), x, y, KeyModifiers::NONE);
+    h.mouse(K::Drag(MouseButton::Left), x + 1, y, KeyModifiers::NONE);
+    assert!(
+        h.state
+            .mouse
+            .file_drag()
+            .and_then(|d| d.pointer())
+            .is_none(),
+        "still a press"
+    );
+    h.mouse(K::Drag(MouseButton::Left), x + 2, y, KeyModifiers::NONE);
+    assert!(
+        h.state
+            .mouse
+            .file_drag()
+            .and_then(|d| d.pointer())
+            .is_some(),
+        "two columns start the drag"
+    );
+    h.mouse(K::Up(MouseButton::Left), x + 2, y, KeyModifiers::NONE);
+}
+
+/// In visual mode a click moves the cursor like a cursor key: the range
+/// follows it.
+#[test]
+fn a_click_extends_the_visual_range() {
+    let mut h = panels(0);
+    h.focus("alpha.txt");
+    let select_folders = h.state.prefs.select_folders;
+    h.state.get_active_panel_mut().toggle_visual(select_folders);
+    let (x, y) = h.locate("gamma.txt");
+    h.click(x, y);
+    let mut tagged: Vec<String> = h
+        .state
+        .get_active_panel()
+        .selected_paths
+        .iter()
+        .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    tagged.sort();
+    assert_eq!(tagged, ["alpha.txt", "beta.txt", "gamma.txt"]);
+}
+
 #[test]
 fn dragging_a_file_to_the_other_panel_opens_the_copy_dialog() {
     use crate::app::state::popup::TransferPromptOp;
