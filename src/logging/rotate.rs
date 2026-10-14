@@ -49,15 +49,22 @@ impl RotatingFile {
 
     /// Moves the current file to `.1` and starts a new one. The handle is
     /// closed first, since Windows cannot rename a file this process holds.
-    /// When another process holds it the rename fails and the next attempt
-    /// comes after another `max_bytes`.
+    /// The size on disk decides, not this process's count: when another
+    /// process already rotated, this one follows its new file instead of
+    /// moving it over the `.1` that holds the older lines. When another
+    /// process holds the file the rename fails and the next attempt comes
+    /// after another `max_bytes`.
     fn rotate(&mut self) -> io::Result<()> {
         if let Some(mut file) = self.file.take() {
             let _ = file.flush();
         }
-        let _ = std::fs::rename(&self.path, rotated_path(&self.path));
-        self.file = Some(open_append(&self.path)?);
-        self.written = 0;
+        if std::fs::metadata(&self.path).is_ok_and(|m| m.len() >= self.max_bytes) {
+            let _ = std::fs::rename(&self.path, rotated_path(&self.path));
+        }
+        let file = open_append(&self.path)?;
+        let len = file.metadata().map(|m| m.len()).unwrap_or(0);
+        self.written = if len >= self.max_bytes { 0 } else { len };
+        self.file = Some(file);
         Ok(())
     }
 }
@@ -125,6 +132,24 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(rotated_path(&path)).unwrap(),
             "bbbbbbbb"
+        );
+    }
+
+    #[test]
+    fn a_writer_follows_a_rotation_made_by_another_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("app.log");
+        let mut a = RotatingFile::open(&path, 8).unwrap();
+        let mut b = RotatingFile::open(&path, 8).unwrap();
+        a.write_all(b"aaaaaaaa").unwrap();
+        b.write_all(b"bbbbbbbb").unwrap();
+        a.write_all(b"A").unwrap(); // rotates
+        b.write_all(b"B").unwrap(); // must not rotate A's new file away
+        drop((a, b));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "AB");
+        assert_eq!(
+            std::fs::read_to_string(rotated_path(&path)).unwrap(),
+            "aaaaaaaabbbbbbbb"
         );
     }
 
