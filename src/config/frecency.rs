@@ -69,6 +69,10 @@ pub struct FolderMatch {
 pub struct FrecencyStore {
     #[serde(default)]
     pub folders: Vec<FolderVisits>,
+    /// The folders as last loaded or saved: a save adds only the visits
+    /// made since, so other running instances' visits are kept.
+    #[serde(skip)]
+    saved: Vec<FolderVisits>,
 }
 
 impl FrecencyStore {
@@ -78,15 +82,55 @@ impl FrecencyStore {
     }
 
     pub fn load_from(path: &Path) -> Self {
-        super::toml_store::load_or_default(path)
+        let mut store: Self = super::toml_store::load_or_default(path);
+        store.saved = store.folders.clone();
+        store
     }
 
-    pub fn save(&self) -> Result<()> {
+    pub fn save(&mut self) -> Result<()> {
         self.save_to(&default_path())
     }
 
-    pub fn save_to(&self, path: &Path) -> Result<()> {
-        super::toml_store::save(path, self)
+    /// Writes the visits made since the last load or save on top of the
+    /// store as it is on disk now (other instances may have saved theirs).
+    pub fn save_to(&mut self, path: &Path) -> Result<()> {
+        super::shared_file::merge_save(path, |disk: Option<Self>| {
+            self.merged(disk.unwrap_or_default(), now())
+        })?;
+        self.saved = self.folders.clone();
+        Ok(())
+    }
+
+    /// Empties the saved store (the folders history is not kept).
+    pub fn forget_saved() -> Result<()> {
+        let path = default_path();
+        super::shared_file::with_lock(&path, || super::toml_store::save(&path, &Self::default()))
+    }
+
+    /// `disk` plus this instance's changes since it last loaded or saved:
+    /// rank gained per folder, latest visit, folders it forgot; then aged.
+    fn merged(&self, mut disk: Self, now: u64) -> Self {
+        let base = |path: &Path| self.saved.iter().find(|f| f.path == path);
+        let mine = |path: &Path| self.folders.iter().find(|f| f.path == path);
+        disk.folders
+            .retain(|f| base(&f.path).is_none() || mine(&f.path).is_some());
+        for folder in &self.folders {
+            let before = base(&folder.path);
+            let gained = folder.rank - before.map_or(0.0, |b| b.rank);
+            let visited = before.is_none_or(|b| folder.last_visit > b.last_visit);
+            match disk.folders.iter_mut().find(|f| f.path == folder.path) {
+                Some(on_disk) => {
+                    on_disk.rank += gained.max(0.0);
+                    on_disk.last_visit = on_disk.last_visit.max(folder.last_visit);
+                }
+                // Gone from disk (aged out, or forgotten by another
+                // instance): back only if visited here since.
+                None if visited => disk.folders.push(folder.clone()),
+                None => {}
+            }
+        }
+        disk.age(now);
+        disk
     }
 
     /// Records a visit of `path` at `now` (seconds since the epoch).

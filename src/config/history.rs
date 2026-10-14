@@ -36,9 +36,46 @@ impl HistoryStore {
         super::toml_store::load_or_default(&history_path())
     }
 
-    /// Persists the history to `<cache_dir>/history.toml`.
-    pub fn save(&self) -> Result<()> {
-        super::toml_store::save(&history_path(), self)
+    /// Saves what this instance changed since `base` (what it loaded or
+    /// last saved) on top of `history.toml` as it is now, so entries other
+    /// running instances saved meanwhile are kept (see
+    /// [`super::shared_file::merge_recent`]). `keep` filters what is
+    /// written (the lists the user does not keep stay out).
+    pub fn save_merged(
+        &self,
+        base: &HistoryStore,
+        keep: impl FnOnce(HistoryStore) -> HistoryStore,
+    ) -> Result<HistoryStore> {
+        super::shared_file::merge_save(&history_path(), |disk: Option<HistoryStore>| {
+            keep(self.merged(base, &disk.unwrap_or_default()))
+        })
+    }
+
+    /// This instance's changes from `base` applied to `disk`, list by list.
+    pub fn merged(&self, base: &HistoryStore, disk: &HistoryStore) -> HistoryStore {
+        use super::shared_file::merge_recent;
+        HistoryStore {
+            commands: merge_recent(&base.commands, &self.commands, &disk.commands, MAX_HISTORY),
+            viewed_files: merge_recent(
+                &base.viewed_files,
+                &self.viewed_files,
+                &disk.viewed_files,
+                MAX_HISTORY,
+            ),
+            visited_folders: merge_recent(
+                &base.visited_folders,
+                &self.visited_folders,
+                &disk.visited_folders,
+                MAX_HISTORY,
+            ),
+            searches: merge_recent(&base.searches, &self.searches, &disk.searches, MAX_HISTORY),
+            replacements: merge_recent(
+                &base.replacements,
+                &self.replacements,
+                &disk.replacements,
+                MAX_HISTORY,
+            ),
+        }
     }
 
     /// Clears the lists whose "save … history" setting is off, so only the
