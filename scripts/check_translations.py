@@ -1,55 +1,112 @@
 #!/usr/bin/env python3
-"""Fail if lang/en.toml and lang/es.toml do not share the same translation keys.
+"""Checks the translation files (lang/*.toml) and the help pages (help/<lang>/).
 
-Used by CI (`check.yml` policy job) and as the localize-helper verification step.
-Does not rewrite files.
+Run by `cargo xtask lint` (pre-push hook) and the CI policy job; it never
+rewrites files. Needs Python 3.11+ (tomllib). Fails when:
+
+* a language file is not valid TOML, or has top-level keys other than
+  `language_name` and `[translations]` (`t()` only reads `[translations]`);
+* lang/es.toml and lang/en.toml do not share the same keys, or a value
+  does not keep the `{}` / `{name}` placeholders of its English one;
+* the source passes a key to `t("...")` / `tr("...")` that en.toml lacks;
+* help/en and help/es do not hold the same pages, or a page has no
+  `help_title_<page>` key (the help index would show its file name).
+
+`--unused` also lists the keys no source file names, either literally or
+through a `format!("prefix_{...}")` key; review them before deleting any.
 """
 
 from pathlib import Path
+import re
 import sys
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
+LANGS = ("en", "es")
+TOP_LEVEL = {"language_name", "translations"}
+PLACEHOLDER = re.compile(r"\{[A-Za-z0-9_]*\}")
+# `t("key")` / `tr("key")` with a literal key.
+LOOKUP = re.compile(r'\b(?:t|tr)\(\s*"([a-z][a-z0-9_.]*)"\s*\)')
+# Keys built at run time: `format!("action_{}", id)` covers `action_*`.
+KEY_PREFIX = re.compile(r'format!\(\s*"([a-z][a-z0-9_]*_)\{')
+LITERAL = re.compile(r'"([a-z][a-z0-9_.]*)"')
+# Source files that name keys on purpose without defining them.
+TEST_ONLY_KEYS = {"unknown_missing_key_xyz"}
 
 
-def translation_keys(path: Path) -> dict[str, str]:
-    keys: dict[str, str] = {}
-    in_section = False
-    text = path.read_text(encoding="utf-8")
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped == "[translations]":
-            in_section = True
-            continue
-        if in_section and stripped.startswith("[") and stripped.endswith("]"):
-            in_section = False
-            continue
-        if in_section and "=" in stripped and not stripped.startswith("#"):
-            key, _, value = stripped.partition("=")
-            keys[key.strip()] = value.strip()
-    return keys
+def load_language(code: str, errors: list[str]) -> dict[str, str]:
+    path = ROOT / "lang" / f"{code}.toml"
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        errors.append(f"{path.name}: {e}")
+        return {}
+    extra = sorted(set(data) - TOP_LEVEL)
+    if extra:
+        errors.append(f"{path.name}: keys outside [translations] are never read: {', '.join(extra)}")
+    translations = data.get("translations", {})
+    return {k: v for k, v in translations.items() if isinstance(v, str)}
+
+
+def source_text() -> str:
+    return "\n".join(
+        p.read_text(encoding="utf-8", errors="replace") for p in sorted((ROOT / "src").rglob("*.rs"))
+    )
+
+
+def check_keys(en: dict[str, str], es: dict[str, str], errors: list[str]) -> None:
+    for name, keys in (("es.toml", set(en) - set(es)), ("en.toml", set(es) - set(en))):
+        for key in sorted(keys):
+            errors.append(f"{name}: missing key {key}")
+    for key in sorted(set(en) & set(es)):
+        want, got = sorted(PLACEHOLDER.findall(en[key])), sorted(PLACEHOLDER.findall(es[key]))
+        if want != got:
+            errors.append(f"es.toml: {key} has placeholders {got}, en.toml {want}")
+
+
+def check_lookups(en: dict[str, str], source: str, errors: list[str]) -> None:
+    for key in sorted(set(LOOKUP.findall(source)) - set(en) - TEST_ONLY_KEYS):
+        errors.append(f"en.toml: missing key {key} (used by t()/tr() in src/)")
+
+
+def check_help(en: dict[str, str], errors: list[str]) -> None:
+    pages = {code: {p.stem for p in (ROOT / "help" / code).glob("*.md")} for code in LANGS}
+    for code in LANGS:
+        for other in LANGS:
+            for page in sorted(pages[other] - pages[code]):
+                errors.append(f"help/{code}: missing {page}.md (present in help/{other})")
+    for page in sorted(pages["en"]):
+        if f"help_title_{page}" not in en:
+            errors.append(f"en.toml: missing key help_title_{page} (help/en/{page}.md)")
+
+
+def unused_keys(en: dict[str, str], source: str) -> list[str]:
+    literals = set(LITERAL.findall(source))
+    prefixes = tuple(set(KEY_PREFIX.findall(source)))
+    return sorted(k for k in en if k not in literals and not k.startswith(prefixes))
 
 
 def main() -> int:
-    en_path = ROOT / "lang" / "en.toml"
-    es_path = ROOT / "lang" / "es.toml"
-    en = translation_keys(en_path)
-    es = translation_keys(es_path)
-    only_en = sorted(set(en) - set(es))
-    only_es = sorted(set(es) - set(en))
-    print(f"en.toml: {len(en)} keys")
-    print(f"es.toml: {len(es)} keys")
-    if only_en:
-        print(f"Missing in es.toml ({len(only_en)}):")
-        for k in only_en:
-            print(f"  {k}")
-    if only_es:
-        print(f"Extra in es.toml ({len(only_es)}):")
-        for k in only_es:
-            print(f"  {k}")
-    if only_en or only_es:
-        print("Translation key sets must match. See docs/i18n.md.")
+    errors: list[str] = []
+    en = load_language("en", errors)
+    es = load_language("es", errors)
+    source = source_text()
+    check_keys(en, es, errors)
+    check_lookups(en, source, errors)
+    check_help(en, errors)
+
+    print(f"en.toml: {len(en)} keys, es.toml: {len(es)} keys")
+    if "--unused" in sys.argv[1:]:
+        unused = unused_keys(en, source)
+        print(f"Keys no source file names ({len(unused)}):")
+        for key in unused:
+            print(f"  {key}")
+    if errors:
+        for error in errors:
+            print(f"error: {error}")
+        print("See docs/i18n.md.")
         return 1
-    print("OK: EN and ES translation keys match.")
+    print("OK: translations and help pages are consistent.")
     return 0
 
 

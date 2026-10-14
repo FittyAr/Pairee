@@ -98,6 +98,7 @@
 ### Removed
 - `run.bat` and `run.sh`: their developer menu is now `cargo xtask dev` (also `cargo xtask dev <action>`, e.g. `cargo xtask dev clippy`).
 
+- Copying a folder into itself or a file onto itself showed the untranslated message key instead of the error; the help index shows translated titles for every page (it showed file names such as "Ssh Sftp").
 ### Fixed
 - Folder sizes and the disk usage view are marked incomplete again when some entries of a folder cannot be read, and copies report such folders instead of silently leaving those entries out.
 - Previews drawn with `pairee.ui` are shown in the Quick View, and plugin commands, previews and hooks can use dialogs, `pairee.sync` and other calls that wait; waiting for the user no longer counts against a plugin's 10-second limit.
