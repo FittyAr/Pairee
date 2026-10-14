@@ -21,12 +21,12 @@ use super::fs::FsPolicy;
 use super::image::showable;
 use super::ui::convert::renderable_arg;
 use crate::app::state::popup::PluginPreview;
-use crate::app::state::popup::plugin_widget::{WParagraph, WStyle, WWrap};
+use crate::app::state::popup::plugin_widget::WParagraph;
 use crate::plugin::manager::PluginRequest;
 use crate::plugin::runtime::types::LuaError;
 use crate::plugin::worker::PreviewTarget;
 use crate::syntax::SyntaxLimits;
-use mlua::{Lua, MultiValue, Table, Value};
+use mlua::{Lua, Table, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -60,13 +60,7 @@ fn preview_code(
     let text = super::fs::blocking(|| {
         code::read_text(&path).map(|text| code::code_text(&path, &text, (skip, count), limits))
     })?;
-    Ok(WParagraph {
-        text,
-        wrap: WWrap::No,
-        scroll: 0,
-        block: None,
-        style: WStyle::default(),
-    })
+    Ok(super::ui::paragraph(text))
 }
 
 /// The quick-view update `preview_widget` sends.
@@ -129,13 +123,7 @@ pub fn bind(
                         .map_err(|_| LuaError::custom("pairee.preview_widget: Pairee is closing")),
                     Err(e) => Err(LuaError::custom(e.to_string())),
                 };
-                Ok::<_, mlua::Error>(match sent {
-                    Ok(()) => MultiValue::from_vec(vec![Value::Boolean(true), Value::Nil]),
-                    Err(err) => MultiValue::from_vec(vec![
-                        Value::Boolean(false),
-                        Value::UserData(lua.create_userdata(err)?),
-                    ]),
-                })
+                LuaError::status(&lua, sent.map(|()| true))
             }
         })?,
     )

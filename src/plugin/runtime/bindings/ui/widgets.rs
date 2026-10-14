@@ -218,7 +218,8 @@ fn texts_arg(items: &Table) -> mlua::Result<Vec<WText>> {
         .collect()
 }
 
-fn paragraph(text: WText) -> WParagraph {
+/// A plain (unwrapped, unstyled) paragraph of `text`.
+pub fn paragraph(text: WText) -> WParagraph {
     WParagraph {
         text,
         wrap: WWrap::No,

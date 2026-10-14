@@ -25,7 +25,11 @@ pub fn install(
             let Value::String(name) = &key else {
                 return Ok(Value::Nil);
             };
-            let Some(build) = builders.get(name.to_str()?.as_ref()) else {
+            // A key that is not UTF-8 names no namespace (nil, no error).
+            let Ok(name) = name.to_str() else {
+                return Ok(Value::Nil);
+            };
+            let Some(build) = builders.get(name.as_ref()) else {
                 return Ok(Value::Nil);
             };
             let value = build(lua)?;
@@ -76,5 +80,7 @@ mod tests {
         assert_eq!((a, b), (42, 42));
         assert!(missing.is_nil());
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+        let odd: Value = lua.load(r#"return ns["\xff"]"#).eval().unwrap();
+        assert!(odd.is_nil());
     }
 }

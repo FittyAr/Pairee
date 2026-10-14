@@ -132,6 +132,12 @@ pub fn bind(
 /// Reads the optional `pos` field from a dialog opts table into a
 /// `DialogPosition`. Returns `None` when the field is absent or malformed
 /// so the dispatcher can fall back to a default-centered popup.
+/// An `i32` offset of `pos` (saturated, never wrapped around).
+fn offset(pos: &mlua::Table, key: &str) -> i32 {
+    let value = pos.get::<i64>(key).ok().unwrap_or(0);
+    value.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
+}
+
 fn read_position(opts: &mlua::Table) -> Option<DialogPosition> {
     let pos: mlua::Table = opts.get("pos").ok()?;
     Some(DialogPosition {
@@ -143,8 +149,8 @@ fn read_position(opts: &mlua::Table) -> Option<DialogPosition> {
             .ok()
             .flatten()
             .unwrap_or_default(),
-        x: pos.get::<i64>("x").ok().unwrap_or(0) as i32,
-        y: pos.get::<i64>("y").ok().unwrap_or(0) as i32,
+        x: offset(&pos, "x"),
+        y: offset(&pos, "y"),
         w: pos.get::<u16>("w").ok().unwrap_or(0),
         h: pos.get::<u16>("h").ok().unwrap_or(0),
     })

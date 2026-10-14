@@ -26,7 +26,7 @@ use crate::plugin::runtime::types::LuaError;
 use crate::plugin::runtime::types::path::path_arg;
 use crate::plugin::worker::PreviewTarget;
 use image::{ImageDecoder, ImageReader, Limits};
-use mlua::{Lua, MultiValue, Table, UserData, Value};
+use mlua::{Lua, Table, UserData, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -41,14 +41,6 @@ const MAX_ALLOC: u64 = 256 * 1024 * 1024;
 impl UserData for PluginImage {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         super::ui::add_area_method(methods);
-    }
-}
-
-fn denied(message: String) -> LuaError {
-    LuaError {
-        kind: Some("PermissionDenied".into()),
-        code: None,
-        message,
     }
 }
 
@@ -67,7 +59,7 @@ pub(crate) fn showable(
     policy
         .check(&path.to_string_lossy(), Access::Read)
         .map(|target| target.path().to_path_buf())
-        .map_err(denied)
+        .map_err(LuaError::denied)
 }
 
 /// A reader for `path` with format detection and decode limits, after the
@@ -136,17 +128,6 @@ fn precache(src: &Path, dst: &Target, (max_w, max_h): (u32, u32)) -> Result<bool
     Ok(true)
 }
 
-/// `false, Error` / `true, nil` for `precache`.
-fn outcome(lua: &Lua, result: Result<bool, LuaError>) -> mlua::Result<MultiValue> {
-    match result {
-        Ok(done) => LuaError::pair(lua, Ok::<_, LuaError>(done)),
-        Err(err) => Ok(MultiValue::from_vec(vec![
-            Value::Boolean(false),
-            Value::UserData(lua.create_userdata(err)?),
-        ])),
-    }
-}
-
 /// Builds `pairee.image` for a plugin with `policy`.
 pub fn bind(lua: &Lua, policy: Arc<FsPolicy>) -> mlua::Result<Table> {
     let table = lua.create_table()?;
@@ -183,10 +164,10 @@ pub fn bind(lua: &Lua, policy: Arc<FsPolicy>) -> mlua::Result<Table> {
                     let dst = path_arg(&dst).map_err(|e| LuaError::custom(e.to_string()))?;
                     let dst = policy
                         .check(&dst.to_string_lossy(), Access::Write)
-                        .map_err(denied)?;
+                        .map_err(LuaError::denied)?;
                     super::fs::blocking(|| precache(&src, &dst, bounds))
                 });
-                outcome(lua, result)
+                LuaError::status(lua, result)
             },
         )?,
     )?;
