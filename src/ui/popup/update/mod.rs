@@ -99,9 +99,8 @@ fn render(
     render_notes(f, layout[2], info, theme, scroll_y, scrollbar);
 
     // Separator
-    let sep = "─".repeat(inner.width as usize);
     f.render_widget(
-        Paragraph::new(Line::from(Span::styled(sep, Style::default().fg(muted)))),
+        crate::ui::popup::kit::separator(inner.width, crate::ui::popup::kit::fg(muted)),
         layout[3],
     );
 

@@ -44,7 +44,7 @@ pub(crate) fn render_tabs(
 
     let border_color = theme.popup_border;
     f.render_widget(
-        Paragraph::new("─".repeat(area.width as usize)).style(Style::default().fg(border_color)),
+        crate::ui::popup::kit::separator(area.width, crate::ui::popup::kit::fg(border_color)),
         tab_layout[1],
     );
 

@@ -140,7 +140,7 @@ fn render_separators(f: &mut Frame, vertical: Rect, bottom: Rect, width: u16) {
         .collect();
     f.render_widget(Paragraph::new(sep_lines), vertical);
     f.render_widget(
-        Paragraph::new("─".repeat(width as usize)).style(Style::default().fg(Color::DarkGray)),
+        crate::ui::popup::kit::separator(width, crate::ui::popup::kit::fg(Color::DarkGray)),
         bottom,
     );
 }

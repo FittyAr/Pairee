@@ -66,8 +66,7 @@ impl DialogView for GitPanelState {
 
         render_tab_header(f, chunks[0], panel.active_tab, theme);
         f.render_widget(
-            Paragraph::new("─".repeat(inner.width as usize))
-                .style(Style::default().fg(Color::DarkGray)),
+            crate::ui::popup::kit::separator(inner.width, crate::ui::popup::kit::fg(Color::DarkGray)),
             chunks[1],
         );
         render_content(f, chunks[2], panel, loading, theme, scrollbar);
