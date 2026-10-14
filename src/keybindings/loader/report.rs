@@ -1,5 +1,12 @@
 use crate::config::localization::t;
 
+/// The localized text `key` with its `{}` placeholders filled in order.
+pub fn fill(key: &str, values: &[&str]) -> String {
+    values
+        .iter()
+        .fold(t(key), |text, value| text.replacen("{}", value, 1))
+}
+
 /// Issues found while loading a keymap (invalid chords, conflicts, unknown actions).
 #[derive(Debug, Default, Clone)]
 pub struct KeymapLoadReport {

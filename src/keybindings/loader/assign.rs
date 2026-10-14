@@ -6,7 +6,7 @@
 //! same layer is an error. `action = ""` unbinds the action.
 
 use super::layers::{Layer, Origin};
-use super::report::KeymapLoadReport;
+use super::report::{KeymapLoadReport, fill};
 use crate::keybindings::chord::{normalize_chord, seqs_overlap};
 use crate::keybindings::preset::parse_id;
 use crate::keybindings::registry::Bindable;
@@ -63,11 +63,14 @@ impl<B: Bindable> Assignments<B> {
                 };
                 match claimed.get(&seq) {
                     Some(owner) if *owner != entry.command => {
-                        report.errors.push(format!(
-                            "Duplicate key chord '{seq}' in {}: already bound to '{}', cannot also bind '{}'",
-                            layer.origin,
-                            owner.id(),
-                            entry.id
+                        report.errors.push(fill(
+                            "keymap_issue_duplicate_chord",
+                            &[
+                                &seq.to_string(),
+                                &layer.origin.to_string(),
+                                owner.id(),
+                                &entry.id,
+                            ],
                         ));
                         continue;
                     }
@@ -151,17 +154,16 @@ fn entries<B: Bindable>(layer: &Layer, report: &mut KeymapLoadReport) -> Vec<Ent
     let mut out: Vec<Entry<B>> = Vec::new();
     for (id, keys) in &layer.bindings {
         let Some(parsed) = parse_id::<B>(id) else {
-            report.warnings.push(format!(
-                "Unknown action '{id}' in {} — skipped",
-                layer.origin
+            report.warnings.push(fill(
+                "keymap_issue_unknown_action",
+                &[id, &layer.origin.to_string()],
             ));
             continue;
         };
         if parsed.legacy_alias {
-            report.warnings.push(format!(
-                "'{id}' in {} is a deprecated alias of '{}': list every chord in one key (\"a, b\")",
-                layer.origin,
-                parsed.command.id()
+            report.warnings.push(fill(
+                "keymap_issue_deprecated_alias",
+                &[id, &layer.origin.to_string(), parsed.command.id()],
             ));
         }
         let chords = crate::keybindings::chord::split_chords(keys)
@@ -189,9 +191,10 @@ fn parse_seq(
     match chord.parse::<KeySeq>() {
         Ok(seq) => Some(seq),
         Err(e) => {
-            report
-                .errors
-                .push(format!("Invalid key chord '{raw}' for action '{id}': {e}"));
+            report.errors.push(fill(
+                "keymap_issue_invalid_chord",
+                &[raw, id, &e.to_string()],
+            ));
             None
         }
     }

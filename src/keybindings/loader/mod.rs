@@ -100,9 +100,9 @@ pub fn build_keymap(spec: &KeymapSpec, source: PresetSource) -> LoadedKeymap {
         } else {
             FALLBACK_PRESET
         };
-        report.warnings.push(format!(
-            "Preset '{}' not found or unreadable — falling back to the shipped {fallback}",
-            spec.preset
+        report.warnings.push(report::fill(
+            "keymap_issue_fallback",
+            &[spec.preset, fallback],
         ));
         resolve_chain(fallback, &embedded_source, &mut report).unwrap_or_default()
     });

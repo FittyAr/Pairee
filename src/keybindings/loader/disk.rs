@@ -1,4 +1,4 @@
-use super::report::KeymapLoadReport;
+use super::report::{KeymapLoadReport, fill};
 use crate::config::paths;
 use crate::keybindings::embedded::{self, normalize_preset_name};
 use std::path::{Path, PathBuf};
@@ -30,18 +30,18 @@ fn read_user_preset(
     }
     let pending = embedded::pending_update_path(keymaps_dir, name);
     if pending.exists() {
-        report.warnings.push(format!(
-            "'{}' differs from the shipped preset and was kept; the new version is in '{}'",
-            path.display(),
-            pending.display()
+        report.warnings.push(fill(
+            "keymap_issue_pending_update",
+            &[&path.display().to_string(), &pending.display().to_string()],
         ));
     }
     match std::fs::read_to_string(&path) {
         Ok(s) => Some(s),
         Err(e) => {
-            report
-                .warnings
-                .push(format!("Could not read '{}': {e}", path.display()));
+            report.warnings.push(fill(
+                "keymap_issue_unreadable",
+                &[&path.display().to_string(), &e.to_string()],
+            ));
             None
         }
     }
