@@ -1,4 +1,4 @@
-mod http;
+pub(crate) mod http;
 pub mod lockfile;
 pub mod ops;
 pub mod registry;

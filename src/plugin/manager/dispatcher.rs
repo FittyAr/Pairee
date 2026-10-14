@@ -81,11 +81,12 @@ fn dispatch_request(state: &mut AppState, context: &AppContext, req: PluginReque
             }
         }
         PluginRequest::FileCache {
+            plugin,
             file_path,
             skip,
             reply_tx,
         } => {
-            let _ = reply_tx.send(compute_file_cache_path(&file_path, skip));
+            let _ = reply_tx.send(compute_file_cache_path(&plugin, &file_path, skip));
         }
         PluginRequest::SpawnCopyTask { from, to } => spawn_copy_task(state, context, from, to),
         other => dispatch_dialog_request(state, other),

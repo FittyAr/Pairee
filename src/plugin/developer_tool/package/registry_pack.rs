@@ -39,24 +39,34 @@ fn package_impl(
     progress_status(&progress, t("plugin_dev_progress_reading_manifest"));
     let content = std::fs::read_to_string(&manifest_path)?;
     let mut manifest = PluginManifest::parse(&content)?;
-    if let Some(lic) = super::license::resolve_license(plugin_dir, &manifest, ask_license)? {
-        write_manifest_license(&manifest_path, &content, &lic)?;
-        manifest.license = Some(lic);
-    }
+    // Name and author become folder names: check them before anything is
+    // fetched, written or deleted.
+    let temp_dir = crate::plugin::developer_tool::temp_registry_dir();
+    let dest_plugin_dir = crate::plugin::developer_tool::registry_plugin_dir(&temp_dir, &manifest)?;
+    // The author's folder is never modified: the license and the checksums
+    // go into the registry copy only.
+    let license = super::license::resolve_license(plugin_dir, &manifest, ask_license);
+    manifest.license = Some(license.name.clone());
 
     // 2. Clone or update the registry repo in temporary directory
-    let temp_dir = crate::plugin::developer_tool::temp_registry_dir();
     progress_status(&progress, t("plugin_dev_progress_fetching_registry"));
     let _repo = fetch_or_clone_registry(&temp_dir)?;
 
     // 3. Copy plugin files to the cloned repo
-    let dest_plugin_dir = crate::plugin::developer_tool::registry_plugin_dir(&temp_dir, &manifest)?;
     if dest_plugin_dir.exists() {
         let _ = std::fs::remove_dir_all(&dest_plugin_dir);
     }
     std::fs::create_dir_all(&dest_plugin_dir)?;
-    let files_hash = copy_plugin_files(plugin_dir, &dest_plugin_dir, &progress)?;
-    write_checksums(&manifest_path, &dest_plugin_dir, &files_hash)?;
+    let mut files_hash = copy_plugin_files(plugin_dir, &dest_plugin_dir, &progress)?;
+    if let Some(text) = &license.generated_file {
+        let file = dest_plugin_dir.join("LICENSE");
+        std::fs::write(&file, text)?;
+        files_hash.insert(
+            "LICENSE".to_string(),
+            crate::update::downloader::compute_sha256(&file)?,
+        );
+    }
+    write_checksums(&content, &license.name, &dest_plugin_dir, &files_hash)?;
 
     // 4. Update registry/index.toml
     progress_status(&progress, t("plugin_dev_progress_updating_index"));
@@ -70,19 +80,6 @@ fn package_impl(
         success_msg,
         dest_plugin_dir.display()
     ))
-}
-
-/// Sets `license` in `[plugin]` (or at the top level) of `manifest.toml`.
-fn write_manifest_license(manifest_path: &Path, content: &str, lic: &str) -> anyhow::Result<()> {
-    let mut manifest_table: toml::Table = toml::from_str(content)?;
-    let value = toml::Value::String(lic.to_string());
-    if let Some(toml::Value::Table(plugin_table)) = manifest_table.get_mut("plugin") {
-        plugin_table.insert("license".to_string(), value);
-    } else {
-        manifest_table.insert("license".to_string(), value);
-    }
-    std::fs::write(manifest_path, toml::to_string_pretty(&manifest_table)?)?;
-    Ok(())
 }
 
 /// Copies the plugin files, returning the SHA-256 of each relative path.
@@ -123,34 +120,51 @@ fn copy_plugin_files(
     Ok(files_hash)
 }
 
-/// Writes `sha256.sum` and the manifest with a `[files]` checksum section.
+/// Writes `sha256.sum` and the published manifest: the author's manifest
+/// text with `license` set and its `[files]` table **replaced** by the
+/// checksums (a second `[files]` table would not parse).
 fn write_checksums(
-    manifest_path: &Path,
+    source_manifest: &str,
+    license: &str,
     dest_plugin_dir: &Path,
     files_hash: &HashMap<String, String>,
 ) -> anyhow::Result<()> {
     let mut sha_content = String::new();
-    for (f, h) in files_hash {
+    let sorted: std::collections::BTreeMap<_, _> = files_hash.iter().collect();
+    for (f, h) in &sorted {
         sha_content.push_str(&format!("{}  {}\n", h, f));
     }
     std::fs::write(dest_plugin_dir.join("sha256.sum"), sha_content)?;
-
-    let mut manifest_content = std::fs::read_to_string(manifest_path)?;
-    if !manifest_content.ends_with('\n') {
-        manifest_content.push('\n');
-    }
-    // Serialized, so paths and hashes are quoted and escaped as TOML.
-    #[derive(serde::Serialize)]
-    struct FilesTable<'a> {
-        files: std::collections::BTreeMap<&'a String, &'a String>,
-    }
-    let table = FilesTable {
-        files: files_hash.iter().collect(),
-    };
-    manifest_content.push('\n');
-    manifest_content.push_str(&toml::to_string(&table)?);
-    std::fs::write(dest_plugin_dir.join("manifest.toml"), manifest_content)?;
+    std::fs::write(
+        dest_plugin_dir.join("manifest.toml"),
+        published_manifest(source_manifest, license, files_hash)?,
+    )?;
     Ok(())
+}
+
+/// `source` with `license` set (inside `[plugin]` when it has one) and
+/// `[files]` replaced by `files_hash`.
+fn published_manifest(
+    source: &str,
+    license: &str,
+    files_hash: &HashMap<String, String>,
+) -> anyhow::Result<String> {
+    let mut table: toml::Table = toml::from_str(source)?;
+    let license = toml::Value::String(license.to_string());
+    match table.get_mut("plugin") {
+        Some(toml::Value::Table(plugin)) => {
+            plugin.insert("license".to_string(), license);
+        }
+        _ => {
+            table.insert("license".to_string(), license);
+        }
+    }
+    let files: toml::Table = files_hash
+        .iter()
+        .map(|(path, hash)| (path.clone(), toml::Value::String(hash.clone())))
+        .collect();
+    table.insert("files".to_string(), toml::Value::Table(files));
+    Ok(toml::to_string_pretty(&table)?)
 }
 
 /// Adds or replaces the plugin entry of `registry/index.toml`.
@@ -234,11 +248,40 @@ version = \"1.0.0\"
         let mut keys: Vec<_> = hashes.keys().cloned().collect();
         keys.sort();
         assert_eq!(keys, ["lang/en.toml", "main.lua"]);
-        write_checksums(&src.path().join("manifest.toml"), dest.path(), &hashes).unwrap();
+        write_checksums(
+            "name = \"x\"\nversion = \"1\"\n",
+            "MIT",
+            dest.path(),
+            &hashes,
+        )
+        .unwrap();
         let written = std::fs::read_to_string(dest.path().join("manifest.toml")).unwrap();
         let parsed: crate::plugin::updater::types::RegistryPluginManifestWrapper =
             toml::from_str(&written).unwrap();
         assert_eq!(parsed.files.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn an_existing_files_table_is_replaced_and_the_license_set() {
+        let source = "name = \"demo\"\nversion = \"1\"\n\n[files]\n\"old.lua\" = \"00\"\n";
+        let hashes: HashMap<String, String> = [("main.lua".to_string(), "ab".to_string())].into();
+        let text = published_manifest(source, "MIT", &hashes).unwrap();
+        let parsed: crate::plugin::updater::types::RegistryPluginManifestWrapper =
+            toml::from_str(&text).unwrap();
+        assert_eq!(
+            parsed.files.unwrap().keys().collect::<Vec<_>>(),
+            ["main.lua"]
+        );
+        assert_eq!(
+            PluginManifest::parse(&text).unwrap().license.as_deref(),
+            Some("MIT")
+        );
+        let nested = "[plugin]\nname = \"demo\"\nversion = \"1\"\n";
+        let text = published_manifest(nested, "Apache-2.0", &hashes).unwrap();
+        assert_eq!(
+            PluginManifest::parse(&text).unwrap().license.as_deref(),
+            Some("Apache-2.0")
+        );
     }
 
     #[test]

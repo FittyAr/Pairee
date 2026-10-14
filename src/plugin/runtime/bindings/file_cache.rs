@@ -10,10 +10,15 @@ use crate::plugin::manager::PluginRequest;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function> {
+pub fn bind(
+    lua: &mlua::Lua,
+    tx: mpsc::Sender<PluginRequest>,
+    plugin: String,
+) -> mlua::Result<mlua::Function> {
     let tx_cache = tx;
     lua.create_async_function(move |_lua, (file, skip): (Option<String>, Option<usize>)| {
         let tx = tx_cache.clone();
+        let plugin = plugin.clone();
         async move {
             let file_path = match file {
                 Some(p) => PathBuf::from(p),
@@ -26,6 +31,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
             let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
             if tx
                 .send(PluginRequest::FileCache {
+                    plugin,
                     file_path,
                     skip,
                     reply_tx,

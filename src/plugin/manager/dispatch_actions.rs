@@ -134,15 +134,12 @@ fn resolve_cd_target(panel: &PanelState, raw: &str) -> Result<PathBuf, &'static 
     }
 }
 
-/// Computes the cache URL for a `(file, skip)` pair. The cache is a stable
-/// file name under the user's Pairee cache directory derived from the
-/// file's metadata (path + modification time) and the `skip` value, so
-/// previewers can cache generated content (e.g. image conversions) and
-/// reuse the cache across invocations without recomputing.
-pub fn compute_file_cache_path(file_path: &Path, skip: usize) -> Option<PathBuf> {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
+/// Computes the cache path for `(plugin, file, skip)`: a stable file name
+/// under the user's Pairee cache directory, derived (SHA-256, so it is the
+/// same across runs and releases) from the plugin name, the file's path,
+/// size and modification time, and `skip`. A changed file therefore gets a
+/// new cache entry, and two plugins never share (or poison) one.
+pub fn compute_file_cache_path(plugin: &str, file_path: &Path, skip: usize) -> Option<PathBuf> {
     let cache_root = crate::config::paths::get_cache_dir();
     let preview_cache = cache_root.join("preview_cache");
     if std::fs::create_dir_all(&preview_cache).is_err() {
@@ -156,11 +153,20 @@ pub fn compute_file_cache_path(file_path: &Path, skip: usize) -> Option<PathBuf>
     let canonical = file_path
         .canonicalize()
         .unwrap_or_else(|_| file_path.to_path_buf());
-    let mut hasher = DefaultHasher::new();
-    canonical.hash(&mut hasher);
-    skip.hash(&mut hasher);
-    let digest = hasher.finish();
-    Some(preview_cache.join(format!("{:016x}", digest)))
+    let (size, mtime) = std::fs::metadata(&canonical).map_or((0, 0), |m| {
+        let nanos = m
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |d| d.as_nanos());
+        (m.len(), nanos)
+    });
+    let key = format!(
+        "{plugin}\0{}\0{skip}\0{size}\0{mtime}",
+        canonical.to_string_lossy()
+    );
+    let digest = crate::update::downloader::sha256_hex(key.as_bytes());
+    Some(preview_cache.join(&digest[..32]))
 }
 
 #[cfg(test)]
@@ -252,19 +258,29 @@ mod tests {
     fn test_compute_file_cache_path_is_stable() {
         let p = std::env::temp_dir().join("pairee_cache_test.txt");
         std::fs::write(&p, "data").unwrap();
-        let a = compute_file_cache_path(&p, 0).expect("cache path");
-        let b = compute_file_cache_path(&p, 0).expect("cache path");
-        assert_eq!(a, b, "same (path, skip) must produce same cache path");
+        let a = compute_file_cache_path("demo", &p, 0).expect("cache path");
+        let b = compute_file_cache_path("demo", &p, 0).expect("cache path");
+        assert_eq!(
+            a, b,
+            "same (plugin, path, skip) must produce same cache path"
+        );
         // Different skip must produce a different cache path.
-        let c = compute_file_cache_path(&p, 1).expect("cache path");
+        let c = compute_file_cache_path("demo", &p, 1).expect("cache path");
         assert_ne!(a, c, "different skip must produce a different cache path");
+        // Another plugin never shares the entry.
+        let other = compute_file_cache_path("other", &p, 0).expect("cache path");
+        assert_ne!(a, other);
+        // A changed file (size here; mtime too) gets a fresh entry.
+        std::fs::write(&p, "different data").unwrap();
+        let changed = compute_file_cache_path("demo", &p, 0).expect("cache path");
+        assert_ne!(a, changed);
         std::fs::remove_file(&p).ok();
     }
 
     #[test]
     fn test_compute_file_cache_path_returns_dir() {
         let p = std::env::temp_dir();
-        let cache = compute_file_cache_path(&p, 0).expect("cache path");
+        let cache = compute_file_cache_path("demo", &p, 0).expect("cache path");
         // The cache file lives under <cache_dir>/preview_cache/, not at
         // the root temp dir.
         let parent = cache.parent().expect("cache has a parent dir");

@@ -102,33 +102,63 @@ pub(crate) fn progress_finish(
     }
 }
 
-/// Locates the Pairee git repository on the local file system.
+/// Locates a local clone of the Pairee repository that has `branch`.
 ///
 /// Search order:
 /// 1. `PAIREE_REPO_DIR` environment variable (explicit override).
-/// 2. Walk up from the running binary until a `.git` directory is found.
-pub(crate) fn find_pairee_repo() -> Option<std::path::PathBuf> {
+/// 2. Walk up from the running binary to a folder that is a Pairee
+///    repository.
+///
+/// A folder only counts when one of its remotes is the Pairee repository
+/// and it has `branch` (locally or fetched): the first `.git` found while
+/// walking up may be the user's home or an unrelated project, which must
+/// never be used as the source of a template or the registry. `None` makes
+/// the callers fall back to GitHub.
+pub(crate) fn find_pairee_repo(branch: &str) -> Option<std::path::PathBuf> {
     // 1. Explicit env override
     if let Ok(dir) = std::env::var("PAIREE_REPO_DIR") {
         let p = std::path::PathBuf::from(dir);
-        if p.join(".git").exists() {
+        if is_pairee_repo(&p, branch) {
             return Some(p);
         }
     }
 
     // 2. Walk up from binary location
-    if let Ok(exe) = std::env::current_exe() {
-        let mut candidate = exe.parent()?.to_path_buf();
-        loop {
-            if candidate.join(".git").exists() {
-                return Some(candidate);
-            }
-            match candidate.parent() {
-                Some(p) => candidate = p.to_path_buf(),
-                None => break,
-            }
-        }
-    }
+    let exe = std::env::current_exe().ok()?;
+    exe.parent()?
+        .ancestors()
+        .find(|candidate| is_pairee_repo(candidate, branch))
+        .map(std::path::Path::to_path_buf)
+}
 
-    None
+/// `true` when `dir` is a git repository with a Pairee remote and `branch`.
+fn is_pairee_repo(dir: &std::path::Path, branch: &str) -> bool {
+    let Ok(repo) = git2::Repository::open(dir) else {
+        return false;
+    };
+    let has_branch = repo.find_branch(branch, git2::BranchType::Local).is_ok()
+        || repo
+            .find_reference(&format!("refs/remotes/origin/{branch}"))
+            .is_ok();
+    has_branch && has_pairee_remote(&repo)
+}
+
+fn has_pairee_remote(repo: &git2::Repository) -> bool {
+    let Ok(names) = repo.remotes() else {
+        return false;
+    };
+    names.iter().flatten().flatten().any(|name| {
+        repo.find_remote(name)
+            .ok()
+            .and_then(|remote| remote.url().ok().map(str::to_string))
+            .is_some_and(|url| is_pairee_url(&url))
+    })
+}
+
+/// A remote URL of the Pairee repository (`https://github.com/FittyAr/Pairee`,
+/// with or without `.git`, or the `git@github.com:` form).
+fn is_pairee_url(url: &str) -> bool {
+    let url = url.trim().trim_end_matches('/').to_ascii_lowercase();
+    let url = url.strip_suffix(".git").unwrap_or(&url);
+    url.ends_with("github.com/fittyar/pairee") || url.ends_with("github.com:fittyar/pairee")
 }

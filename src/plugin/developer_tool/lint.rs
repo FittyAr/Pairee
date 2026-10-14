@@ -60,6 +60,40 @@ pub fn lint_with_progress(
     Ok(out)
 }
 
+/// Puts the commands a plugin had registered back when dropped: linting
+/// registers the manifest's commands to build a keymap with them, and must
+/// leave the keymap as it was (a loaded plugin keeps its commands, an
+/// unloaded one gets none).
+struct RestoreCommands {
+    plugin: String,
+    previous: Vec<crate::keybindings::plugin_commands::PluginCommand>,
+}
+
+impl RestoreCommands {
+    fn of(plugin: &str) -> Self {
+        let previous = crate::keybindings::plugin_commands::active()
+            .into_iter()
+            .map(|(_, command)| command)
+            .filter(|command| command.plugin == plugin)
+            .collect();
+        Self {
+            plugin: plugin.to_string(),
+            previous,
+        }
+    }
+}
+
+impl Drop for RestoreCommands {
+    fn drop(&mut self) {
+        use crate::keybindings::plugin_commands as commands;
+        if self.previous.is_empty() {
+            commands::unregister(&self.plugin);
+        } else {
+            commands::register(&self.plugin, std::mem::take(&mut self.previous));
+        }
+    }
+}
+
 /// Key problems of the plugin's commands in each built-in preset: invalid
 /// chords, and suggested keys that preset already uses (they would stay
 /// unbound there), as `[preset] detail`.
@@ -67,6 +101,7 @@ pub fn key_problems(manifest: &crate::plugin::loader::PluginManifest) -> Vec<Str
     use crate::keybindings::embedded::PRESETS;
     use crate::keybindings::loader::{KeymapSpec, build_shipped_keymap};
     use crate::keybindings::plugin_commands;
+    let _restore = RestoreCommands::of(&manifest.name);
     plugin_commands::register(&manifest.name, manifest.keymap_commands());
     let plugins: Vec<_> = plugin_commands::active()
         .into_iter()
@@ -121,6 +156,33 @@ neovim = \"<leader>pg\"
         assert!(
             !problems.iter().any(|p| p.starts_with("[neovim]")),
             "{problems:?}"
+        );
+    }
+
+    #[test]
+    fn linting_leaves_the_keymap_commands_as_they_were() {
+        use crate::keybindings::plugin_commands as commands;
+        let manifest = |title: &str| {
+            crate::plugin::loader::PluginManifest::parse(&format!(
+                "name = \"lint-keep\"\nversion = \"1\"\n[[commands]]\nid = \"go\"\ntitle = {title:?}\n"
+            ))
+            .unwrap()
+        };
+        let mine = |plugin: &str| {
+            commands::active()
+                .into_iter()
+                .filter(|(_, c)| c.plugin == plugin)
+                .map(|(_, c)| c.title)
+                .collect::<Vec<_>>()
+        };
+        key_problems(&manifest("Linted"));
+        assert!(mine("lint-keep").is_empty(), "an unloaded plugin gets none");
+        commands::register("lint-keep", manifest("Loaded").keymap_commands());
+        key_problems(&manifest("Linted"));
+        assert_eq!(
+            mine("lint-keep"),
+            ["Loaded"],
+            "a loaded plugin keeps its own"
         );
     }
 }
