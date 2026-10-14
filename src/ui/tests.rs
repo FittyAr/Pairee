@@ -311,6 +311,29 @@ fn draw_ui_palette_keeps_a_far_cursor_in_view_and_shows_keys() {
     );
 }
 
+#[test]
+fn help_keeps_a_far_document_in_view() {
+    use crate::app::state::popup::Help;
+    let (context, mut state) = test_app();
+    let docs: Vec<(String, PathBuf)> = (0..60)
+        .map(|i| (format!("doc{i:02}"), PathBuf::from(format!("{i}.md"))))
+        .collect();
+    state.dialogs.replace(Help {
+        mode: 0,
+        docs,
+        plugin_docs: Vec::new(),
+        active_tab: 0,
+        cursor_idx: 59,
+        scroll_y: 0,
+        active_content: None,
+    });
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).expect("test terminal");
+    terminal
+        .draw(|f| draw_ui(f, &context, &state))
+        .expect("draw help");
+    assert!(buffer_joined(&terminal).contains("doc59"));
+}
+
 /// Entry rows the left panel registered in the last frame.
 fn left_rows_shown(context: &AppContext, state: &AppState) -> usize {
     use crate::ui::hit::HitTarget;

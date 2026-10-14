@@ -157,10 +157,18 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &ResolvedTheme, list: 
         .style(bg_style);
     f.render_widget(Paragraph::new(tabs_line).block(tab_block), left_chunks[0]);
 
+    let rows_area = left_block_inner(left_chunks[1]);
+    // Scrolled to keep the cursor in view on short screens.
+    let start = crate::ui::scrollbar::centered_scroll(
+        list.cursor_idx,
+        list.docs.len(),
+        rows_area.height as usize,
+    );
     let list_items: Vec<ListItem> = list
         .docs
         .iter()
         .enumerate()
+        .skip(start)
         .map(|(i, (doc_title, _))| {
             let style = if i == list.cursor_idx {
                 theme
@@ -180,9 +188,8 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &ResolvedTheme, list: 
         .border_style(border_style)
         .style(bg_style);
     let doc_list = List::new(list_items).block(left_block).style(bg_style);
-    let rows_area = left_block_inner(left_chunks[1]);
     f.render_widget(doc_list, left_chunks[1]);
-    register_doc_list(left_chunks[0], rows_area, list);
+    register_doc_list(left_chunks[0], (rows_area, start), list);
 }
 
 /// Inside of the list block (borders left, right and bottom).
@@ -197,7 +204,7 @@ fn left_block_inner(area: Rect) -> Rect {
 
 /// Mouse targets of the left pane: the two tabs (Left / Right switch
 /// them) and the documents (Tab first when the reader has the focus).
-fn register_doc_list(tabs_area: Rect, rows_area: Rect, list: &DocList) {
+fn register_doc_list(tabs_area: Rect, (rows_area, start): (Rect, usize), list: &DocList) {
     use crate::ui::popup::kit::mouse;
     use crossterm::event::{KeyCode, KeyEvent};
     let focus: Vec<KeyEvent> = if list.focused {
@@ -225,7 +232,7 @@ fn register_doc_list(tabs_area: Rect, rows_area: Rect, list: &DocList) {
         })
         .collect();
     mouse::span_buttons(tabs_row, &labels, (0, false), keys);
-    mouse::focused_list_rows(rows_area, (0, list.docs.len(), list.cursor_idx), &focus);
+    mouse::focused_list_rows(rows_area, (start, list.docs.len(), list.cursor_idx), &focus);
 }
 
 /// The document as wrapped Markdown, with a scrollbar when it overflows.

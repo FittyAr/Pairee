@@ -37,10 +37,16 @@ pub fn render_remote_manage(
     if state.remotes.is_empty() {
         f.render_widget(kit::hint(t("git_remote_no_remotes")), chunks[0]);
     } else {
+        let start = crate::ui::scrollbar::centered_scroll(
+            state.selected_idx,
+            state.remotes.len(),
+            chunks[0].height as usize,
+        );
         let lines: Vec<Line> = state
             .remotes
             .iter()
             .enumerate()
+            .skip(start)
             .map(|(i, remote)| {
                 let is_selected = i == state.selected_idx;
                 let (bg, fg) = theme.row_colors(is_selected);
@@ -60,7 +66,7 @@ pub fn render_remote_manage(
         f.render_widget(Paragraph::new(lines), chunks[0]);
         crate::ui::popup::kit::mouse::list_rows(
             chunks[0],
-            0,
+            start,
             state.remotes.len(),
             state.selected_idx,
         );
