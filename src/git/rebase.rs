@@ -6,6 +6,15 @@ fn failed(key: &str, detail: impl std::fmt::Display) -> anyhow::Error {
     anyhow!(t(key).replace("{}", &detail.to_string()))
 }
 
+/// Aborts `rebase` after `err`; a failed abort (the repository stays mid
+/// rebase) is reported along with it.
+fn abort_with(rebase: &mut git2::Rebase<'_>, err: anyhow::Error) -> anyhow::Error {
+    match rebase.abort() {
+        Ok(()) => err,
+        Err(abort) => anyhow!("{err:#}; aborting the rebase also failed: {abort}"),
+    }
+}
+
 /// Rebase the current branch onto `onto_branch_name`.
 pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<()> {
     // Find the target branch reference and annotated commit
@@ -27,14 +36,15 @@ pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<
 
     while let Some(op_res) = rebase.next() {
         if let Err(e) = op_res {
-            let _ = rebase.abort();
-            return Err(failed("git_error_rebase_step", e));
+            return Err(abort_with(&mut rebase, failed("git_error_rebase_step", e)));
         }
 
         let index = repo.index()?;
         if index.has_conflicts() {
-            let _ = rebase.abort();
-            return Err(anyhow!(t("git_error_rebase_conflicts")));
+            return Err(abort_with(
+                &mut rebase,
+                anyhow!(t("git_error_rebase_conflicts")),
+            ));
         }
 
         match rebase.commit(None, &sig, None) {
@@ -42,10 +52,7 @@ pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<
             // The step's changes are already upstream (or it is empty):
             // skip it like `git rebase` does instead of aborting.
             Err(e) if e.code() == git2::ErrorCode::Applied => {}
-            Err(e) => {
-                let _ = rebase.abort();
-                return Err(failed("git_error_rebase_step", e));
-            }
+            Err(e) => return Err(abort_with(&mut rebase, failed("git_error_rebase_step", e))),
         }
     }
 

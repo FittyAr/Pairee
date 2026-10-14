@@ -5,7 +5,7 @@ use std::path::Path;
 #[test]
 fn test_repo_init_and_discover() {
     let (dir, repo) = setup_temp_repo();
-    let workdir = get_workdir(&repo).unwrap();
+    let workdir = workdir(&repo).unwrap().to_path_buf();
     assert_eq!(
         std::fs::canonicalize(workdir).unwrap(),
         std::fs::canonicalize(dir.path()).unwrap()
@@ -372,6 +372,12 @@ fn test_add_to_gitignore() {
     let content = std::fs::read_to_string(gitignore_path).unwrap();
     assert!(content.contains("*.log"));
     assert!(content.contains("target/"));
+
+    // A last rule without a trailing newline is not glued to the new one.
+    std::fs::write(dir.path().join(".gitignore"), "build").unwrap();
+    add_to_gitignore(&repo, "dist/").unwrap();
+    let content = std::fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+    assert_eq!(content, "build\ndist/\n");
 }
 
 #[test]
