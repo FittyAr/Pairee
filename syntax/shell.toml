@@ -40,6 +40,18 @@ kind = "constant"
 pattern = '(?:^|\s)(-{1,2}[A-Za-z0-9][A-Za-z0-9-]*)'
 group = 1
 
+# Here-documents (`<<EOF`, `<<-'EOF'`; `<<-` allows tabs before the closing
+# word), but not `<<<`, a here-string.
+[[region]]
+kind = "string"
+start = '''<<-?\s*["']?([A-Za-z_][A-Za-z0-9_]*)["']?'''
+end = '^\s*${1}\s*$'
+after = '(?:^|[^<])$'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*'
+
 [[region]]
 kind = "comment"
 start = '(?:^|[ \t;])#'

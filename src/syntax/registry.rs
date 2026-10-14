@@ -40,6 +40,30 @@ impl Registry {
             .min_by_key(|(m, _)| *m)
             .map(|(_, l)| Arc::clone(l))
     }
+
+    /// The language an `include` names (by name first, then by extension or
+    /// file name), when its grammar compiles.
+    pub fn embedded(&self, name: &str) -> Option<Arc<Language>> {
+        if name.is_empty() {
+            return None;
+        }
+        let named = |l: &&Arc<Language>| l.name().eq_ignore_ascii_case(name);
+        self.languages
+            .iter()
+            .find(named)
+            .or_else(|| self.languages.iter().find(|l| l.answers_to(name)))
+            .filter(|l| l.grammar().is_some())
+            .cloned()
+    }
+
+    /// The grammar a file of `language` starts in: its host's when it has
+    /// one (PHP inside HTML), else its own.
+    pub fn root_of(&self, language: &Arc<Language>) -> Arc<Language> {
+        language
+            .host()
+            .and_then(|host| self.embedded(host))
+            .unwrap_or_else(|| Arc::clone(language))
+    }
 }
 
 fn active_slot() -> &'static RwLock<Arc<Registry>> {

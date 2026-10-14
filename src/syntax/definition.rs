@@ -44,6 +44,11 @@ pub struct Definition {
     /// Match every pattern of the language ignoring case.
     #[serde(default)]
     pub case_insensitive: bool,
+    /// The language files of this one are written in: highlighting starts
+    /// in the host's grammar, which embeds this one in some regions (PHP
+    /// inside HTML).
+    #[serde(default)]
+    pub host: Option<String>,
     /// Patterns colored anywhere outside regions.
     #[serde(default, rename = "rule")]
     pub rules: Vec<RuleDef>,
@@ -72,6 +77,10 @@ pub struct RuleDef {
 /// A region: `start` opens it, `end` closes it (on the same or a later
 /// line), and `skip` matches are passed over while looking for the end
 /// (escaped quotes). Inside, only its own rules and regions apply.
+///
+/// `end` (and `include`) may use `${N}`, the text of capture group `N` of
+/// the start match (a heredoc word); `after` limits where the region may
+/// start; `include` highlights the inner text with another language.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegionDef {
@@ -82,6 +91,16 @@ pub struct RegionDef {
     pub end: String,
     #[serde(default)]
     pub skip: Option<String>,
+    /// Pattern the text before the start (on the same line) must match,
+    /// usually ending in `$` (a regular expression literal only after an
+    /// operator).
+    #[serde(default)]
+    pub after: Option<String>,
+    /// Language (name or extension) of the inner text; `kind` then colors
+    /// only the start and end, and the region's own rules apply when the
+    /// language is unknown.
+    #[serde(default)]
+    pub include: Option<String>,
     #[serde(default, rename = "rule")]
     pub rules: Vec<RuleDef>,
     #[serde(default, rename = "region")]

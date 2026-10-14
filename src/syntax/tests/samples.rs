@@ -335,7 +335,8 @@ pub const SAMPLES: &[Sample] = &[
             (1, "**bold**", Some(Keyword)),
             (1, "`code`", Some(Str)),
             (1, "[link]", Some(Function)),
-            (3, "code", Some(Str)),
+            (2, "```", Some(Str)),
+            (3, "code", None),
         ],
     },
     Sample {

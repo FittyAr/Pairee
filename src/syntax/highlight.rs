@@ -3,207 +3,228 @@
 //!
 //! Outside regions (or inside the innermost open one) the line is split at
 //! the next region boundary: whichever comes first of the open region's
-//! end and a sub-region's start. Each stretch takes the region's kind and
-//! then its rules, in order, so later rules paint over earlier ones.
+//! end, the end of an enclosing region that embeds another language, and
+//! a sub-region's start. Each stretch takes the region's kind and then its
+//! rules, in order, so later rules paint over earlier ones.
+//!
+//! A region that embeds a language (`include`) highlights its inner text
+//! with that language's grammar; its own end still closes it whatever the
+//! embedded language left open (a `</script>` inside a JavaScript string).
 //!
 //! Work per line is bounded: only the first [`MAX_LINE_BYTES`] are
-//! analysed, and a line that needs more than [`MAX_SEARCHES`] pattern
-//! searches keeps the rest plain.
+//! analysed, a line that needs more than `MAX_SEARCHES` pattern searches
+//! keeps the rest plain, and languages embed at most [`MAX_EMBED_DEPTH`]
+//! deep.
 
-use super::grammar::{Context, Grammar, Region, Rule};
-use super::{LineTokens, SyntaxKind, Token};
+use super::LineTokens;
+use super::grammar::{Context, Grammar, Region};
+use super::language::Language;
+use super::painter::Painter;
+use super::registry::Registry;
+use regex::Regex;
 use std::ops::Range;
+use std::sync::Arc;
 
 /// Longer lines are highlighted up to here (minified files, data dumps).
 pub const MAX_LINE_BYTES: usize = 4 * 1024;
-/// Pattern searches allowed per line.
-pub const MAX_SEARCHES: usize = 64 * 1024;
+/// Deepest nesting of embedded languages (HTML > PHP > …).
+pub const MAX_EMBED_DEPTH: usize = 4;
+
+/// The grammar of a language whose grammar did not compile (never embedded,
+/// but a frame must still name one).
+static EMPTY: Grammar = Grammar::empty();
+
+/// One open region.
+#[derive(Debug, Clone)]
+struct Frame {
+    /// Language declaring the region (`None`: the root grammar).
+    owner: Option<Arc<Language>>,
+    region: u16,
+    /// End built from the start's captures.
+    end: Option<Arc<Regex>>,
+    /// Language of the inner text.
+    embed: Option<Arc<Language>>,
+}
+
+impl PartialEq for Frame {
+    fn eq(&self, other: &Self) -> bool {
+        fn same<T>(a: &Option<Arc<T>>, b: &Option<Arc<T>>) -> bool {
+            match (a, b) {
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                (None, None) => true,
+                _ => false,
+            }
+        }
+        self.region == other.region
+            && same(&self.owner, &other.owner)
+            && same(&self.embed, &other.embed)
+            && self.end.as_ref().map(|r| r.as_str()) == other.end.as_ref().map(|r| r.as_str())
+    }
+}
+
+impl Eq for Frame {}
 
 /// The regions open before a line (innermost last).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LineState {
-    stack: Vec<u16>,
+    stack: Vec<Frame>,
 }
 
-/// One line being painted.
-struct Painter<'a> {
-    grammar: &'a Grammar,
-    line: &'a str,
-    paint: Vec<Option<SyntaxKind>>,
-    /// Searches left before giving up on the line.
-    budget: usize,
+/// What lines are highlighted with: the file's grammar and the languages
+/// regions may embed.
+#[derive(Clone, Copy)]
+pub struct Grammars<'a> {
+    pub root: &'a Grammar,
+    pub registry: &'a Registry,
+}
+
+/// What ends a stretch of the line, and where the next one begins.
+enum Boundary {
+    /// The frame at this depth (and every one inside it) closes.
+    End(usize, usize),
+    Start(Frame, usize),
 }
 
 impl LineState {
     /// Tokens of `line` (without its line break); advances the state to
     /// the next line.
-    pub fn advance(&mut self, grammar: &Grammar, line: &str) -> LineTokens {
+    pub fn advance(&mut self, grammars: Grammars, line: &str) -> LineTokens {
         let line = &line[..line.floor_char_boundary(MAX_LINE_BYTES)];
-        let mut painter = Painter {
-            grammar,
-            line,
-            paint: vec![None; line.len()],
-            budget: MAX_SEARCHES,
-        };
+        let mut painter = Painter::new(line);
         let mut pos = 0;
-        while let Some(next) = painter.step(&self.stack, pos) {
+        while let Some(next) = grammars.step(&mut painter, &self.stack, pos) {
             match next {
-                Boundary::End(at) => {
-                    self.stack.pop();
+                Boundary::End(depth, at) => {
+                    self.stack.truncate(depth);
                     pos = at;
                 }
-                Boundary::Start(region, at) => {
-                    self.stack.push(region);
+                Boundary::Start(frame, at) => {
+                    self.stack.push(frame);
                     pos = at;
                 }
             }
         }
         painter.tokens()
     }
+
+    /// How many regions are open.
+    #[cfg(test)]
+    pub fn depth(&self) -> usize {
+        self.stack.len()
+    }
 }
 
-/// What ends a stretch of the line, and where the next one begins.
-enum Boundary {
-    End(usize),
-    Start(u16, usize),
-}
+impl<'g> Grammars<'g> {
+    fn grammar(&self, language: Option<&'g Arc<Language>>) -> &'g Grammar {
+        match language {
+            Some(language) => language.grammar().unwrap_or(&EMPTY),
+            None => self.root,
+        }
+    }
 
-impl Painter<'_> {
+    fn region(&self, frame: &'g Frame) -> Option<&'g Region> {
+        let grammar = self.grammar(frame.owner.as_ref());
+        grammar.regions.get(usize::from(frame.region))
+    }
+
+    /// The language, grammar and context that apply inside `stack`.
+    fn context(&self, stack: &'g [Frame]) -> (Option<&'g Arc<Language>>, &'g Grammar, &'g Context) {
+        let Some(frame) = stack.last() else {
+            return (None, self.root, &self.root.root);
+        };
+        if let Some(embed) = &frame.embed {
+            let grammar = self.grammar(Some(embed));
+            return (Some(embed), grammar, &grammar.root);
+        }
+        let owner = frame.owner.as_ref();
+        let inner = self.region(frame).map_or(&EMPTY.root, |r| &r.inner);
+        (owner, self.grammar(owner), inner)
+    }
+
     /// Paints from `pos` to the next region boundary and returns it
     /// (`None` at the end of the line or when out of budget).
-    fn step(&mut self, stack: &[u16], pos: usize) -> Option<Boundary> {
-        let grammar = self.grammar;
-        let open = stack
-            .last()
-            .and_then(|&i| grammar.regions.get(usize::from(i)));
-        let end = open.and_then(|r| self.find_end(r, pos));
-        let limit = end.as_ref().map_or(self.line.len(), |e| e.start);
-        let context = grammar.context(stack);
-        let child = self.first_start(context, pos, limit);
+    fn step(&self, painter: &mut Painter, stack: &'g [Frame], pos: usize) -> Option<Boundary> {
+        let (owner, grammar, context) = self.context(stack);
+        let end = self.earliest_end(painter, stack, pos);
+        let limit = end.as_ref().map_or(painter.line_len(), |(_, m)| m.start);
+        let child = painter.first_start(grammar, context, pos, limit);
         let stop = child.as_ref().map_or(limit, |(_, m)| m.start);
-        self.fill(pos..stop, open.and_then(|r| r.kind));
-        self.rules(context, pos..stop);
+        let inner_kind = stack
+            .last()
+            .and_then(|f| self.region(f))
+            .filter(|r| r.include.is_none())
+            .and_then(|r| r.kind);
+        painter.fill(pos..stop, inner_kind);
+        painter.rules(context, pos..stop);
         if let Some((index, m)) = child {
-            let kind = grammar.regions[usize::from(index)].kind;
-            self.fill(m.clone(), kind);
-            return Some(Boundary::Start(index, m.end));
+            let region = grammar.regions.get(usize::from(index))?;
+            painter.fill(m.clone(), region.kind);
+            let frame = self.enter(painter, stack, owner, (index, region), &m);
+            return Some(Boundary::Start(frame, m.end));
         }
-        let end = end?;
-        self.fill(end.clone(), open.and_then(|r| r.kind));
-        Some(Boundary::End(end.end))
+        let (depth, m) = end?;
+        let kind = self.region(&stack[depth]).and_then(|r| r.kind);
+        painter.fill(m.clone(), kind);
+        Some(Boundary::End(depth, m.end))
     }
 
-    /// One search of `regex` from `at`, or `None` once the budget is spent.
-    fn search(&mut self, regex: &regex::Regex, at: usize) -> Option<Range<usize>> {
-        self.budget = self.budget.checked_sub(1)?;
-        regex.find_at(self.line, at).map(|m| m.range())
-    }
-
-    /// Where `region` ends from `pos` on, passing over its `skip` matches.
-    fn find_end(&mut self, region: &Region, pos: usize) -> Option<Range<usize>> {
-        let mut at = pos;
-        loop {
-            let end = self.search(&region.end, at)?;
-            let skip = match &region.skip {
-                Some(skip) => self.search(skip, at),
-                None => None,
-            };
-            match skip {
-                Some(s) if s.start < end.start && !s.is_empty() => at = s.end,
-                _ => return Some(end),
-            }
-        }
-    }
-
-    /// The first sub-region of `context` starting in `pos..limit` (empty
-    /// start matches are ignored; ties go to the first declared).
-    fn first_start(
-        &mut self,
-        context: &Context,
+    /// The first end from `pos` on among the innermost open region and the
+    /// enclosing ones that embed a language (on a tie, the outermost).
+    fn earliest_end(
+        &self,
+        painter: &mut Painter,
+        stack: &'g [Frame],
         pos: usize,
-        limit: usize,
-    ) -> Option<(u16, Range<usize>)> {
-        let mut best: Option<(u16, Range<usize>)> = None;
-        for &index in &context.children {
-            let bound = best.as_ref().map_or(limit, |(_, m)| m.start);
-            let start = &self.grammar.regions[usize::from(index)].start;
-            let mut at = pos;
-            while let Some(m) = self.search(start, at).filter(|m| m.start < bound) {
-                if !m.is_empty() {
-                    best = Some((index, m));
-                    break;
-                }
-                at = self.next_char(m.start)?;
+    ) -> Option<(usize, Range<usize>)> {
+        let mut best: Option<(usize, Range<usize>)> = None;
+        for (depth, frame) in stack.iter().enumerate().rev() {
+            let Some(region) = self.region(frame) else {
+                continue;
+            };
+            if depth + 1 != stack.len() && region.include.is_none() {
+                continue;
+            }
+            let end = frame.end.as_deref().unwrap_or(&region.end);
+            let Some(m) = painter.find_end(end, region.skip.as_ref(), pos) else {
+                continue;
+            };
+            if best.as_ref().is_none_or(|(_, b)| m.start <= b.start) {
+                best = Some((depth, m));
             }
         }
         best
     }
 
-    /// Paints the matches of `context`'s rules inside `span`.
-    fn rules(&mut self, context: &Context, span: Range<usize>) {
-        for rule in &context.rules {
-            let mut at = span.start;
-            while at < span.end {
-                let Some((whole, painted)) = self.rule_match(rule, at) else {
-                    break;
-                };
-                if whole.start >= span.end {
-                    break;
-                }
-                if let Some(m) = painted {
-                    self.fill(m.start..m.end.min(span.end), Some(rule.kind));
-                }
-                at = if whole.is_empty() {
-                    self.next_char(whole.start).unwrap_or(span.end)
-                } else {
-                    whole.end
-                };
-            }
+    /// The frame of `region` (number `index` of the grammar of `owner`),
+    /// whose start matched `m`: its end and embedded language come from
+    /// the start's captures.
+    fn enter(
+        &self,
+        painter: &mut Painter,
+        stack: &[Frame],
+        owner: Option<&Arc<Language>>,
+        (index, region): (u16, &Region),
+        m: &Range<usize>,
+    ) -> Frame {
+        let caps = region
+            .uses_captures()
+            .then(|| painter.captures(&region.start, m.start))
+            .flatten();
+        let end = region
+            .captured_end
+            .as_ref()
+            .zip(caps.as_ref())
+            .and_then(|(end, caps)| end.compile(caps));
+        let embedded = stack.iter().filter(|f| f.embed.is_some()).count();
+        let embed = region
+            .include_name(caps.as_ref())
+            .filter(|_| embedded < MAX_EMBED_DEPTH)
+            .and_then(|name| self.registry.embedded(&name));
+        Frame {
+            owner: owner.cloned(),
+            region: index,
+            end,
+            embed,
         }
-    }
-
-    /// The next match of `rule` from `at`: the whole match and the part
-    /// painted (its group, which may not have taken part).
-    fn rule_match(
-        &mut self,
-        rule: &Rule,
-        at: usize,
-    ) -> Option<(Range<usize>, Option<Range<usize>>)> {
-        if rule.group == 0 {
-            let whole = self.search(&rule.regex, at)?;
-            return Some((whole.clone(), Some(whole)));
-        }
-        self.budget = self.budget.checked_sub(1)?;
-        let caps = rule.regex.captures_at(self.line, at)?;
-        let whole = caps.get(0)?.range();
-        Some((whole, caps.get(rule.group).map(|m| m.range())))
-    }
-
-    /// The byte after the character at `at`.
-    fn next_char(&self, at: usize) -> Option<usize> {
-        let c = self.line.get(at..)?.chars().next()?;
-        Some(at + c.len_utf8())
-    }
-
-    fn fill(&mut self, range: Range<usize>, kind: Option<SyntaxKind>) {
-        if let Some(cells) = self.paint.get_mut(range) {
-            cells.fill(kind);
-        }
-    }
-
-    /// The painted cells as runs of one kind.
-    fn tokens(self) -> LineTokens {
-        let mut tokens = LineTokens::new();
-        for (at, kind) in self.paint.into_iter().enumerate() {
-            let Some(kind) = kind else { continue };
-            match tokens.last_mut() {
-                Some(last) if last.kind == kind && last.range.end == at => last.range.end = at + 1,
-                _ => tokens.push(Token {
-                    range: at..at + 1,
-                    kind,
-                }),
-            }
-        }
-        tokens
     }
 }

@@ -21,7 +21,9 @@ mod definition;
 mod grammar;
 mod highlight;
 mod language;
+mod painter;
 mod registry;
+mod template;
 #[cfg(test)]
 mod tests;
 

@@ -36,15 +36,19 @@ pattern = '!?\[[^\]]*\](?:\([^)]*\)|\[[^\]]*\])?|^\s{0,3}\[[^\]]+\]:\s*\S+|<(?:h
 kind = "constant"
 pattern = '\\[\\`*_{}\[\]()#+\-.!|]|&[a-zA-Z0-9#]+;'
 
+# Fenced code: closed by a fence at least as long; the info string names the
+# language of the content.
 [[region]]
 kind = "string"
-start = '^\s{0,3}```'
-end = '^\s{0,3}```\s*$'
+start = '^\s{0,3}(`{3,})\s*([A-Za-z0-9_+#.-]*).*$'
+end = '^\s{0,3}${1}`*\s*$'
+include = '${2}'
 
 [[region]]
 kind = "string"
-start = '^\s{0,3}~~~'
-end = '^\s{0,3}~~~\s*$'
+start = '^\s{0,3}(~{3,})\s*([A-Za-z0-9_+#.-]*).*$'
+end = '^\s{0,3}${1}~*\s*$'
+include = '${2}'
 
 [[region]]
 kind = "string"
