@@ -18,6 +18,7 @@ fn spec(path: &Path, source: SourceKind) -> TabSpec {
         locked: false,
         cursor: Some("b.txt".into()),
         connection: None,
+        branch_view: false,
     }
 }
 

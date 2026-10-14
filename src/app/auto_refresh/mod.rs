@@ -25,6 +25,8 @@ pub struct WatchTarget {
     pub dir: PathBuf,
     /// The SFTP connection of a remote folder (`None`: local disk).
     pub remote: Option<RemoteConn>,
+    /// Its subfolders matter too (the tab shows a branch view).
+    pub recursive: bool,
 }
 
 impl WatchTarget {
@@ -120,9 +122,13 @@ impl AutoRefresh {
             let sink = ChangeSink::new(self.tx.clone(), crate::app::jobs::wake_event_loop)
                 .with_origin(key.0);
             let monitor = match target.remote {
-                Some(client) => {
-                    DirMonitor::start_polling(target.dir, client.vfs(), plan.poll_interval, sink)
-                }
+                Some(client) => DirMonitor::start_polling(
+                    target.dir,
+                    client.vfs(),
+                    plan.poll_interval,
+                    plan.recursive,
+                    sink,
+                ),
                 None => DirMonitor::start(target.dir, plan, sink),
             };
             self.monitors.insert(key, (plan, monitor));
@@ -142,6 +148,7 @@ impl AutoRefresh {
             } else {
                 self.config.poll_interval
             },
+            recursive: target.recursive,
         }
     }
 

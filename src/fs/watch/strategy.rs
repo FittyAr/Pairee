@@ -17,7 +17,7 @@ pub trait ChangeStrategy {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StrategyKind {
-    /// Native notifications (`notify`), non-recursive.
+    /// Native notifications (`notify`), recursive for a branch view.
     Watch,
     /// Folder signature (modification time + entry count) checked on an
     /// interval.
@@ -25,10 +25,10 @@ pub enum StrategyKind {
 }
 
 impl StrategyKind {
-    pub fn build(self, poll_interval: Duration) -> Box<dyn ChangeStrategy> {
+    pub fn build(self, poll_interval: Duration, recursive: bool) -> Box<dyn ChangeStrategy> {
         match self {
-            Self::Watch => Box::new(WatchStrategy),
-            Self::Poll => Box::new(PollStrategy::new(poll_interval)),
+            Self::Watch => Box::new(WatchStrategy { recursive }),
+            Self::Poll => Box::new(PollStrategy::new(poll_interval).recursive(recursive)),
         }
     }
 }

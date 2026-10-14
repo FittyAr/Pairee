@@ -102,6 +102,8 @@ pub struct MonitorPlan {
     /// the automatic update limit).
     pub prefer_poll: bool,
     pub poll_interval: Duration,
+    /// Watch the subfolders too (a branch view shows them all).
+    pub recursive: bool,
 }
 
 /// Handle of a running monitor; dropping it stops the thread.
@@ -122,10 +124,12 @@ impl DirMonitor {
         dir: PathBuf,
         vfs: Arc<dyn Vfs>,
         interval: Duration,
+        recursive: bool,
         sink: ChangeSink,
     ) -> Self {
         Self::spawn(sink, move |stop, sink| {
-            if let Err(err) = PollStrategy::over(vfs, interval).run(&dir, stop, sink) {
+            let poll = PollStrategy::over(vfs, interval).recursive(recursive);
+            if let Err(err) = poll.run(&dir, stop, sink) {
                 log::info!("Auto-refresh: cannot poll {dir:?}: {err}");
             }
         })
@@ -152,7 +156,10 @@ impl DirMonitor {
 fn run_chain(dir: &std::path::Path, plan: MonitorPlan, stop: &Receiver<()>, sink: &ChangeSink) {
     let chain = strategy_chain(plan.prefer_poll, super::needs_polling(dir));
     for kind in chain {
-        match kind.build(plan.poll_interval).run(dir, stop, sink) {
+        match kind
+            .build(plan.poll_interval, plan.recursive)
+            .run(dir, stop, sink)
+        {
             Ok(()) => return,
             Err(err) => log::info!("Auto-refresh: {kind:?} unavailable for {dir:?}: {err}"),
         }
