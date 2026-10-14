@@ -3,6 +3,13 @@
 //! publish under the host's reserved names (see `plugin::hooks`).
 
 use crate::plugin::manager::PluginOrigin;
+use tokio::sync::Semaphore;
+
+/// Largest `pairee.ps.pub` payload, as JSON text.
+const MAX_PAYLOAD_BYTES: usize = 1024 * 1024;
+
+/// `pairee.ps.pub` messages (of all plugins) being delivered at once.
+static PENDING: Semaphore = Semaphore::const_new(64);
 
 pub fn bind(lua: &mlua::Lua, origin: PluginOrigin) -> mlua::Result<mlua::Table> {
     let ps = lua.create_table()?;
@@ -40,10 +47,20 @@ pub fn bind(lua: &mlua::Lua, origin: PluginOrigin) -> mlua::Result<mlua::Table> 
                     "pairee.ps.pub: '{event_name}' is reserved for Pairee events"
                 )));
             }
-            let json_val = crate::plugin::runtime::lua_json::to_json(lua_ctx, data)?;
+            let json = crate::plugin::runtime::lua_json::to_json(lua_ctx, data)?.to_string();
+            if json.len() > MAX_PAYLOAD_BYTES {
+                return Err(mlua::Error::runtime(format!(
+                    "pairee.ps.pub: the payload is larger than {MAX_PAYLOAD_BYTES} bytes"
+                )));
+            }
+            // Each message in flight holds a copy of the payload: bound them.
+            let permit = PENDING.try_acquire().map_err(|_| {
+                mlua::Error::runtime("pairee.ps.pub: too many messages are still being delivered")
+            })?;
             let sender = origin.clone();
             tokio::spawn(async move {
-                crate::plugin::hooks::publish(sender, &event_name, json_val).await;
+                let _permit = permit;
+                crate::plugin::hooks::publish(sender, &event_name, &json).await;
             });
             Ok(())
         })?,
@@ -62,4 +79,24 @@ pub fn bind(lua: &mlua::Lua, origin: PluginOrigin) -> mlua::Result<mlua::Table> 
     )?;
 
     Ok(ps)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn oversized_payloads_are_refused() {
+        let lua = mlua::Lua::new();
+        let origin = PluginOrigin {
+            name: "demo".into(),
+            trusted: true,
+        };
+        lua.globals().set("ps", bind(&lua, origin).unwrap()).unwrap();
+        let err = lua
+            .load("ps.pub('big', string.rep('x', 2 * 1024 * 1024))")
+            .exec()
+            .unwrap_err();
+        assert!(err.to_string().contains("larger than"), "{err}");
+    }
 }

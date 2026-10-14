@@ -24,6 +24,9 @@ Policy:
 - `pairee.fs` refuses writes inside any `.git` folder for jailed plugins.
 - `pairee.fs.spawn` runs through the same checks as `pairee.Command` and
   no longer reads the terminal's input.
+- `pairee.ps.pub` refuses payloads over 1 MiB (as JSON) and raises an
+  error while 64 messages are still being delivered; an event reaching a
+  plugin whose queue is full is dropped instead of waiting.
 
 ### Fixed
 

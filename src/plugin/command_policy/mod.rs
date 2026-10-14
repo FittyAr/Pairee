@@ -91,13 +91,6 @@ impl CommandPolicy {
         Ok((path, argv))
     }
 
-    /// Returns the program to execute (an absolute path in Secure Mode) or
-    /// a security violation message.
-    fn authorize(&self, program: &str) -> Result<PathBuf, String> {
-        let path_var = std::env::var_os("PATH").unwrap_or_default();
-        self.authorize_with_path(program, &path_var)
-    }
-
     /// `Ok` when the plugin may set the environment variable `name` on the
     /// commands it spawns.
     pub fn authorize_env(&self, name: &str) -> Result<(), String> {
@@ -200,13 +193,13 @@ mod tests {
     fn untrusted_can_never_spawn() {
         let p = CommandPolicy::new(false, false, &declared(&["git"]));
         assert_eq!(p, CommandPolicy::Blocked);
-        assert!(p.authorize("git").unwrap_err().contains("sandboxed"));
+        assert!(p.authorize_command("git", &[]).unwrap_err().contains("sandboxed"));
     }
 
     #[test]
     fn trusted_without_secure_mode_is_unrestricted() {
         let p = CommandPolicy::new(true, false, &[]);
-        assert_eq!(p.authorize("bash").unwrap(), PathBuf::from("bash"));
+        assert_eq!(p.authorize_command("bash", &[]).unwrap().0, PathBuf::from("bash"));
     }
 
     #[test]

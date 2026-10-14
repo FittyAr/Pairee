@@ -157,6 +157,16 @@ async fn tell(name: &str, req: PluginTaskRequest) {
     }
 }
 
+/// Like [`tell`], but drops the request when the plugin's queue is full.
+async fn try_tell(name: &str, req: PluginTaskRequest) {
+    let tx = get_registry().channels.read().await.get(name).cloned();
+    if let Some(tx) = tx
+        && let Err(mpsc::error::TrySendError::Full(_)) = tx.try_send(req)
+    {
+        tracing::debug!("Plugin {name} is busy; an event was dropped");
+    }
+}
+
 pub async fn run_previewer(name: &str, job: PreviewJob) -> Option<Renderable> {
     ask(name, |reply_tx| PluginTaskRequest::Peek { job, reply_tx })
         .await
@@ -200,7 +210,7 @@ pub async fn emit_hook_event(
         data,
         sender,
     };
-    tell(plugin_name, req).await;
+    try_tell(plugin_name, req).await;
 }
 
 pub async fn get_loaded_plugins() -> Vec<PluginInfo> {
