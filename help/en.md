@@ -6,9 +6,20 @@ This is the help documentation for your Pairee plugin.
 
 Describe how to use your plugin here.
 
-## Keybindings
+## Commands
 
-Describe your custom keybindings here.
+| Command | Default keys | What it does |
+|---------|--------------|--------------|
+| Say hello | `Ctrl+Alt+e h` (Neovim `<leader>ph`, yazi `Alt+p h`) | Greets the hovered file |
+
+Every command is also in the command palette. Rebind it in
+`keybindings.toml` with its id, `plugin.PLUGIN_NAME.hello`.
+
+## Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `greet_on_setup` | `false` | Log a greeting when the plugin loads |
 
 ## Permissions
 

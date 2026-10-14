@@ -1,9 +1,16 @@
 [plugin]
+# Must match the plugin folder without its `.pairee` suffix
+# (`my-plugin.pairee/` -> "my-plugin"): only [A-Za-z0-9_-].
 name = "PLUGIN_NAME"
 version = "0.1.0"
 description = "PLUGIN_DESCRIPTION"
 author = "PLUGIN_AUTHOR"
-min_pairee = "0.6.1"
+# `pairee developer package` sets it ("MIT" when there is no LICENSE file).
+license = "MIT"
+# previewer | preloader | hook | command | mixed
+type = "mixed"
+# Lua API 1.3.0, `[[commands]]` and the name/folder rule need Pairee 0.11.0.
+min_pairee = "0.11.0"
 requires_trust = false
 default_language = "en"
 languages = ["en"]
@@ -16,11 +23,23 @@ screenshots = [
     "screenshots/screenshot1.png"
 ]
 
-[keybindings]
-# "ctrl-p" = "my_custom_action"
+# Commands appear in the command palette and the shortcuts list, and the
+# user can rebind them (keymap id: plugin.<name>.<id>). Keys are suggestions
+# per preset ("default" covers the others); a key the preset already uses
+# stays unbound. `pairee developer lint` reports taken or invalid keys.
+[[commands]]
+id = "hello"
+title = "Say hello"
 
+[commands.keys]
+default = "Ctrl+Alt+e h"
+neovim = "<leader>ph"
+yazi = "Alt+p h"
+
+# Settings the user edits in the Plugin Manager (`c` or Enter); read them
+# from `pairee.settings`. Types: bool, string, integer, number.
 [settings_schema]
-# enabled = { type = "boolean", default = true, description = "Enable features" }
+greet_on_setup = { type = "bool", default = false, description = "Log a greeting when the plugin loads" }
 
 # External programs this plugin may spawn (pairee.Command / pairee.fs.spawn).
 # Only needed if the plugin starts processes (that also requires
