@@ -1,28 +1,39 @@
+//! Listing a folder the user cannot read, through an elevated helper
+//! (UAC on Windows, `sudo` elsewhere). The helper runs a static script
+//! that gets the folder as a parameter, never as code.
+
 use crate::fs::entry::FileEntry;
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
+
+/// Writes `body` as `name` in a new private temporary folder (0700 on
+/// Unix) and returns both: the elevated helper runs exactly this script.
+/// A fixed script in the shared temp folder could be planted beforehand by
+/// another user and would then run as root / Administrator.
+fn private_script(name: &str, body: &str) -> Result<(tempfile::TempDir, PathBuf)> {
+    let dir = tempfile::Builder::new().prefix("pairee-admin-").tempdir()?;
+    let script = dir.path().join(name);
+    std::fs::write(&script, body)
+        .map_err(|e| anyhow::anyhow!("Failed to write admin-listing script: {}", e))?;
+    Ok((dir, script))
+}
+
+/// One entry of the helper's output: `name|size|<kind>|<time>` with
+/// `fields` fields after the name (a name may itself hold `|`).
+fn split_line(line: &str, fields: usize) -> Option<(&str, Vec<&str>)> {
+    let mut parts: Vec<&str> = line.rsplitn(fields + 1, '|').collect();
+    if parts.len() != fields + 1 {
+        return None;
+    }
+    let name = parts.pop()?;
+    parts.reverse();
+    Some((name, parts))
+}
 
 #[cfg(target_os = "windows")]
 pub(super) fn read_directory_as_admin(path: &Path) -> Result<Vec<FileEntry>> {
-    use std::io::Write;
-    use std::process::Command;
-
-    // The previous implementation built a PowerShell command by string-
-    // concatenation of the user-supplied path. The path was escaped for
-    // `"` only, leaving it vulnerable to PowerShell injection via `$`,
-    // `` ` ``, or `'` in the path. Worse, the inner script was passed as
-    // a single-quoted argument to `Start-Process -ArgumentList`, and the
-    // inner script's quotes weren't escaped for that context either.
-    //
-    // The fix: ship a static PowerShell script that takes `-Path` and
-    // `-OutputFile` parameters. The path is delivered as a parameter and
-    // never re-parsed by PowerShell, so metacharacters are inert.
-    let script_dir = std::env::temp_dir().join("pairee-admin");
-    std::fs::create_dir_all(&script_dir)
-        .map_err(|e| anyhow::anyhow!("Failed to create temp script directory: {}", e))?;
-    let script_path = script_dir.join("ListDirectory.ps1");
-
-    // Script body is fully static; no path interpolation.
+    // Static script: the folder and the output file arrive as parameters.
     let script_body = r#"param(
     [Parameter(Mandatory = $true, Position = 0)]
     [string] $Path,
@@ -35,7 +46,7 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $writer = New-Object System.IO.StreamWriter($OutputFile, $false, $utf8NoBom)
 
 try {
-    Get-ChildItem -Path $Path -Force -ErrorAction Stop | ForEach-Object {
+    Get-ChildItem -LiteralPath $Path -Force -ErrorAction Stop | ForEach-Object {
         $name = $_.Name
         $length = $_.Length
         $mode = $_.Mode
@@ -46,110 +57,56 @@ try {
     $writer.Close()
 }
 "#;
-    if !script_path.exists() {
-        std::fs::File::create(&script_path)
-            .and_then(|mut f| f.write_all(script_body.as_bytes()))
-            .map_err(|e| anyhow::anyhow!("Failed to write admin-listing script: {}", e))?;
+    let (private, script) = private_script("ListDirectory.ps1", script_body)?;
+    let temp_file = private.path().join("listing.txt");
+    // A folder ending in `\` would escape the closing quote of its argument
+    // on the helper's command line: `C:\` is passed as `C:\.`.
+    let mut listed = path.as_os_str().to_owned();
+    if listed.to_string_lossy().ends_with('\\') {
+        listed.push(".");
     }
+    // `Start-Process` joins the arguments with spaces: each path is quoted
+    // for the helper's command line, and `-File` passes them as plain text.
+    let status = crate::fs::privileges::run_powershell(
+        "Start-Process powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('\"' + $v0 + '\"'),'-Path',('\"' + $v1 + '\"'),'-OutputFile',('\"' + $v2 + '\"')) -Verb RunAs -WindowStyle Hidden -Wait",
+        &[script.as_os_str(), &listed, temp_file.as_os_str()],
+    )?;
 
-    let temp_dir = std::env::temp_dir();
-    // UUID rather than the (guessable) process id so a local attacker
-    // cannot pre-create the output file with a forged directory listing
-    // that the unprivileged parent would then trust.
-    let temp_file = temp_dir.join(format!("pairee_dir_{}.txt", uuid::Uuid::new_v4()));
-    // We need to pass the *absolute* path to the script because the elevated
-    // process will run with a different working directory and we cannot rely
-    // on relative paths to resolve to the same location.
-    let script_arg = script_path
-        .canonicalize()
-        .unwrap_or_else(|_| script_path.clone());
-    let temp_file_arg = temp_file
-        .canonicalize()
-        .unwrap_or_else(|_| temp_file.clone());
-
-    // The wrapper that elevates the helper script. We pass the path to the
-    // .ps1 and its arguments through `-ArgumentList` (which is parsed by
-    // PowerShell at the elevated prompt, NOT as a string), so the path is
-    // never re-interpreted.
-    let status = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg(format!(
-            "Start-Process powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',\"{}\",'-Path',\"{}\",'-OutputFile',\"{}\") -Verb RunAs -WindowStyle Hidden -Wait",
-            script_arg.display(),
-            path.display(),
-            temp_file_arg.display(),
-        ))
-        .status()?;
-
-    if status.success() && temp_file.exists() {
-        let content = std::fs::read_to_string(&temp_file)?;
-        let _ = std::fs::remove_file(&temp_file);
-        let mut entries = Vec::new();
-        for line in content.lines() {
-            let parts: Vec<&str> = line.split('|').collect();
-            if parts.len() >= 4 {
-                let name = parts[0].to_string();
-                let size: u64 = parts[1].parse().unwrap_or(0);
-                let mode = parts[2];
-                let is_dir = mode.contains('d') || mode.contains('D');
-                let ticks: i64 = parts[3].parse().unwrap_or(0);
-
-                let modified = if ticks > 0 {
-                    let epoch_ticks = 621355968000000000i64;
-                    let unix_ticks = ticks - epoch_ticks;
-                    let secs = unix_ticks / 10_000_000;
-                    if secs > 0 {
-                        Some(
-                            std::time::SystemTime::UNIX_EPOCH
-                                + std::time::Duration::from_secs(secs as u64),
-                        )
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                let entry_path = path.join(&name);
-                entries.push(FileEntry {
-                    name,
-                    path: entry_path,
-                    size,
-                    is_dir,
-                    is_symlink: mode.contains('l') || mode.contains('L'),
-                    modified,
-                });
-            }
-        }
-        Ok(entries)
-    } else {
+    if !(status.success() && temp_file.exists()) {
         anyhow::bail!("Failed to read directory as admin")
     }
+    let content = std::fs::read_to_string(&temp_file)?;
+    let mut entries = Vec::new();
+    for line in content.lines() {
+        let Some((name, fields)) = split_line(line, 3) else {
+            continue;
+        };
+        let size: u64 = fields[0].parse().unwrap_or(0);
+        let mode = fields[1];
+        let ticks: i64 = fields[2].parse().unwrap_or(0);
+        // .NET ticks (100 ns since 0001-01-01) to Unix time.
+        let unix_ticks = ticks - 621_355_968_000_000_000i64;
+        let modified = (ticks > 0 && unix_ticks > 0).then(|| {
+            SystemTime::UNIX_EPOCH + Duration::from_secs((unix_ticks / 10_000_000) as u64)
+        });
+        entries.push(FileEntry {
+            name: name.to_string(),
+            path: path.join(name),
+            size,
+            is_dir: mode.contains('d') || mode.contains('D'),
+            is_symlink: mode.contains('l') || mode.contains('L'),
+            modified,
+        });
+    }
+    Ok(entries)
 }
 
 #[cfg(not(target_os = "windows"))]
 pub(super) fn read_directory_as_admin(path: &Path) -> Result<Vec<FileEntry>> {
-    use std::io::Write;
     use std::process::Command;
 
-    // The previous implementation built a Python `-c` command by string
-    // interpolating the user-supplied path. Even though single quotes were
-    // escaped, Python's single-quoted strings still treat a trailing `\`
-    // followed by a newline as a line-continuation, so a path such as
-    // `foo\<newline>print("pwned")` would break out of the string and
-    // execute arbitrary Python as root (the whole point of using `sudo`
-    // here). Other escapes (`\x..`, `\u..`, etc.) could similarly be
-    // abused.
-    //
-    // The fix is to ship a static script and pass the path as a separate
-    // argv element. Python receives the path on `sys.argv[1]` and never
-    // re-parses it as source.
-    let script_dir = std::env::temp_dir().join("pairee-admin");
-    std::fs::create_dir_all(&script_dir)
-        .map_err(|e| anyhow::anyhow!("Failed to create temp script directory: {}", e))?;
-    let script_path = script_dir.join("ListDirectory.py");
-    // Static body — no interpolation.
+    // Static script: the folder arrives as `sys.argv[1]` and is never
+    // parsed as Python source.
     let script_body = r#"import os, sys
 path = sys.argv[1]
 for e in os.scandir(path):
@@ -161,46 +118,58 @@ for e in os.scandir(path):
     is_sym = 1 if e.is_symlink() else 0
     print(f"{e.name}|{st.st_size}|{is_dir}|{is_sym}|{int(st.st_mtime)}")
 "#;
-    if !script_path.exists() {
-        std::fs::File::create(&script_path)
-            .and_then(|mut f| f.write_all(script_body.as_bytes()))
-            .map_err(|e| anyhow::anyhow!("Failed to write admin-listing script: {}", e))?;
-    }
+    let (_private, script) = private_script("ListDirectory.py", script_body)?;
 
     let output = Command::new("sudo")
         .arg("python3")
         .arg("-B")
-        .arg(&script_path)
+        .arg(&script)
         .arg(path)
         .output()?;
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut entries = Vec::new();
-        for line in stdout.lines() {
-            let parts: Vec<&str> = line.split('|').collect();
-            if parts.len() >= 5 {
-                let name = parts[0].to_string();
-                let size: u64 = parts[1].parse().unwrap_or(0);
-                let is_dir = parts[2] == "1";
-                let is_symlink = parts[3] == "1";
-                let mtime: u64 = parts[4].parse().unwrap_or(0);
-                let modified = if mtime > 0 {
-                    Some(std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(mtime))
-                } else {
-                    None
-                };
-                let entry_path = path.join(&name);
-                entries.push(FileEntry {
-                    name,
-                    path: entry_path,
-                    size,
-                    is_dir,
-                    is_symlink,
-                    modified,
-                });
-            }
-        }
-        return Ok(entries);
+    if !output.status.success() {
+        anyhow::bail!("Failed to read directory as admin via sudo")
     }
-    anyhow::bail!("Failed to read directory as admin via sudo")
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut entries = Vec::new();
+    for line in stdout.lines() {
+        let Some((name, fields)) = split_line(line, 4) else {
+            continue;
+        };
+        let mtime: u64 = fields[3].parse().unwrap_or(0);
+        entries.push(FileEntry {
+            name: name.to_string(),
+            path: path.join(name),
+            size: fields[0].parse().unwrap_or(0),
+            is_dir: fields[1] == "1",
+            is_symlink: fields[2] == "1",
+            modified: (mtime > 0).then(|| SystemTime::UNIX_EPOCH + Duration::from_secs(mtime)),
+        });
+    }
+    Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_may_hold_the_separator() {
+        let (name, fields) = split_line("a|b.txt|12|0|0|99", 4).unwrap();
+        assert_eq!(name, "a|b.txt");
+        assert_eq!(fields, ["12", "0", "0", "99"]);
+        assert!(split_line("short|1", 4).is_none());
+    }
+
+    #[test]
+    fn scripts_live_in_a_private_folder() {
+        let (dir, script) = private_script("s.py", "print(1)").unwrap();
+        assert!(script.starts_with(dir.path()));
+        assert_eq!(std::fs::read_to_string(&script).unwrap(), "print(1)");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(dir.path()).unwrap().permissions().mode();
+            assert_eq!(mode & 0o077, 0, "{mode:o}");
+        }
+    }
 }

@@ -86,22 +86,61 @@ pub fn run_in_elevated_helper(ops: Vec<FsOperation>) -> Result<()> {
     run_helper_process(&current_exe, &temp_file_path)
 }
 
+/// A PowerShell single-quoted literal of `value`: nothing inside it is
+/// evaluated. PowerShell also takes the typographic quotes U+2018 to
+/// U+201B for single quotes, so they are doubled as well.
+#[cfg(any(target_os = "windows", test))]
+pub(crate) fn ps_literal(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('\'');
+    for c in value.chars() {
+        if matches!(c, '\'' | '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{201B}') {
+            out.push(c);
+        }
+        out.push(c);
+    }
+    out.push('\'');
+    out
+}
+
+/// Runs the PowerShell `script` with `values` bound to `$v0`, `$v1`, ... as
+/// literals. The code goes in `-EncodedCommand`: whatever follows
+/// `-Command` on a command line is code, so paths passed there as
+/// "arguments" were run (and `$args` stayed empty).
+#[cfg(target_os = "windows")]
+pub(crate) fn run_powershell(
+    script: &str,
+    values: &[&std::ffi::OsStr],
+) -> Result<std::process::ExitStatus> {
+    use base64::Engine as _;
+    let mut code = String::new();
+    for (i, value) in values.iter().enumerate() {
+        let value = value
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Path is not valid Unicode: {value:?}"))?;
+        code.push_str(&format!("$v{i} = {}; ", ps_literal(value)));
+    }
+    code.push_str(script);
+    let utf16: Vec<u8> = code.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    let encoded = base64::engine::general_purpose::STANDARD.encode(utf16);
+    Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-NonInteractive")
+        .arg("-EncodedCommand")
+        .arg(encoded)
+        .status()
+        .context("Failed to run PowerShell")
+}
+
 #[cfg(target_os = "windows")]
 fn run_helper_process(exe: &Path, temp_file: &Path) -> Result<()> {
-    // Avoid string-interpolating the executable path and temp file path into
-    // a PowerShell command. PowerShell re-parses the inner string for
-    // metacharacters (`$`, `` ` ``, `"`, `;`), so a path containing any of
-    // these could escape the quoted argument and execute arbitrary code.
-    // Instead, we pass every argument to Start-Process as a separate
-    // element of `-ArgumentList`, which PowerShell does not re-parse.
-    let status = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg("$exe = $args[0]; $tf = $args[1]; Start-Process -FilePath $exe -ArgumentList @('--elevated-helper', $tf) -Verb RunAs -WindowStyle Hidden -Wait")
-        .arg(exe)
-        .arg(temp_file)
-        .status()
-        .context("Failed to run elevated helper via PowerShell")?;
+    // `Start-Process` joins the argument list with spaces: the path is
+    // quoted for the helper's own command line.
+    let status = run_powershell(
+        "Start-Process -FilePath $v0 -ArgumentList @('--elevated-helper', ('\"' + $v1 + '\"')) -Verb RunAs -WindowStyle Hidden -Wait",
+        &[exe.as_os_str(), temp_file.as_os_str()],
+    )
+    .context("Failed to run elevated helper via PowerShell")?;
 
     if !status.success() {
         anyhow::bail!("Failed to acquire Administrator privileges (UAC prompt declined or failed)")
@@ -146,6 +185,27 @@ fn read_helper_result(temp_file: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn powershell_literals_never_evaluate() {
+        assert_eq!(ps_literal("C:\\a b"), "'C:\\a b'");
+        assert_eq!(ps_literal("it's"), "'it''s'");
+        assert_eq!(ps_literal("x\u{2019}y"), "'x\u{2019}\u{2019}y'");
+        assert_eq!(ps_literal("$(calc)"), "'$(calc)'");
+    }
+
+    /// Values reach the script as data, whatever they contain.
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn powershell_values_arrive_unchanged() {
+        let value = std::ffi::OsStr::new("a'b $(exit 7) \u{2018}c");
+        let status = run_powershell(
+            "if ($v0 -ceq ('a''b $(exit 7) ' + [char]0x2018 + 'c')) { exit 0 } else { exit 3 }",
+            &[value],
+        )
+        .unwrap();
+        assert_eq!(status.code(), Some(0));
+    }
 
     #[test]
     fn test_operation_serialization() {
