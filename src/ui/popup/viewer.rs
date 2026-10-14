@@ -38,7 +38,7 @@ fn render_encodings(
     let width = rows.iter().map(|(text, _)| text.len()).max().unwrap_or(0);
     let hint = t("viewer_encoding_hint");
     ListPopup {
-        area: list_area(size, width.max(hint.chars().count()), rows.len() + 2, 20),
+        area: list_area(size, width.max(crate::ui::text_width::display_width(&hint)), rows.len() + 2, 20),
         title: t("viewer_encoding_title"),
         border: theme.popup_border,
         empty: None,
