@@ -20,6 +20,10 @@ pub fn pull(
 ) -> anyhow::Result<Outcome> {
     let (remote_name, upstream_ref) = upstream_of(repo, remote_name, branch_name);
     fetch(repo, &remote_name, hooks)?;
+    // Last point at which a cancel leaves the branch untouched.
+    if !hooks.still_wanted() {
+        anyhow::bail!(crate::config::localization::t("git_operation_cancelled"));
+    }
 
     let remote_ref = repo.find_reference(&upstream_ref)?;
     let annotated_commit = repo.reference_to_annotated_commit(&remote_ref)?;

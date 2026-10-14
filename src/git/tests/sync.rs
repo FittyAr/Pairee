@@ -124,7 +124,7 @@ fn test_pull_normal_merge_records_both_parents() {
     assert_eq!(read_file(&pair.local, "theirs.txt"), "theirs");
     assert_eq!(read_file(&pair.local, "ours.txt"), "ours");
     assert_eq!(pair.local.state(), git2::RepositoryState::Clean);
-    assert!(get_status(&pair.local).is_empty());
+    assert!(get_status(&pair.local).unwrap().is_empty());
 }
 
 #[test]
@@ -143,7 +143,7 @@ fn test_pull_with_conflicts_leaves_the_merge_in_progress() {
         marked.contains("<<<<<<<") && marked.contains("theirs"),
         "{marked}"
     );
-    let status = get_status(&pair.local);
+    let status = get_status(&pair.local).unwrap();
     assert!(status.iter().any(|e| e.kind == StatusKind::Conflicted));
 
     abort_merge(&pair.local).unwrap();

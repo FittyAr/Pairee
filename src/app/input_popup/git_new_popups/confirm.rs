@@ -12,6 +12,7 @@ use crate::app::state::popup::{Dialog, GitConfirmActionState, KeyHandler};
 use crate::app::state::types::GitConfirmedAction;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
+use crate::git::branches::BranchDeletion;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 use git2::Repository;
@@ -93,6 +94,26 @@ fn run(state: &mut AppState, confirm: GitConfirmActionState) {
                 crate::app::git_ops::FollowUp::RefreshPanelOnTop { repo_path },
             );
         }
+        GitConfirmedAction::DeleteBranch(name) => {
+            // Like `git branch -d`: an unmerged branch asks again, saying so.
+            let branch = name.clone();
+            let repo = repo_path.clone();
+            state.run_git_local(
+                &repo,
+                move |repo| {
+                    crate::git::branches::delete_branch(repo, &branch)
+                        .ctx("git_error_delete_branch_failed")
+                },
+                move |state, deletion| match deletion {
+                    BranchDeletion::Deleted => state.reload_git_panel(&repo_path),
+                    BranchDeletion::NotMerged => {
+                        let msg = t("git_confirm_force_delete_branch").replace("{}", &name);
+                        let action = GitConfirmedAction::ForceDeleteBranch(name);
+                        open_confirm(state, &repo_path, msg, action);
+                    }
+                },
+            );
+        }
         GitConfirmedAction::DeleteRemote(name) => {
             // Back to the remote list (under the confirmation), refreshed
             // once the remote is gone.
@@ -134,8 +155,8 @@ fn plan(action: GitConfirmedAction) -> (Exec, &'static str, After) {
     use GitConfirmedAction as A;
     const OK: &str = "git_operation_success";
     match action {
-        A::DeleteBranch(name) => (
-            Box::new(move |r| branches::delete_branch(r, &name)),
+        A::ForceDeleteBranch(name) => (
+            Box::new(move |r| branches::force_delete_branch(r, &name)),
             "git_error_delete_branch_failed",
             After::Nothing,
         ),
@@ -194,8 +215,8 @@ fn plan(action: GitConfirmedAction) -> (Exec, &'static str, After) {
             "git_error_delete_tag_failed",
             After::Info(OK),
         ),
-        // Handled by `run` (network job / remote list).
-        A::DeleteRemote(_) | A::DeleteRemoteBranch { .. } => {
+        // Handled by `run` (merge check, network job, remote list).
+        A::DeleteBranch(_) | A::DeleteRemote(_) | A::DeleteRemoteBranch { .. } => {
             (Box::new(|_| Ok(())), "", After::Nothing)
         }
     }

@@ -44,7 +44,7 @@ fn test_clean_merge_is_committed_with_both_parents() {
     assert_eq!(repo.head().unwrap().target(), Some(merge_oid));
     assert_eq!(repo.state(), git2::RepositoryState::Clean);
     assert!(!repo.path().join("MERGE_HEAD").exists());
-    assert!(get_status(&repo).is_empty());
+    assert!(get_status(&repo).unwrap().is_empty());
 }
 
 #[test]
@@ -232,6 +232,7 @@ fn test_merge_like_operations_refuse_staged_changes_and_keep_them() {
     assert_eq!(read_file(&repo, "staged.txt"), "staged work");
     assert!(
         get_status(&repo)
+            .unwrap()
             .iter()
             .any(|s| s.path == "staged.txt" && s.is_staged)
     );
@@ -300,5 +301,21 @@ fn test_stash_drop_follows_the_commit_id_not_a_stale_index() {
     assert_eq!(
         stash_drop(&mut repo, &first).unwrap_err().to_string(),
         t("git_error_stash_gone")
+    );
+}
+
+#[test]
+fn a_broken_index_is_an_error_not_a_clean_status() {
+    let (dir, repo) = setup_temp_repo();
+    write_and_commit(&repo, "a.txt", "a", "first");
+    std::fs::write(repo.path().join("index"), b"DIRC garbage, not an index").unwrap();
+    let repo = git2::Repository::open(dir.path()).unwrap();
+    assert!(get_status(&repo).is_err());
+
+    let snapshot = crate::git::snapshot::load(dir.path(), 10).unwrap();
+    assert!(snapshot.status.is_empty());
+    assert!(
+        snapshot.status_error.is_some(),
+        "the panel must not show it clean"
     );
 }

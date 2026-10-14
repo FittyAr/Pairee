@@ -13,12 +13,7 @@ use crate::fs::sync::SyncDirection;
 use crate::ui::popup::kit::TextBox;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Style},
-    text::Text,
-};
+use ratatui::{Frame, layout::Rect, style::Style, text::Text};
 
 impl DialogView for SyncDialog {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
@@ -62,7 +57,7 @@ fn render_progress(f: &mut Frame, state: &AppState, theme: &ResolvedTheme, size:
     TextBox {
         size: (64, 6),
         title: t(title_key),
-        border: Style::default().fg(Color::Cyan),
+        border: Style::default().fg(theme.ui.accent),
         body,
         body_style: theme.popup_fg(),
     }

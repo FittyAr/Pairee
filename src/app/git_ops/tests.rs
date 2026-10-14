@@ -85,23 +85,79 @@ fn clone_runs_and_refreshes() {
     assert_eq!(top_info(&st), Some(t("git_clone_success")));
 }
 
-#[tokio::test]
-async fn cancel_drops_result_and_informs_user() {
-    let (work, _bare) = repo_with_origin();
-    let mut st = state();
-    st.start_git_op(
+/// Starts a fake operation whose job waits for `release`, then returns
+/// `result` if it was cancelled meanwhile (as `run` would), else success.
+fn start_gated(st: &mut AppState, result: super::GitOpResult) -> std::sync::mpsc::Sender<()> {
+    let (release, gate) = std::sync::mpsc::channel::<()>();
+    st.git_op.pending = Some((
         GitNetOp::Fetch {
-            repo_path: work.path().to_path_buf(),
+            repo_path: PathBuf::from("."),
         },
         FollowUp::Info,
-    );
-    if st.git_op.is_running() {
-        st.cancel_git_op();
-        assert!(!st.git_op.is_running());
-        assert_eq!(top_info(&st), Some(t("git_operation_cancelled")));
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-        assert!(!super::poll_git_op(&mut st), "stale result ignored");
+    ));
+    st.dialogs.push(crate::app::state::popup::GitProgress {
+        title: t("git_progress_pull"),
+    });
+    st.git_op.job.start(move |ctx| {
+        let _ = gate.recv();
+        if ctx.is_cancelled() {
+            result
+        } else {
+            Ok(Vec::new())
+        }
+    });
+    release
+}
+
+/// Polls until the operation's outcome was applied.
+async fn finish(st: &mut AppState) {
+    for _ in 0..500 {
+        if super::poll_git_op(st) {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
+    panic!("the Git operation never finished");
+}
+
+#[tokio::test]
+async fn an_operation_done_despite_the_cancel_is_reported_as_done() {
+    let mut st = state();
+    let release = start_gated(&mut st, Ok(Vec::new()));
+    st.cancel_git_op();
+    assert!(st.git_op.is_running(), "the real outcome is awaited");
+    match st.dialogs.top() {
+        Some(PopupType::GitProgress(p)) => assert_eq!(p.title, t("git_operation_cancelling")),
+        other => panic!("progress popup expected, got {other:?}"),
+    }
+    release.send(()).unwrap();
+    finish(&mut st).await;
+    assert_eq!(top_info(&st), Some(t("git_operation_done_before_cancel")));
+    assert_eq!(st.dialogs.depth(), 1, "progress popup removed");
+}
+
+#[tokio::test]
+async fn an_operation_stopped_by_the_cancel_is_reported_as_cancelled() {
+    let mut st = state();
+    let release = start_gated(&mut st, Err(None));
+    st.cancel_git_op();
+    // A second Esc hides the popup; the outcome still arrives.
+    st.cancel_git_op();
+    assert!(st.dialogs.top().is_none());
+    release.send(()).unwrap();
+    finish(&mut st).await;
+    assert_eq!(top_info(&st), Some(t("git_operation_cancelled")));
+}
+
+#[test]
+fn only_a_failure_after_the_cancel_counts_as_cancelled() {
+    use super::run::outcome;
+    assert_eq!(outcome(Ok(vec!["a".into()]), true), Ok(vec!["a".into()]));
+    assert_eq!(outcome(Err(anyhow::anyhow!("x")), true), Err(None));
+    assert_eq!(
+        outcome(Err(anyhow::anyhow!("x")), false),
+        Err(Some("x".into()))
+    );
 }
 
 /// Commits `content` as `name` in the repository at `dir`.

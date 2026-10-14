@@ -199,7 +199,7 @@ fn test_cherry_pick() {
 
     assert!(matches!(outcome, Outcome::Committed(_)));
     assert!(dir.path().join("cherry.txt").exists());
-    assert!(get_status(&repo).is_empty());
+    assert!(get_status(&repo).unwrap().is_empty());
 }
 
 #[test]
@@ -225,7 +225,7 @@ fn test_revert() {
         std::fs::read_to_string(&file_path).unwrap().trim_end(),
         "v1"
     );
-    assert!(get_status(&repo).is_empty());
+    assert!(get_status(&repo).unwrap().is_empty());
 }
 
 #[test]

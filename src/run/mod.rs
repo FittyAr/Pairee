@@ -22,6 +22,9 @@ pub async fn run() -> Result<()> {
     if let Err(e) = &result {
         log::error!("Pairee stopped with an error: {e:#}");
     }
+    // The session is saved and the terminal restored (both happen before
+    // `app::run` returns): an OS shutdown request may end the process now.
+    terminal::cleanup_finished();
     result
 }
 

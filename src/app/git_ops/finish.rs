@@ -13,6 +13,7 @@ pub fn poll_git_op(state: &mut AppState) -> bool {
         } else if state.git_op.job.take_panicked() {
             // Ended without a result: never leave the progress popup up.
             state.git_op.pending = None;
+            state.git_op.cancelling = false;
             if matches!(state.dialogs.top(), Some(PopupType::GitProgress(_))) {
                 state.dialogs.pop();
             }
@@ -28,9 +29,16 @@ pub fn poll_git_op(state: &mut AppState) -> bool {
         state.dialogs.pop();
     }
     let pending = state.git_op.pending.take();
+    let cancel_requested = std::mem::take(&mut state.git_op.cancelling);
     match (result, pending) {
         (Ok(conflicts), Some((_, follow_up))) => {
-            apply_follow_up(state, follow_up, conflicts.is_empty());
+            // Done before the cancel could stop it: say so, not "cancelled".
+            let success = if cancel_requested {
+                "git_operation_done_before_cancel"
+            } else {
+                "git_operation_success"
+            };
+            apply_follow_up(state, follow_up, conflicts.is_empty(), success);
             if !conflicts.is_empty() {
                 let summary = super::conflict_summary(&conflicts);
                 let msg = t("git_pull_conflicts").replace("{}", &summary);
@@ -52,14 +60,12 @@ pub fn poll_git_op(state: &mut AppState) -> bool {
     true
 }
 
-/// Applies `follow_up`; the success message only when the operation ended
-/// `clean` (a conflicted pull shows its own message instead).
-fn apply_follow_up(state: &mut AppState, follow_up: FollowUp, clean: bool) {
+/// Applies `follow_up`; the success message (key `success`) only when the
+/// operation ended `clean` (a conflicted pull shows its own message instead).
+fn apply_follow_up(state: &mut AppState, follow_up: FollowUp, clean: bool, success: &str) {
     match follow_up {
         FollowUp::Info => {
-            state
-                .dialogs
-                .push(PopupType::info(t("git_operation_success")));
+            state.dialogs.push(PopupType::info(t(success)));
         }
         FollowUp::RefreshGitPanel {
             repo_path,
@@ -68,9 +74,7 @@ fn apply_follow_up(state: &mut AppState, follow_up: FollowUp, clean: bool) {
         } => {
             state.refresh_git_panel(&repo_path, active_tab, cursor_idx);
             if clean {
-                state
-                    .dialogs
-                    .push(PopupType::info(t("git_operation_success")));
+                state.dialogs.push(PopupType::info(t(success)));
             }
         }
         FollowUp::RefreshPanelOnTop { repo_path } => {

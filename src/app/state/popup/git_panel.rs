@@ -8,6 +8,8 @@ pub struct GitPanelState {
     pub cursor_idx: usize,
     pub scroll: usize,
     pub status_entries: Vec<crate::git::status::GitFileStatus>,
+    /// Why the status could not be read (shown instead of "no changes").
+    pub status_error: Option<String>,
     pub log_entries: Vec<crate::git::log::CommitInfo>,
     pub branch_entries: Vec<crate::git::branches::BranchInfo>,
     pub stash_entries: Vec<crate::git::stash::StashInfo>,
@@ -28,6 +30,7 @@ impl GitPanelState {
             cursor_idx,
             scroll: 0,
             status_entries: Vec::new(),
+            status_error: None,
             log_entries: Vec::new(),
             branch_entries: Vec::new(),
             stash_entries: Vec::new(),
@@ -57,6 +60,7 @@ impl GitPanelState {
         self.current_branch = snapshot.branch.unwrap_or(detached);
         self.log_complete = snapshot.log.len() < log_limit;
         self.status_entries = snapshot.status;
+        self.status_error = snapshot.status_error;
         self.log_entries = snapshot.log;
         self.branch_entries = snapshot.branches;
         self.stash_entries = snapshot.stashes;

@@ -93,7 +93,7 @@ fn commit_work(
     is_amend: bool,
     (name, email): &(String, String),
 ) -> Result<PopupType, GitFailure> {
-    let statuses = crate::git::status::get_status(repo);
+    let statuses = crate::git::status::get_status(repo).ctx("git_error_status_failed")?;
     let concluding = crate::git::outcome::PendingOperation::of(repo).is_some();
     if statuses.is_empty() && !is_amend && !concluding {
         return Ok(PopupType::info(t("git_no_changes")));

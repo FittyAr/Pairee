@@ -103,6 +103,14 @@
 
 - Copying a folder into itself or a file onto itself showed the untranslated message key instead of the error; the help index shows translated titles for every page (it showed file names such as "Ssh Sftp").
 ### Fixed
+- Git: a repository whose status cannot be read (for example a corrupt index) no longer looks clean: the Git panel shows the error in the Status tab, the panel header says "status unavailable", and Commit reports the error instead of "No changes".
+- Git: pressing Esc while a pull, fetch or push is finishing no longer claims it was cancelled when it had already completed (a pull may have merged): the popup shows "Cancelling…" and then the real outcome. A second Esc hides the popup.
+- Git: deleting a local branch that is not fully merged (into its upstream, or HEAD) now asks a second time, saying its unmerged commits will be lost, instead of deleting it straight away.
+- Cancelling a "run command on each file" job stops the running command instead of waiting for it to finish.
+- A command running in a terminal screen that does not read its input no longer freezes Pairee when you type into it or stop it; on Linux and macOS, stopping it (F8) hangs up the jobs it started too, and pressing F8 again kills them.
+- Windows: closing the console window, logging off or shutting down saves the session and restores the terminal before Pairee ends (it was killed at once); Ctrl+Break quits cleanly like Ctrl+C.
+- Linux and macOS: a second termination signal is handled too, and resizing the terminal no longer repaints twice. Linux: reading the held modifier keys from X11 no longer reconnects to the display every 50 ms.
+- Two Pairee windows open at once no longer undo each other's saved settings, keybindings, history and folder frecency: each saves only what it changed, on top of what the other saved (under a file lock). The session is written whole by the last one to quit.
 - `install.ps1 -Uninstall` run through `irm | iex` no longer closes the PowerShell window, and installing or uninstalling no longer rewrites user `PATH` entries such as `%USERPROFILE%\bin` as fixed paths; uninstall removes every copy of the Pairee entry.
 - The ARM64 Windows installer refuses to install on x64 Windows, where its program cannot run.
 - `install.sh uninstall` also offers to remove the log and the plugins' data, not only the configuration.

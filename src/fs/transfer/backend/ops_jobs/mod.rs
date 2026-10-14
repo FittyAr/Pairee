@@ -68,10 +68,27 @@ mod tests {
 
     #[test]
     fn test_run_shell_command_captures_echo() {
-        let text = run_shell_command_blocking("echo hello").expect("echo should succeed");
+        let text =
+            run_shell_command_blocking("echo hello", &|| false).expect("echo should succeed");
         assert!(
             text.to_lowercase().contains("hello"),
             "expected echo output, got {text:?}"
+        );
+    }
+
+    #[test]
+    fn a_cancelled_command_is_killed() {
+        let script = if cfg!(windows) {
+            "ping -n 60 127.0.0.1 >NUL"
+        } else {
+            "sleep 60"
+        };
+        let started = std::time::Instant::now();
+        let cancelled = || started.elapsed() >= std::time::Duration::from_millis(300);
+        assert!(run_shell_command_blocking(script, &cancelled).is_err());
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(20),
+            "the command was not stopped"
         );
     }
 }
