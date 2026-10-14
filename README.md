@@ -73,7 +73,7 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (sup
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
     ```
-    The installer verifies the release signature and needs [`minisign`](https://jedisct1.github.io/minisign/) (e.g. `sudo apt install minisign`). Without it, it stops; add `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) to accept the download on its SHA-256 checksum alone.
+    The installer verifies the release signature with [`minisign`](https://jedisct1.github.io/minisign/): the installed one, or else the official build, which it downloads itself (version and SHA-256 pinned in the script). Add `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) to accept the download on its SHA-256 checksum alone.
   * **Build from Source (Debug/Source Mode):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug

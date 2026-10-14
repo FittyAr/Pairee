@@ -72,6 +72,8 @@
 - Pictures in the quick view, plugin previews and the viewer are resized once per size instead of on every redraw.
 
 ### Changed
+
+- `install.sh` no longer stops when `minisign` is missing: like `install.ps1`, it downloads the official minisign build (version and SHA-256 pinned) into its temporary folder and verifies the release with it, so `curl ... | sh` works on a clean system.
 - Connection passwords in the system keyring are now stored per connection (by a unique id written to `config.toml`) instead of by name: two connections with the same name keep their own password and a rename keeps it. Existing entries are moved automatically.
 - Neovim and yazi presets: "Show / hide key bar" is `Ctrl+Alt+N` and "Path to command line" `Ctrl+Alt+J` (their Norton keys are used for paging there); yazi: "Swap panels" is `Ctrl+Alt+Y`.
 - Renamed files are colored in the panels as in the Git panel.

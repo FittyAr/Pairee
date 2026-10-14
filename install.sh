@@ -6,9 +6,10 @@
 #
 # Installs the static (musl) binary to ~/.local/bin and its resources to
 # ${XDG_CONFIG_HOME:-~/.config}/pairee. The download is checked against its
-# SHA-256 and its minisign signature; minisign is required unless
-# --insecure-skip-signature is given (then only the checksum, served from the
-# same place as the archive, is checked). --verify-only downloads and verifies
+# SHA-256 and its minisign signature. When minisign is not installed, its
+# official release (jedisct1/minisign) is downloaded into the temporary
+# folder, pinned by version and SHA-256 below. --insecure-skip-signature
+# checks only the checksum, served from the same place as the archive. --verify-only downloads and verifies
 # the release and installs nothing.
 #
 # Everything runs from `main` on the last line, so a download cut short
@@ -19,6 +20,10 @@ REPO="FittyAr/Pairee"
 # Pairee release signing key (minisign). Must match RELEASE_PUBLIC_KEY in
 # src/update/signature.rs and install.ps1 (checked by tests/release_key.rs).
 MINISIGN_PUBKEY="RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
+# minisign for Linux, used when it is not installed (same version as in
+# install.ps1): https://github.com/jedisct1/minisign/releases
+MINISIGN_VERSION="0.12"
+MINISIGN_TARBALL_SHA256="9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73"
 INSTALL_DIR="$HOME/.local/bin"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pairee"
 # Where Pairee keeps its log and the plugins' data (removed on uninstall
@@ -178,10 +183,12 @@ detect_platform() {
     case "$(uname -m)" in
         x86_64 | amd64)
             PLATFORM="linux-x64-musl"
+            MINISIGN_ARCH="x86_64"
             LEGACY_TARGET="x86_64-unknown-linux-musl"
             ;;
         aarch64 | arm64)
             PLATFORM="linux-arm64-musl"
+            MINISIGN_ARCH="aarch64"
             LEGACY_TARGET="aarch64-unknown-linux-musl"
             ;;
         *) die "Unsupported architecture '$(uname -m)'. Release builds exist for x86_64 and aarch64." ;;
@@ -202,12 +209,28 @@ check_dependencies() {
     if ! command -v sha256sum > /dev/null 2>&1 && ! command -v shasum > /dev/null 2>&1; then
         die "'sha256sum' or 'shasum' is required to verify the download."
     fi
-    if [ "$SKIP_SIGNATURE" != "true" ] && ! command -v minisign > /dev/null 2>&1; then
-        die "'minisign' is required to verify the release signature.
-Install it (Debian/Ubuntu: 'sudo apt install minisign', Fedora: 'sudo dnf install minisign',
-Arch: 'sudo pacman -S minisign', Alpine: 'sudo apk add minisign') and run the installer again,
-or rerun with --insecure-skip-signature to rely on the SHA-256 checksum only."
+}
+
+# The minisign to verify with: the installed one, else the pinned official
+# release downloaded into $TEMP_DIR (checked against its SHA-256).
+find_minisign() {
+    if command -v minisign > /dev/null 2>&1; then
+        MINISIGN=minisign
+        return 0
     fi
+    echo "minisign is not installed; downloading minisign ${MINISIGN_VERSION}..."
+    MS_TARBALL="${TEMP_DIR}/minisign-${MINISIGN_VERSION}-linux.tar.gz"
+    MS_URL="https://github.com/jedisct1/minisign/releases/download/${MINISIGN_VERSION}"
+    curl -fsSL "${MS_URL}/minisign-${MINISIGN_VERSION}-linux.tar.gz" -o "$MS_TARBALL" \
+        || die "Could not download minisign ${MINISIGN_VERSION}."
+    [ "$(sha256_of "$MS_TARBALL")" = "$MINISIGN_TARBALL_SHA256" ] \
+        || die "The minisign download does not match its pinned SHA-256. Aborting."
+    mkdir -p "${TEMP_DIR}/minisign"
+    tar -xzf "$MS_TARBALL" -C "${TEMP_DIR}/minisign" 2> /dev/null \
+        || die "Could not extract minisign ${MINISIGN_VERSION}."
+    MINISIGN="${TEMP_DIR}/minisign/minisign-linux/${MINISIGN_ARCH}/minisign"
+    [ -f "$MINISIGN" ] || die "minisign not found in the minisign ${MINISIGN_VERSION} archive."
+    chmod +x "$MINISIGN"
 }
 
 confirm_overwrite() {
@@ -280,9 +303,10 @@ verify_download() {
         return 0
     fi
     # The trusted comment, covered by the signature, must name this asset.
+    find_minisign
     echo "Verifying minisign signature..."
     if ! curl -fsSL "$3.minisig" -o "$1.minisig" \
-        || ! SIG_OUT=$(minisign -V -P "$MINISIGN_PUBKEY" -m "$1" -x "$1.minisig") \
+        || ! SIG_OUT=$("$MINISIGN" -V -P "$MINISIGN_PUBKEY" -m "$1" -x "$1.minisig") \
         || ! printf ' %s \n' "$SIG_OUT" | tr '\t' ' ' | grep -qF " file:$2 "; then
         die "minisign signature verification failed for $2. Aborting."
     fi

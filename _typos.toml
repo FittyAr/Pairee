@@ -33,6 +33,8 @@ extend-exclude = [
 # Hex digests and test vectors are not words.
 extend-ignore-re = [
   "\\b[0-9A-Fa-f]{8,}\\b",
+  # minisign public keys (base64).
+  "\\bRW[A-Za-z0-9+/]{54}\\b",
 ]
 
 [default.extend-words]

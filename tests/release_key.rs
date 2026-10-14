@@ -51,6 +51,25 @@ fn install_scripts_use_the_updater_key() {
     );
 }
 
+/// Both scripts download the same pinned minisign release when it is not
+/// installed (one version to bump; each pins its own archive's SHA-256).
+#[test]
+fn install_scripts_pin_the_same_minisign() {
+    let sh = quoted_after(&read("install.sh"), "MINISIGN_VERSION=", "install.sh");
+    let ps1 = quoted_after(&read("install.ps1"), "$minisignVersion =", "install.ps1");
+    assert_eq!(sh, ps1);
+    for (file, marker) in [
+        ("install.sh", "MINISIGN_TARBALL_SHA256="),
+        ("install.ps1", "$minisignZipSha256 ="),
+    ] {
+        let sha = quoted_after(&read(file), marker, file);
+        assert!(
+            sha.len() == 64 && sha.bytes().all(|b| b.is_ascii_hexdigit()),
+            "{file}: {sha}"
+        );
+    }
+}
+
 #[test]
 fn installer_guide_documents_the_updater_key() {
     let guide = read("docs/technical/installer_guide.md");

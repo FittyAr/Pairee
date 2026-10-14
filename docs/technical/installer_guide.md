@@ -58,7 +58,10 @@ update unless the release contains both `<asset>.sha256` **and**
 its trusted comment names the asset (`file:<asset>`). The install scripts
 always check the SHA-256 and require the signature too:
 
-- `install.sh` uses the `minisign` on `PATH`; without it, it stops.
+- `install.sh` uses the `minisign` on `PATH`; without it, it downloads the
+  official Linux build (`jedisct1/minisign`, version and SHA-256 of the
+  tarball pinned in the script) into its temporary folder and verifies with
+  it, so `curl | sh` works without installing anything first.
 - `install.ps1` downloads the official Windows build of minisign
   (`jedisct1/minisign`, version and SHA-256 of the zip pinned in the script)
   into its temporary folder and verifies with it.
@@ -69,10 +72,13 @@ which is weaker: the checksum is served from the same place as the archive.
 `install.sh --verify-only` / `install.ps1 -VerifyOnly` download and verify the
 latest release and install nothing (a dry run of the download path).
 
-To move `install.ps1` to a newer minisign, update `$minisignVersion` and
-`$minisignZipSha256` together (the SHA-256 of `minisign-<ver>-win64.zip`;
-check it against the `.minisig` published with it, made with the minisign
-author's key `RWQf6LRCGA9i59SLOFxz6NxvASXDJeRtuZykwQepbDEGt87ig1BNpWaE`).
+To move to a newer minisign, update both scripts together
+(`tests/release_key.rs` checks that the versions agree): in `install.ps1`
+`$minisignVersion` and `$minisignZipSha256` (the SHA-256 of
+`minisign-<ver>-win64.zip`), in `install.sh` `MINISIGN_VERSION` and
+`MINISIGN_TARBALL_SHA256` (of `minisign-<ver>-linux.tar.gz`). Check each
+archive against the `.minisig` published with it, made with the minisign
+author's key `RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3`).
 
 **Public key** (key id `B478F4237C0DE585`), embedded in
 `src/update/signature.rs` (`RELEASE_PUBLIC_KEY`), `install.sh` and

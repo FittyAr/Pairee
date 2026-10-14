@@ -73,7 +73,7 @@ NCRust ofrece binarios precompilados de forma automática mediante GitHub Action
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
     ```
-    El instalador verifica la firma de la versión y necesita [`minisign`](https://jedisct1.github.io/minisign/) (p. ej. `sudo apt install minisign`). Sin él se detiene; agregá `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) para aceptar la descarga solo con su checksum SHA-256.
+    El instalador verifica la firma de la versión con [`minisign`](https://jedisct1.github.io/minisign/): el instalado o, si no está, la compilación oficial, que descarga solo (versión y SHA-256 fijados en el script). Agregá `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) para aceptar la descarga solo con su checksum SHA-256.
   * **Compilar desde Código Fuente (Modo Debug):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug
