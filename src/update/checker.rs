@@ -208,8 +208,8 @@ fn extract_notes(body: &str) -> String {
     // Take up to the first 5 non-empty lines (ignoring markdown headings)
     let lines: Vec<&str> = body
         .lines()
-        .filter(|l| !l.trim().is_empty())
-        .take(6)
+        .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'))
+        .take(5)
         .collect();
     lines.join("\n")
 }
@@ -258,6 +258,31 @@ mod tests {
     fn test_extract_notes() {
         let body = "## What's New\n\nAdded feature A\nFixed bug B\n\n## Breaking\n\nNone";
         let notes = extract_notes(body);
-        assert!(!notes.is_empty());
+        assert_eq!(
+            notes,
+            "Added feature A
+Fixed bug B
+None"
+        );
+    }
+
+    #[test]
+    fn extract_notes_keeps_at_most_five_lines() {
+        let body = "# T
+1
+2
+3
+4
+5
+6
+7";
+        assert_eq!(
+            extract_notes(body),
+            "1
+2
+3
+4
+5"
+        );
     }
 }

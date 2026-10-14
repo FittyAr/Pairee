@@ -14,8 +14,7 @@ pub fn detect_os() -> InstallMethod {
 
     // 3. Nix: check if exe is under /nix/store or managed by nix-env
     if let Ok(exe) = std::env::current_exe() {
-        let exe_str = exe.to_string_lossy();
-        if exe_str.starts_with("/nix/store") || exe_str.contains("/nix/") {
+        if is_nix_path(&exe, std::env::var_os("HOME").as_deref()) {
             return InstallMethod::Nix;
         }
         // 4. AUR / pacman: query pacman database
@@ -36,6 +35,16 @@ pub fn detect_os() -> InstallMethod {
 
     // Default for Linux: assume manual tarball install
     InstallMethod::TarballManual
+}
+
+/// True for binaries managed by Nix: the store itself, or a profile symlink
+/// (`~/.nix-profile`, `/nix/var/nix/profiles`, `/run/current-system`).
+#[cfg(any(not(target_os = "windows"), test))]
+fn is_nix_path(exe: &std::path::Path, home: Option<&std::ffi::OsStr>) -> bool {
+    exe.starts_with("/nix/store")
+        || exe.starts_with("/nix/var/nix/profiles")
+        || exe.starts_with("/run/current-system")
+        || home.is_some_and(|h| exe.starts_with(std::path::Path::new(h).join(".nix-profile")))
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -143,4 +152,29 @@ fn is_inno_setup_install() -> bool {
         }
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn nix_paths_are_recognised_strictly() {
+        let home = Some(std::ffi::OsStr::new("/home/u"));
+        assert!(is_nix_path(
+            Path::new("/nix/store/abc-pairee/bin/pairee"),
+            home
+        ));
+        assert!(is_nix_path(
+            Path::new("/home/u/.nix-profile/bin/pairee"),
+            home
+        ));
+        assert!(!is_nix_path(Path::new("/home/u/nix/tools/pairee"), home));
+        assert!(!is_nix_path(Path::new("/opt/nix/pairee"), home));
+        assert!(!is_nix_path(
+            Path::new("/home/u/.nix-profile/bin/pairee"),
+            None
+        ));
+    }
 }

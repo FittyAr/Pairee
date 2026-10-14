@@ -12,8 +12,12 @@ pub use super::assets::RELEASE_DOWNLOAD_PREFIX;
 /// broken server cannot exhaust memory.
 pub const MAX_ASSET_BYTES: u64 = 256 * 1024 * 1024;
 
-/// Whole-request timeout of a release asset download.
-const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(120);
+/// Connection phase limit of a release asset download.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
+
+/// Longest a download may stall without receiving any data. The transfer as
+/// a whole is unbounded in time (the size is capped by `MAX_ASSET_BYTES`).
+const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Rejects any asset URL that is not a plain HTTPS download from the
 /// official Pairee releases. Asset URLs come from the GitHub API or from the
@@ -42,7 +46,7 @@ pub fn validate_release_url(url: &str) -> Result<()> {
 pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -> Result<Vec<u8>> {
     validate_release_url(url)?;
 
-    let client = super::http::client(DOWNLOAD_TIMEOUT)?;
+    let client = super::http::streaming_client(CONNECT_TIMEOUT, IDLE_TIMEOUT)?;
     let response = client
         .get(url)
         .send()
