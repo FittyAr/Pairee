@@ -109,6 +109,13 @@ impl Store {
         let mut token: Option<String> = None;
         loop {
             let page = self.list_page(prefix, delimited, token.as_deref())?;
+            if page.next_token.is_some() && page.next_token == token {
+                // A server that hands the same page back would loop forever.
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "ListObjectsV2: repeated continuation token",
+                ));
+            }
             token = page.next_token.clone();
             each(page);
             if token.is_none() {
