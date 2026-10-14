@@ -13,6 +13,17 @@ use tokio::sync::mpsc::UnboundedSender;
 
 const TEMPLATE_BRANCH: &str = "plugin-template";
 
+/// `Ok` when a plugin name or author is a registry identifier
+/// (`[A-Za-z0-9_-]`), which is safe as a path component.
+fn check_identifier(value: &str) -> anyhow::Result<()> {
+    if crate::plugin::updater::is_identifier(value) {
+        return Ok(());
+    }
+    anyhow::bail!(
+        crate::config::localization::t("plugin_dev_err_invalid_identifier").replace("{}", value)
+    )
+}
+
 /// The local clone of the plugin registry used to package and submit.
 pub fn temp_registry_dir() -> std::path::PathBuf {
     crate::config::paths::get_cache_dir().join("temp_registry")
@@ -27,11 +38,8 @@ pub fn registry_plugin_dir(
 ) -> anyhow::Result<std::path::PathBuf> {
     use crate::plugin::updater::registry::{plugin_dir_path, registry_author};
     let author = registry_author(manifest.author.as_deref());
-    for (kind, value) in [("name", manifest.name.as_str()), ("author", author)] {
-        if !crate::plugin::updater::is_identifier(value) {
-            anyhow::bail!("Invalid plugin {kind} '{value}': only [A-Za-z0-9_-] is allowed");
-        }
-    }
+    check_identifier(&manifest.name)?;
+    check_identifier(author)?;
     Ok(temp_dir
         .join("registry")
         .join(plugin_dir_path(author, &manifest.name)))
