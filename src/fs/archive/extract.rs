@@ -16,6 +16,7 @@ use crate::fs::progress::ArchiveReport;
 pub type Selector<'a> = dyn Fn(&Path) -> Option<PathBuf> + 'a;
 
 /// Extracts the entries of `archive` chosen by `select` into `dest`.
+/// Entries that are never materialised are reported as skipped.
 pub fn extract_entries(
     reader: &dyn ArchiveReader,
     archive: &Path,
@@ -37,7 +38,10 @@ pub fn extract_entries(
         };
         report.entry(&crate::fs::file_name_lossy(&rel), files_copied, total_files);
         files_copied += 1;
-        write_entry(&mut guard, &rel, meta, data, &cancelled)?;
+        if !write_entry(&mut guard, &rel, meta, data, &cancelled)? {
+            // Reported, so a move out of the archive keeps the entry.
+            report.unsupported(&rel);
+        }
         Ok(Visit::Continue)
     })?;
     report.ensure_running()?;
@@ -50,13 +54,14 @@ pub fn everything(rel: &Path) -> Option<PathBuf> {
     Some(rel.to_path_buf())
 }
 
+/// Writes one entry; `false` when its kind is never materialised.
 fn write_entry(
     guard: &mut ExtractGuard,
     rel: &Path,
     meta: &EntryMeta,
     data: &mut dyn Read,
     cancelled: &dyn Fn() -> bool,
-) -> Result<()> {
+) -> Result<bool> {
     match &meta.kind {
         EntryKind::Dir => {
             guard.create_dir(rel)?;
@@ -82,7 +87,8 @@ fn write_entry(
                 rel,
                 other
             );
+            return Ok(false);
         }
     }
-    Ok(())
+    Ok(true)
 }
