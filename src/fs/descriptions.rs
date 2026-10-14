@@ -9,16 +9,23 @@ pub const DESCRIPTIONS_FILE: &str = "descript.ion";
 ///
 /// Returns `None` if the file doesn't exist or the entry isn't present.
 pub fn read_description(dir: &Path, filename: &str) -> Option<String> {
-    let desc_path = dir.join(DESCRIPTIONS_FILE);
-    let content = std::fs::read_to_string(&desc_path).ok()?;
-    for line in content.lines() {
-        if let Some((name, desc)) = parse_description_line(line)
-            && name.eq_ignore_ascii_case(filename)
-        {
-            return Some(desc.to_string());
-        }
-    }
-    None
+    let content = read_descriptions_file(dir)?;
+    find_description(&content, filename).map(str::to_string)
+}
+
+/// Whole `descript.ion` of `dir`, to look up many names with
+/// [`find_description`] after one read.
+pub(crate) fn read_descriptions_file(dir: &Path) -> Option<String> {
+    std::fs::read_to_string(dir.join(DESCRIPTIONS_FILE)).ok()
+}
+
+/// Description of `filename` in the `descript.ion` text `content`.
+pub(crate) fn find_description<'a>(content: &'a str, filename: &str) -> Option<&'a str> {
+    content
+        .lines()
+        .filter_map(parse_description_line)
+        .find(|(name, _)| name.eq_ignore_ascii_case(filename))
+        .map(|(_, desc)| desc)
 }
 
 /// Writes or updates the description for a specific file in the `descript.ion` file.
