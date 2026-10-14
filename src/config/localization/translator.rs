@@ -3,9 +3,10 @@
 //! plus `{name}` interpolation.
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::OnceLock;
 
-use super::types::{CURRENT_TRANSLATIONS, LanguageFile};
+use super::types::{CURRENT_TRANSLATIONS, TRANSLATIONS_SECTION};
 
 /// Flat key → text dictionary.
 pub type Dictionary = HashMap<String, String>;
@@ -13,12 +14,29 @@ pub type Dictionary = HashMap<String, String>;
 static ENGLISH_TRANSLATIONS: OnceLock<Dictionary> = OnceLock::new();
 
 fn english() -> &'static Dictionary {
-    ENGLISH_TRANSLATIONS.get_or_init(|| {
-        let toml_str = include_str!("../../../lang/en.toml");
-        let parsed: LanguageFile =
-            toml::from_str(toml_str).expect("Failed to parse embedded en.toml");
-        parsed.translations
-    })
+    ENGLISH_TRANSLATIONS.get_or_init(|| embedded(include_str!("../../../lang/en.toml")))
+}
+
+/// The translations of a language file built into the binary.
+pub(super) fn embedded(text: &str) -> Dictionary {
+    parse_dictionary(text, Some(TRANSLATIONS_SECTION)).expect("embedded language file parses")
+}
+
+/// `text` (TOML) as a flat dictionary: the whole document, or only its
+/// `section` table. `None` when it does not parse or lacks the section.
+pub fn parse_dictionary(text: &str, section: Option<&str>) -> Option<Dictionary> {
+    let table: toml::Table = toml::from_str(text).ok()?;
+    match section {
+        None => Some(flatten_table(&table)),
+        Some(name) => table.get(name)?.as_table().map(flatten_table),
+    }
+}
+
+/// [`parse_dictionary`] of the file at `path` (`None` when unreadable).
+/// Pairee's language files keep their texts in `[translations]`; a
+/// plugin's `lang/<code>.toml` is the dictionary itself.
+pub fn read_dictionary(path: &Path, section: Option<&str>) -> Option<Dictionary> {
+    parse_dictionary(&std::fs::read_to_string(path).ok()?, section)
 }
 
 /// Returns the centralized default English translation for a key.
@@ -103,6 +121,21 @@ mod tests {
         assert_eq!(flat.get("top").map(String::as_str), Some("x"));
         assert_eq!(flat.get("menu.open").map(String::as_str), Some("Open"));
         assert!(!flat.contains_key("menu.n"));
+    }
+
+    #[test]
+    fn dictionaries_come_from_a_section_or_the_whole_file() {
+        let text = "language_name = 'X'
+[translations]
+a = 'A'
+";
+        let section = parse_dictionary(text, Some(TRANSLATIONS_SECTION)).unwrap();
+        assert_eq!(section.get("a").map(String::as_str), Some("A"));
+        assert_eq!(section.len(), 1);
+        let whole = parse_dictionary(text, None).unwrap();
+        assert_eq!(whole.get("translations.a").map(String::as_str), Some("A"));
+        assert_eq!(parse_dictionary("a = 'A'", Some("translations")), None);
+        assert_eq!(parse_dictionary("a = [", None), None);
     }
 
     #[test]

@@ -1,92 +1,59 @@
-use std::collections::HashMap;
-use std::fs;
-use std::sync::OnceLock;
-use std::sync::RwLock;
+use std::sync::{OnceLock, PoisonError, RwLock};
 
 use super::discovery::discover_languages;
-use super::types::{CURRENT_LANGUAGE_CODE, CURRENT_TRANSLATIONS, LanguageFile};
+use super::translator::{Dictionary, read_dictionary};
+use super::types::{CURRENT_LANGUAGE_CODE, CURRENT_TRANSLATIONS, TRANSLATIONS_SECTION};
 
 /// Loads a language by its full name into the global active translation map.
-/// Falls back to empty map (so t() falls back to English) if not found or if English is requested.
+/// Falls back to an empty map (so `t()` falls back to English) if not found
+/// or if English is requested.
 pub fn load_language(language_name: &str) {
-    let mut code = "en".to_string();
+    let (code, translations) = resolve(language_name);
+    replace(&CURRENT_TRANSLATIONS, translations);
+    replace(&CURRENT_LANGUAGE_CODE, code);
+}
+
+/// The code and dictionary of the language called `language_name`: its
+/// discovered file (code = file stem), else the embedded Spanish, else
+/// English (an empty dictionary).
+fn resolve(language_name: &str) -> (String, Dictionary) {
     if language_name == "English" {
-        if let Some(lock) = CURRENT_TRANSLATIONS.get() {
-            if let Ok(mut writer) = lock.write() {
-                *writer = HashMap::new();
-            }
-        } else {
-            let _ = CURRENT_TRANSLATIONS.set(RwLock::new(HashMap::new()));
-        }
-    } else {
-        let langs = discover_languages();
-
-        // Find the file path for the given language name
-        let path_opt = langs
-            .iter()
-            .find(|(name, _)| name == language_name)
-            .map(|(_, path)| path.clone());
-
-        let translations = if let Some(path) = path_opt {
-            if !path.as_os_str().is_empty() {
-                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    code = stem.to_lowercase();
-                }
-                if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(lang_file) = toml::from_str::<LanguageFile>(&content) {
-                        lang_file.translations
-                    } else {
-                        HashMap::new()
-                    }
-                } else {
-                    HashMap::new()
-                }
-            } else if language_name == "Español" {
-                // Built-in Spanish fallback
-                code = "es".to_string();
-                static EMBEDDED_ES_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
-                EMBEDDED_ES_MAP
-                    .get_or_init(|| {
-                        let toml_str = include_str!("../../../lang/es.toml");
-                        let parsed: LanguageFile =
-                            toml::from_str(toml_str).expect("Failed to parse embedded es.toml");
-                        parsed.translations
-                    })
-                    .clone()
-            } else {
-                HashMap::new()
-            }
-        } else if language_name == "Español" {
-            // Built-in Spanish fallback (just in case)
-            code = "es".to_string();
-            static EMBEDDED_ES_MAP: OnceLock<HashMap<String, String>> = OnceLock::new();
-            EMBEDDED_ES_MAP
-                .get_or_init(|| {
-                    let toml_str = include_str!("../../../lang/es.toml");
-                    let parsed: LanguageFile =
-                        toml::from_str(toml_str).expect("Failed to parse embedded es.toml");
-                    parsed.translations
-                })
-                .clone()
-        } else {
-            HashMap::new()
-        };
-
-        if let Some(lock) = CURRENT_TRANSLATIONS.get() {
-            if let Ok(mut writer) = lock.write() {
-                *writer = translations;
-            }
-        } else {
-            let _ = CURRENT_TRANSLATIONS.set(RwLock::new(translations));
-        }
+        return ("en".to_string(), Dictionary::new());
     }
-
-    if let Some(lock) = CURRENT_LANGUAGE_CODE.get() {
-        if let Ok(mut writer) = lock.write() {
-            *writer = code;
+    let path = discover_languages()
+        .into_iter()
+        .find(|(name, _)| name == language_name)
+        .map(|(_, path)| path)
+        .filter(|path| !path.as_os_str().is_empty());
+    match path {
+        Some(path) => {
+            let code = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map_or_else(|| "en".to_string(), str::to_lowercase);
+            let translations =
+                read_dictionary(&path, Some(TRANSLATIONS_SECTION)).unwrap_or_default();
+            (code, translations)
         }
-    } else {
-        let _ = CURRENT_LANGUAGE_CODE.set(RwLock::new(code));
+        None if language_name == "Español" => ("es".to_string(), embedded_spanish()),
+        None => ("en".to_string(), Dictionary::new()),
+    }
+}
+
+/// The Spanish translations built into the binary.
+fn embedded_spanish() -> Dictionary {
+    static EMBEDDED_ES: OnceLock<Dictionary> = OnceLock::new();
+    EMBEDDED_ES
+        .get_or_init(|| super::translator::embedded(include_str!("../../../lang/es.toml")))
+        .clone()
+}
+
+/// Sets the global `cell` to `value`.
+fn replace<T>(cell: &OnceLock<RwLock<T>>, value: T) {
+    let mut value = Some(value);
+    let lock = cell.get_or_init(|| RwLock::new(value.take().expect("value not used yet")));
+    if let Some(value) = value {
+        *lock.write().unwrap_or_else(PoisonError::into_inner) = value;
     }
 }
 

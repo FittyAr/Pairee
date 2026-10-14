@@ -2,81 +2,62 @@ use super::types::LanguageFile;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Discovers all TOML language files in both the configuration directory and the local project root,
-/// including the built-in "English" and "Español" options.
+/// Discovers all TOML language files in the project's `lang` folder, the
+/// configuration directory and the system share directory (the first one
+/// found wins for a name), including the built-in "English" and "Español".
 pub fn discover_languages() -> Vec<(String, PathBuf)> {
-    let mut langs = Vec::new();
-
-    // 1. Scan the project's root folder 'lang'
-    let mut project_lang_dir = PathBuf::from("lang");
-    if !project_lang_dir.exists()
-        && let Some(manifest_dir) = option_env!("CARGO_MANIFEST_DIR")
-    {
-        let manifest_path = PathBuf::from(manifest_dir).join("lang");
-        if manifest_path.exists() {
-            project_lang_dir = manifest_path;
+    let mut langs: Vec<(String, PathBuf)> = Vec::new();
+    let mut scanned: Vec<PathBuf> = Vec::new();
+    let candidates = [
+        Some(project_lang_dir()),
+        Some(crate::config::paths::get_config_dir().join("lang")),
+        crate::config::paths::get_system_share_dir().map(|dir| dir.join("lang")),
+    ];
+    for dir in candidates.into_iter().flatten() {
+        if !dir.exists() || scanned.contains(&dir) {
+            continue;
         }
-    }
-    if !project_lang_dir.exists()
-        && let Ok(exe) = std::env::current_exe()
-    {
-        let mut current = exe.parent();
-        while let Some(dir) = current {
-            let candidate = dir.join("lang");
-            if candidate.exists() {
-                project_lang_dir = candidate;
-                break;
-            }
-            current = dir.parent();
-        }
-    }
-
-    if project_lang_dir.exists() {
-        for (name, path) in discover_languages_in_dir(&project_lang_dir) {
+        for (name, path) in discover_languages_in_dir(&dir) {
             if !langs.iter().any(|(n, _)| n == &name) {
                 langs.push((name, path));
             }
         }
+        scanned.push(dir);
     }
-
-    // 2. Scan the user's config directory 'lang'
-    let config_lang_dir = crate::config::paths::get_config_dir().join("lang");
-    if config_lang_dir.exists() && config_lang_dir != project_lang_dir {
-        for (name, path) in discover_languages_in_dir(&config_lang_dir) {
-            // Avoid duplicate entries if they are in both paths
-            if !langs.iter().any(|(n, _)| n == &name) {
-                langs.push((name, path));
-            }
+    // Built-in languages (an empty path: embedded in the binary).
+    for builtin in ["English", "Español"] {
+        if !langs.iter().any(|(n, _)| n == builtin) {
+            langs.push((builtin.to_string(), PathBuf::new()));
         }
     }
-
-    // 3. Scan the system share directory 'lang' (Linux fallbacks)
-    if let Some(share_dir) = crate::config::paths::get_system_share_dir() {
-        let share_lang_dir = share_dir.join("lang");
-        if share_lang_dir.exists()
-            && share_lang_dir != project_lang_dir
-            && share_lang_dir != config_lang_dir
-        {
-            for (name, path) in discover_languages_in_dir(&share_lang_dir) {
-                // Avoid duplicate entries
-                if !langs.iter().any(|(n, _)| n == &name) {
-                    langs.push((name, path));
-                }
-            }
-        }
-    }
-
-    // Ensure built-in languages are present
-    if !langs.iter().any(|(n, _)| n == "English") {
-        langs.push(("English".to_string(), PathBuf::new()));
-    }
-    if !langs.iter().any(|(n, _)| n == "Español") {
-        langs.push(("Español".to_string(), PathBuf::new()));
-    }
-
     // Sort for UI presentation consistency
     langs.sort_by(|a, b| a.0.cmp(&b.0));
     langs
+}
+
+/// The `lang` folder shipped with Pairee: in the working directory, the
+/// source tree (development builds) or next to (an ancestor of) the
+/// executable.
+fn project_lang_dir() -> PathBuf {
+    let local = PathBuf::from("lang");
+    if local.exists() {
+        return local;
+    }
+    if let Some(manifest_dir) = option_env!("CARGO_MANIFEST_DIR") {
+        let manifest_path = PathBuf::from(manifest_dir).join("lang");
+        if manifest_path.exists() {
+            return manifest_path;
+        }
+    }
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| {
+            exe.ancestors()
+                .skip(1)
+                .map(|dir| dir.join("lang"))
+                .find(|candidate| candidate.exists())
+        })
+        .unwrap_or(local)
 }
 
 /// Helper function to discover language files in a specific directory (makes it testable).
