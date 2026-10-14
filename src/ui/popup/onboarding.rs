@@ -8,8 +8,8 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    text::{Line, Text},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 
 /// The presets offered, in the order of the built-in list.
@@ -64,20 +64,20 @@ impl DialogView for OnboardingKeymap {
             crate::ui::popup::kit::mouse::list_item(chunks[i + 1], (i, *cursor_idx), &[]);
             let selected = i == *cursor_idx;
             let style = if selected {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
+                theme.selection().add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(theme.popup_fg)
             };
             let mark = if selected { ">" } else { " " };
+            // Title and description on rows of their own (a newline
+            // inside a span is not drawn).
             f.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::raw(format!(" {mark} {title}\n")),
-                    Span::raw(format!("    {desc}")),
+                Paragraph::new(Text::from(vec![
+                    Line::from(format!(" {mark} {title}")),
+                    Line::from(format!("    {desc}")),
                 ]))
-                .style(style),
+                .style(style)
+                .wrap(Wrap { trim: false }),
                 chunks[i + 1],
             );
         }
@@ -92,6 +92,18 @@ impl DialogView for OnboardingKeymap {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_preset_description_gets_its_own_row() {
+        let h = crate::test_harness::Harness::builder()
+            .size(100, 40)
+            .settings(|s| s.onboarding_completed = false)
+            .build();
+        let (_, title_row) = h.locate(&t("onboarding_norton"));
+        let desc: String = t("onboarding_norton_desc").chars().take(20).collect();
+        let (_, desc_row) = h.locate(&desc);
+        assert_eq!(desc_row, title_row + 1);
+    }
 
     #[test]
     fn every_preset_has_a_title_and_description() {
