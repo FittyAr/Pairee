@@ -296,3 +296,64 @@ async fn sftp_server_copies_resume_part_files_both_ways() {
     );
     assert_eq!(std::fs::read(back.join("big.bin")).unwrap(), data);
 }
+
+/// A destination whose lookup fails for another reason than "not found"
+/// (here a timeout).
+#[derive(Debug)]
+struct FlakyLookup(PathBuf);
+
+impl Vfs for FlakyLookup {
+    fn capabilities(&self) -> crate::fs::vfs::Capabilities {
+        LocalVfs.capabilities()
+    }
+    fn list(&self, dir: &Path) -> std::io::Result<Vec<crate::fs::vfs::VfsEntry>> {
+        LocalVfs.list(dir)
+    }
+    fn stat(&self, path: &Path) -> std::io::Result<crate::fs::vfs::VfsEntry> {
+        if path == self.0 {
+            return Err(std::io::ErrorKind::TimedOut.into());
+        }
+        LocalVfs.stat(path)
+    }
+    fn create_file(&self, path: &Path) -> std::io::Result<Box<dyn std::io::Write + Send>> {
+        LocalVfs.create_file(path)
+    }
+    fn replace(&self, from: &Path, to: &Path) -> std::io::Result<()> {
+        LocalVfs.replace(from, to)
+    }
+    fn remove_file(&self, path: &Path) -> std::io::Result<()> {
+        LocalVfs.remove_file(path)
+    }
+}
+
+/// A destination that cannot be looked up is a failure, never a free
+/// place to overwrite without asking.
+#[tokio::test]
+async fn a_destination_that_cannot_be_looked_up_is_not_overwritten() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("a.txt");
+    std::fs::write(&src, b"new").unwrap();
+    let dst = dir.path().join("out");
+    std::fs::create_dir(&dst).unwrap();
+    let existing = dst.join("a.txt");
+    std::fs::write(&existing, b"keep").unwrap();
+    let endpoints = Endpoints {
+        dst: Arc::new(FlakyLookup(existing.clone())),
+        same_fs: false,
+        ..stream_endpoints()
+    };
+    let options = TransferOptions {
+        conflict_resolution: "skip".into(),
+        ..TransferOptions::default()
+    };
+    let results = run_with(
+        endpoints,
+        TransferOperation::Copy,
+        std::slice::from_ref(&src),
+        &dst,
+        options,
+    )
+    .await;
+    assert_eq!(results.failed_files.len(), 1);
+    assert_eq!(std::fs::read(&existing).unwrap(), b"keep");
+}
