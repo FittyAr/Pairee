@@ -7,6 +7,7 @@ use crate::diff::files::BinaryComparison;
 use crate::ui::panel::helpers::format_file_size;
 use crate::ui::popup::diff_view::DiffBox;
 use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     style::{Color, Style},
@@ -25,7 +26,7 @@ impl DialogView for FileCompareView {
         };
         DiffBox {
             title,
-            summary: summary(self),
+            summary: summary(self, cx.theme),
             viewer: &self.viewer,
             empty,
             hint: t("diff_view_hint"),
@@ -39,16 +40,16 @@ fn name(path: &Path) -> String {
 }
 
 /// The two paths, then what the comparison found.
-fn summary(view: &FileCompareView) -> Vec<Line<'static>> {
+fn summary(view: &FileCompareView, theme: &ResolvedTheme) -> Vec<Line<'static>> {
     let mut lines = vec![
         path_line("compare_files_old", &view.old),
         path_line("compare_files_new", &view.new),
     ];
     match &view.status {
-        CompareStatus::Running => lines.push(colored(t("compare_files_running"), Color::Cyan)),
+        CompareStatus::Running => lines.push(colored(t("compare_files_running"), theme.ui.accent)),
         CompareStatus::Failed(error) => lines.push(colored(
             t("compare_files_failed").replace("{}", error),
-            Color::LightRed,
+            theme.ui.error,
         )),
         CompareStatus::Text => {
             let (added, removed) = view.viewer.doc.stats();
@@ -57,11 +58,11 @@ fn summary(view: &FileCompareView) -> Vec<Line<'static>> {
                     t("compare_files_text_summary")
                         .replace("{added}", &added.to_string())
                         .replace("{removed}", &removed.to_string()),
-                    Color::Yellow,
+                    theme.ui.warning,
                 ));
             }
         }
-        CompareStatus::Binary(binary) => lines.extend(binary_lines(binary)),
+        CompareStatus::Binary(binary) => lines.extend(binary_lines(binary, theme)),
     }
     lines.push(Line::from(""));
     lines
@@ -79,11 +80,11 @@ fn colored(text: String, color: Color) -> Line<'static> {
 }
 
 /// Verdict, then size and hash of each file.
-fn binary_lines(binary: &BinaryComparison) -> Vec<Line<'static>> {
+fn binary_lines(binary: &BinaryComparison, theme: &ResolvedTheme) -> Vec<Line<'static>> {
     let (verdict, color) = if binary.identical {
-        (t("compare_files_binary_identical"), Color::LightGreen)
+        (t("compare_files_binary_identical"), theme.ui.success_alt)
     } else {
-        (t("compare_files_binary_differ"), Color::LightRed)
+        (t("compare_files_binary_differ"), theme.ui.error)
     };
     let side = |key: &str, size: u64, hash: &str| {
         Line::from(format!(

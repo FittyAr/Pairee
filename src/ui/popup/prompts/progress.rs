@@ -7,7 +7,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     widgets::{Gauge, Paragraph},
 };
 
@@ -30,7 +30,7 @@ fn render_git(
         size,
         (60, 7),
         title.to_string(),
-        crate::ui::popup::kit::fg(Color::Cyan),
+        crate::ui::popup::kit::fg(theme.ui.accent),
         theme,
     );
 
@@ -58,7 +58,7 @@ fn render_git(
     f.render_widget(Paragraph::new(label).style(fg), rows[0]);
     f.render_widget(
         Gauge::default()
-            .gauge_style(Style::default().fg(Color::Cyan))
+            .gauge_style(Style::default().fg(theme.ui.accent))
             .ratio(ratio),
         rows[1],
     );

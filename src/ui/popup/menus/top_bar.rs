@@ -7,7 +7,7 @@ use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -46,8 +46,8 @@ pub fn render_top_dropdown(
     let rect = Rect::new(x, 1, DROPDOWN_WIDTH, (items.len() + 2) as u16).intersection(size);
     // While a submenu is open its parent row is highlighted differently.
     let parent = Style::default()
-        .bg(Color::Blue)
-        .fg(Color::White)
+        .bg(theme.ui.link)
+        .fg(theme.ui.strong)
         .add_modifier(Modifier::BOLD);
     let highlight = match focus.submenu {
         Some(_) => (item, parent),
@@ -105,7 +105,12 @@ fn render_box(
         .enumerate()
         .map(|(i, item)| {
             let is_cursor = i == highlight_row;
-            item_line(item, if is_cursor { highlight } else { normal }, is_cursor)
+            item_line(
+                item,
+                if is_cursor { highlight } else { normal },
+                is_cursor,
+                theme,
+            )
         })
         .collect();
     let block = Block::default()
@@ -116,14 +121,19 @@ fn render_box(
 }
 
 /// One drop-down row: active marker, label with its hotkey, shortcut.
-fn item_line(item: &MenuItemData, base: Style, is_cursor: bool) -> Line<'static> {
+fn item_line(
+    item: &MenuItemData,
+    base: Style,
+    is_cursor: bool,
+    theme: &ResolvedTheme,
+) -> Line<'static> {
     if item.is_separator {
         return Line::from(Span::styled(" ───────────────────────────────── ", base));
     }
     let hotkey = if is_cursor {
-        base.fg(Color::Yellow)
+        base.fg(theme.ui.warning)
     } else {
-        base.fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        base.fg(theme.ui.warning).add_modifier(Modifier::BOLD)
     };
     let marker = if item.active { "•" } else { " " };
     let mut spans = vec![Span::styled(format!(" {} ", marker), base)];
@@ -154,7 +164,7 @@ mod tests {
     fn shortcut_column_lines_up_with_wide_labels() {
         let width = |label: &str| {
             let item = MenuItemData::new(label.into(), "Ctrl+X", false);
-            item_line(&item, Style::default(), false).width()
+            item_line(&item, Style::default(), false, &ResolvedTheme::default()).width()
         };
         assert_eq!(width("&Copiar"), width("&日本語メニュー"));
     }

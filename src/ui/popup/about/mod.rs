@@ -10,7 +10,7 @@ use crate::ui::wrap::wrap_lines;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -21,6 +21,13 @@ struct AboutStyles {
     bold: Style,
     link: Style,
     title: Style,
+    /// The application name in the title.
+    name: Style,
+    /// Rules under the titles.
+    rule: Style,
+    bullet: Style,
+    library: Style,
+    url: Style,
 }
 
 impl AboutStyles {
@@ -30,11 +37,20 @@ impl AboutStyles {
             text,
             bold: text.add_modifier(Modifier::BOLD),
             link: Style::default()
-                .fg(Color::Cyan)
+                .fg(theme.ui.accent)
                 .add_modifier(Modifier::UNDERLINED),
             title: Style::default()
-                .fg(Color::Yellow)
+                .fg(theme.ui.warning)
                 .add_modifier(Modifier::BOLD),
+            name: Style::default()
+                .fg(theme.ui.accent_alt)
+                .add_modifier(Modifier::BOLD),
+            rule: Style::default().fg(theme.ui.muted),
+            bullet: Style::default().fg(theme.ui.accent),
+            library: text.add_modifier(Modifier::BOLD).fg(theme.ui.success_alt),
+            url: Style::default()
+                .fg(theme.ui.link)
+                .add_modifier(Modifier::UNDERLINED),
         }
     }
 }
@@ -91,7 +107,7 @@ fn render_about(
     // Render bottom hint
     let hint_para = Paragraph::new(t("about_hint"))
         .alignment(Alignment::Center)
-        .style(Style::default().fg(Color::DarkGray));
+        .style(Style::default().fg(theme.ui.muted));
     f.render_widget(hint_para, popup_chunks[1]);
 
     // Render block border and title
@@ -102,13 +118,10 @@ fn render_about(
 fn about_lines(styles: &AboutStyles) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(vec![
-            Span::styled("Pairee", styles.title.fg(Color::LightCyan)),
+            Span::styled("Pairee", styles.name),
             Span::styled(t("about_tagline"), styles.title),
         ]),
-        Line::from(Span::styled(
-            "==============================",
-            Style::default().fg(Color::DarkGray),
-        )),
+        Line::from(Span::styled("==============================", styles.rule)),
         Line::from(""),
     ];
 
@@ -153,7 +166,7 @@ fn about_lines(styles: &AboutStyles) -> Vec<Line<'static>> {
     lines.push(Line::from(Span::styled(t("about_libraries"), styles.bold)));
     lines.push(Line::from(Span::styled(
         "---------------------------",
-        Style::default().fg(Color::DarkGray),
+        styles.rule,
     )));
     lines.extend(library_lines(styles));
     lines
@@ -166,18 +179,13 @@ fn library_lines(styles: &AboutStyles) -> impl Iterator<Item = Line<'static>> + 
         .flat_map(move |(name, license, url)| {
             [
                 Line::from(vec![
-                    Span::styled("• ", Style::default().fg(Color::Cyan)),
-                    Span::styled(*name, styles.bold.fg(Color::LightGreen)),
+                    Span::styled("• ", styles.bullet),
+                    Span::styled(*name, styles.library),
                     Span::styled(format!(" ({})", license), styles.text),
                 ]),
                 Line::from(vec![
                     Span::styled("  ", styles.text),
-                    Span::styled(
-                        *url,
-                        Style::default()
-                            .fg(Color::Blue)
-                            .add_modifier(Modifier::UNDERLINED),
-                    ),
+                    Span::styled(*url, styles.url),
                 ]),
             ]
         })

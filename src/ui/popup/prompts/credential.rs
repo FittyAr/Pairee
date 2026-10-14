@@ -6,7 +6,7 @@ use crate::config::localization::t;
 use crate::credential_prompt::SecretKind;
 use crate::ui::popup::kit::{self, TextBox};
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{Frame, style::Color};
+use ratatui::Frame;
 
 impl DialogView for CredentialPrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
@@ -25,7 +25,7 @@ impl DialogView for CredentialPrompt {
         TextBox {
             size: (64, 8),
             title: t("credential_prompt_title"),
-            border: kit::fg(Color::Yellow),
+            border: kit::fg(cx.theme.ui.warning),
             body: kit::prompt_text(&template, &shown, cx.theme),
             body_style: cx.theme.popup_fg(),
         }
@@ -48,7 +48,7 @@ fn render_certificate(prompt: &CredentialPrompt, f: &mut Frame, cx: &ViewCtx<'_>
     TextBox {
         size: (72, 11),
         title: t("credential_prompt_certificate_title"),
-        border: kit::fg(Color::Red),
+        border: kit::fg(cx.theme.ui.danger),
         body: ratatui::text::Text::from(body),
         body_style: cx.theme.popup_fg(),
     }

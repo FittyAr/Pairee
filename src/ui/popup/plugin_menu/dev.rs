@@ -5,7 +5,7 @@ use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier as StyleModifier, Style},
+    style::{Modifier as StyleModifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap},
 };
@@ -96,17 +96,17 @@ fn option_items(
         let style = if i == cursor_idx {
             row_style(pane, true)
         } else if is_disabled {
-            Style::default().fg(Color::DarkGray)
+            Style::default().fg(pane.theme.ui.muted)
         } else if i >= OPEN_FOLDER_GROUP {
             // Highlight "open folder" group in cyan to visually separate them.
-            Style::default().fg(Color::Cyan)
+            Style::default().fg(pane.theme.ui.accent)
         } else {
             text_style(pane)
         };
         if i == OPEN_FOLDER_GROUP {
             list_items.push(ListItem::new(Line::from(Span::styled(
                 "  ───────────────────────",
-                Style::default().fg(Color::DarkGray),
+                Style::default().fg(pane.theme.ui.muted),
             ))));
         }
         let label = if i == 0 {
@@ -159,7 +159,7 @@ fn render_progress(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
 
     let status_line = Line::from(vec![Span::styled(
         format!("{} {}", spinner_frame(), status),
-        Style::default().fg(Color::Yellow),
+        Style::default().fg(pane.theme.ui.warning),
     )]);
     f.render_widget(
         Paragraph::new(status_line).style(pane.bg_style),

@@ -119,7 +119,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
         && ts.view_mode == crate::app::state::TransferViewMode::Expanded
     {
         let size = f.area();
-        transfer::conflict_dialog::render_conflict_dialog(f, size, ts);
+        transfer::conflict_dialog::render_conflict_dialog(f, size, ts, &context.theme());
     }
     state.mouse.placed(placement::finish());
     // Last, over everything: where dragged files would go.

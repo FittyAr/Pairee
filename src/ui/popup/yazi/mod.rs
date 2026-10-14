@@ -7,7 +7,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Cell, Clear, Row, Table},
 };
@@ -22,7 +22,7 @@ pub fn key_rows(
     grid: &KeyGrid,
 ) -> Vec<Row<'static>> {
     let key_style = Style::default()
-        .fg(Color::Yellow)
+        .fg(theme.ui.warning)
         .add_modifier(Modifier::BOLD);
     let label_style = Style::default().fg(theme.popup_fg);
     grid.iter()
@@ -30,7 +30,7 @@ pub fn key_rows(
             Row::new(row.iter().map(|cell| match cell {
                 Some((key, label)) => Cell::from(Line::from(vec![
                     Span::styled(*key, key_style),
-                    Span::styled("⋄", Style::default().fg(Color::DarkGray)),
+                    Span::styled("⋄", Style::default().fg(theme.ui.muted)),
                     Span::styled(format!(" {}", t(label)), label_style),
                 ])),
                 None => Cell::from(""),

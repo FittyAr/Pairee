@@ -7,7 +7,7 @@ use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
-    style::{Color, Style},
+    style::Style,
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
@@ -30,7 +30,7 @@ impl DialogView for SearchPrompt {
 
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
+            .border_style(Style::default().fg(theme.ui.accent))
             .title(t("prompt_search_title"))
             .style(Style::default().bg(theme.popup_bg));
 
@@ -78,7 +78,10 @@ impl DialogView for SearchPrompt {
             focus,
             styles,
         );
-        f.render_widget(kit::separator(inner.width, kit::fg(Color::Cyan)), chunks[3]);
+        f.render_widget(
+            kit::separator(inner.width, kit::fg(theme.ui.accent)),
+            chunks[3],
+        );
         kit::form_option(
             f,
             chunks[4],
@@ -131,7 +134,7 @@ impl DialogView for SearchResults {
             .iter()
             .map(|(path, is_dir)| {
                 let (icon, style) = if *is_dir {
-                    ("📁", Style::default().fg(Color::LightBlue))
+                    ("📁", Style::default().fg(theme.ui.info))
                 } else {
                     ("📄", theme.popup_fg())
                 };
@@ -141,7 +144,7 @@ impl DialogView for SearchResults {
         kit::ListPopup {
             area: centered_rect_in(70, 60, size),
             title,
-            border: Color::Cyan,
+            border: theme.ui.accent,
             empty: Some(t(if *searching {
                 "searching_placeholder"
             } else {

@@ -4,7 +4,7 @@ use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -23,8 +23,8 @@ pub fn render_confirm_action(
     let inner = kit::frame_in(
         f,
         area,
-        kit::accent_title(title, Color::Cyan),
-        kit::fg(Color::Cyan),
+        kit::accent_title(title, theme.ui.accent),
+        kit::fg(theme.ui.accent),
         theme,
     );
 

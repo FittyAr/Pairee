@@ -112,7 +112,7 @@ pub fn render_archive_commands_menu(
         ..menu_popup(
             centered_rect_in(60, 45, size),
             title,
-            Color::Yellow,
+            theme.ui.warning,
             marked_rows(items, cursor_idx, theme.popup_fg()),
             cursor_idx,
         )

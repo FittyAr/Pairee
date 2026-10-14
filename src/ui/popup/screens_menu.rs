@@ -3,7 +3,7 @@ use crate::app::state::Screen;
 use crate::app::state::popup::ScreensMenu;
 use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{Frame, style::Color};
+use ratatui::Frame;
 
 impl DialogView for ScreensMenu {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
@@ -30,7 +30,7 @@ impl DialogView for ScreensMenu {
         ListPopup {
             area: list_area(size, width.max(20), rows.len(), 20),
             title: t("screens_menu_title"),
-            border: Color::Yellow,
+            border: theme.ui.warning,
             empty: None,
             header: Vec::new(),
             rows,

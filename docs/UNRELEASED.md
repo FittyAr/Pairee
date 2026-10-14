@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- Theme files have a `[ui]` table of semantic colors (accent, warning, danger, error, success, muted, ...) used by dialogs, the transfer panel, status labels and progress bars; they are also the `ui_*` entries of "Color groups". Themes without it keep today's colors.
 - Duplicate finder: "Follow symbolic links" option (files below linked folders are searched; a file reached twice counts once and loops are skipped).
 - Plugin API 1.3.0: positional widgets (`ui.Rect`, `Pad`, `Pos`, `Bar`, `Clear`, `Fill`, `widget:area(rect)`, `Layout:split(rect)`, lists of widgets from `peek`), `pairee.cx.tabs` / `tasks` / `yanked` and panel URLs, `File` inherits the fields of `Cha`, and `pairee.fs` on remote URLs of connections open in a panel (trusted plugins; read-only in Secure Mode).
 - `pairee --help` (`-h`) lists the options and subcommands, and `pairee plugin|developer|keymap --help` the commands of each, in the configured language.
@@ -70,6 +71,7 @@
 - Pictures in the quick view, plugin previews and the viewer are resized once per size instead of on every redraw.
 
 ### Changed
+- Renamed files are colored in the panels as in the Git panel.
 - Sizes in dialogs, the transfer panel and the viewer status line use binary units (KiB, MiB, GiB), matching the 1024-byte steps they are computed with.
 - The log file `app.log` is appended to instead of truncated on every start, and rotates to `app.log.1` past 5 MiB; two Pairee windows no longer overwrite each other's log.
 - Release builds log at `info` level instead of `debug` (`RUST_LOG=debug` restores the detail); errors while loading the configuration or running a subcommand are now logged too.

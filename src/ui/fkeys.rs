@@ -9,7 +9,7 @@ use crossterm::event::KeyModifiers;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -183,7 +183,7 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
 
     let num_style = Style::default().bg(theme.fkey_bg).fg(theme.fkey_num_fg);
 
-    let text_style = Style::default().bg(Color::DarkGray).fg(theme.fkey_text_fg);
+    let text_style = Style::default().bg(theme.ui.muted).fg(theme.fkey_text_fg);
 
     let modifiers = bar_modifiers(state);
     for (i, (num, text)) in fkeys.iter().enumerate() {
@@ -213,8 +213,8 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         let badge = Span::styled(
             t("fkey_update_badge"),
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
+                .fg(theme.ui.badge_fg)
+                .bg(theme.ui.warning)
                 .add_modifier(Modifier::BOLD),
         );
         let badge_line = Line::from(badge);

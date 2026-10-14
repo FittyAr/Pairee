@@ -1,13 +1,18 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 use crate::app::state::TransferUIState;
 use crate::config::localization::t;
 use crate::ui::panel::helpers::format_date;
 
-pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
+pub fn render_conflict_dialog(
+    f: &mut Frame,
+    area: Rect,
+    ts: &TransferUIState,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
+) {
     let (_, file_path, conflict) = match &ts.active_conflict_info {
         Some(c) => c,
         None => return,
@@ -24,8 +29,8 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(t("transfer_conflict_title"))
-        .border_style(Style::default().fg(Color::LightRed))
-        .style(Style::default().bg(Color::Black));
+        .border_style(Style::default().fg(theme.ui.error))
+        .style(Style::default().bg(theme.ui.alert_bg));
 
     let inner_area = block.inner(dialog_area);
     f.render_widget(block, dialog_area);
@@ -48,7 +53,7 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         Paragraph::new(title_text)
             .style(
                 Style::default()
-                    .fg(Color::White)
+                    .fg(theme.ui.strong)
                     .add_modifier(Modifier::BOLD),
             )
             .wrap(Wrap { trim: true }),
@@ -73,7 +78,7 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
 
     f.render_widget(
         Paragraph::new(comparison_text)
-            .style(Style::default().fg(Color::Gray))
+            .style(Style::default().fg(theme.ui.secondary))
             .wrap(Wrap { trim: true }),
         content_chunks[1],
     );
@@ -84,7 +89,7 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         Paragraph::new(options_text)
             .style(
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(theme.ui.warning)
                     .add_modifier(Modifier::BOLD),
             )
             .wrap(Wrap { trim: true }),
