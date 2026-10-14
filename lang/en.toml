@@ -1,5 +1,6 @@
 error_copy_into_itself = "Cannot copy or move the folder {} into itself"
 transfer_unsafe_name = "Not copied: the source listed an unsafe name ({})"
+transfer_source_truncated = "The source ended after {} of its {} bytes; the copy was not kept"
 error_copy_onto_itself = "Cannot copy or move {} onto itself"
 language_name = "English"
 

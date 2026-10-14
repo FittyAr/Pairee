@@ -95,6 +95,21 @@ pub fn text(response: reqwest::Response) -> io::Result<String> {
     block_on(async move { response.text().await.map_err(io_error) })
 }
 
+/// The body of a `GET` sent with `Range: bytes=<offset>-`, from `offset`:
+/// a server that ignores the range sends everything, and the first
+/// `offset` bytes are skipped here (never written twice).
+pub fn body_from(response: reqwest::Response, offset: u64) -> io::Result<BodyReader> {
+    let partial = response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
+    let mut reader = BodyReader::new(response);
+    if offset > 0 && !partial {
+        let skipped = io::copy(&mut (&mut reader).take(offset), &mut io::sink())?;
+        if skipped < offset {
+            return Err(io::Error::from(io::ErrorKind::UnexpectedEof));
+        }
+    }
+    Ok(reader)
+}
+
 /// A response body read as a stream, one network chunk at a time.
 pub struct BodyReader {
     response: Option<reqwest::Response>,

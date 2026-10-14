@@ -123,9 +123,11 @@ impl Config {
     }
 }
 
-/// A download on a connection of its own.
+/// A download on a connection of its own. The end of the data is only
+/// reported once the server confirms the transfer completed (`226`): a
+/// download the server aborted is an error, never a short file.
 pub struct Download {
-    stream: Transfer,
+    stream: Option<Transfer>,
     _conn: Conn,
 }
 
@@ -139,7 +141,7 @@ impl Download {
         }
         let stream = conn.retr_as_stream(path).map_err(io_err)?;
         Ok(Self {
-            stream,
+            stream: Some(stream),
             _conn: conn,
         })
     }
@@ -147,7 +149,15 @@ impl Download {
 
 impl Read for Download {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.stream.read(buf)
+        let Some(stream) = self.stream.as_mut() else {
+            return Ok(0);
+        };
+        let n = stream.read(buf)?;
+        if n == 0 && !buf.is_empty() {
+            let stream = self.stream.take().expect("checked above");
+            stream.finish().map_err(io_err)?;
+        }
+        Ok(n)
     }
 }
 

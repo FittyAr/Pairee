@@ -1,5 +1,6 @@
 error_copy_into_itself = "No se puede copiar ni mover la carpeta {} dentro de sí misma"
 transfer_unsafe_name = "No se copió: el origen listó un nombre inseguro ({})"
+transfer_source_truncated = "El origen terminó tras {} de sus {} bytes; la copia no se conservó"
 error_copy_onto_itself = "No se puede copiar ni mover {} sobre sí mismo"
 language_name = "Español"
 

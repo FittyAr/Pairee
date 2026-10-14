@@ -11,7 +11,7 @@
 mod listing;
 mod upload;
 
-use super::http::{self, BodyReader};
+use super::http;
 use super::{REMOTE, Remote, file_name, invalid, not_found, remote_path};
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name};
 use rusty_s3::{Bucket, Credentials, S3Action, UrlStyle};
@@ -295,7 +295,8 @@ impl Vfs for S3Vfs {
         if offset > 0 {
             request = request.header("Range", format!("bytes={offset}-"));
         }
-        Ok(Box::new(BodyReader::new(http::send(request, "GetObject")?)))
+        let response = http::send(request, "GetObject")?;
+        Ok(Box::new(http::body_from(response, offset)?))
     }
 
     fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
