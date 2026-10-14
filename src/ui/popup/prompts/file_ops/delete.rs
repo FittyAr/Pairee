@@ -16,6 +16,7 @@ impl DialogView for ConfirmDelete {
             paths,
             cursor_idx,
             to_trash,
+            folders,
         } = self;
         let area = centered_rect_fixed(50, 8, size);
         f.render_widget(Clear, area);
@@ -38,20 +39,8 @@ impl DialogView for ConfirmDelete {
             .constraints([Constraint::Length(4), Constraint::Length(2)])
             .split(inner);
 
-        let mut folders_count = 0;
-        let mut files_count = 0;
-        for p in paths {
-            if p.is_dir()
-                && !p
-                    .symlink_metadata()
-                    .map(|m| m.file_type().is_symlink())
-                    .unwrap_or(false)
-            {
-                folders_count += 1;
-            } else {
-                files_count += 1;
-            }
-        }
+        let folders_count = *folders;
+        let files_count = paths.len().saturating_sub(folders_count);
 
         let part_files = if files_count > 0 {
             Some(t("delete_confirm_files").replacen("{}", &files_count.to_string(), 1))
@@ -126,4 +115,24 @@ fn render_buttons(
         Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
         area,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::localization::t;
+    use crate::test_harness::Harness;
+
+    #[test]
+    fn folders_are_counted_once_from_the_listing() {
+        let mut h = Harness::new();
+        h.mkdir("work/left/sub");
+        h.reread().focus("sub").keys("@delete");
+        let folders = t("delete_confirm_folders").replacen("{}", "1", 1);
+        let shown: String = folders.chars().take(11).collect();
+        h.assert_screen(&shown);
+        // Redrawing does not look at the disk again.
+        std::fs::remove_dir(h.left().join("sub")).unwrap();
+        h.render();
+        h.assert_screen(&shown);
+    }
 }

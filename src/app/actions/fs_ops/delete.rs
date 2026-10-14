@@ -57,6 +57,16 @@ pub fn handle(state: &mut AppState, context: &mut AppContext, mode: DeleteMode) 
 /// Deletes `targets` (items of the active panel's filesystem), asking first
 /// when the confirmation settings say so. With `over_dialog` the confirmation
 /// opens on top of the current dialog, which comes back afterwards.
+/// Whether `path` is a folder (not a link to one): from the panel's
+/// listing, else (local paths listed elsewhere) from the disk.
+fn is_folder(panel: &crate::app::state::PanelState, path: &std::path::Path, remote: bool) -> bool {
+    match panel.entries.iter().find(|e| e.path == path) {
+        Some(entry) => entry.is_dir && !entry.is_symlink,
+        None if remote => false,
+        None => std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir()),
+    }
+}
+
 pub fn request(
     state: &mut AppState,
     context: &AppContext,
@@ -88,10 +98,15 @@ pub fn request(
             }));
 
     if show_prompt {
+        let folders = targets
+            .iter()
+            .filter(|p| is_folder(active_panel, p, is_remote))
+            .count();
         let confirm = PopupType::ConfirmDelete(ConfirmDelete {
             paths: targets,
             cursor_idx: 0,
             to_trash,
+            folders,
         });
         if over_dialog {
             state.dialogs.push(confirm);

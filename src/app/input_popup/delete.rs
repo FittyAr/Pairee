@@ -32,6 +32,7 @@ pub fn handle(
             paths,
             cursor_idx,
             to_trash,
+            ..
         })) if confirmed => {
             if cursor_idx == 0 {
                 let options = TransferOptions {
