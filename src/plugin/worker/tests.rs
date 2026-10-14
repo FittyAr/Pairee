@@ -309,3 +309,27 @@ async fn returned_values_are_converted_under_the_watchdog() {
     assert!(!w.preload(job(&file, 0)).await);
     assert!(started.elapsed() < std::time::Duration::from_secs(5));
 }
+
+#[test]
+fn an_image_shown_many_times_is_decoded_once() {
+    use crate::app::state::popup::plugin_widget::PluginImage;
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("a.png");
+    image::RgbImage::from_pixel(4, 4, image::Rgb([1, 2, 3]))
+        .save(&file)
+        .unwrap();
+    let node = || {
+        Renderable::Image(PluginImage {
+            path: file.clone(),
+            image: None,
+        })
+    };
+    let mut widget = Renderable::Stack((0..100).map(|_| node()).collect());
+    decode_images(&mut widget);
+    let images = widget.images_mut();
+    let first = images[0].image.clone().expect("decoded");
+    assert!(images.iter().all(|i| i
+        .image
+        .as_ref()
+        .is_some_and(|img| std::sync::Arc::ptr_eq(img, &first))));
+}

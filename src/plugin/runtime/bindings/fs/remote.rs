@@ -20,7 +20,7 @@
 use super::jail::Access;
 use crate::fs::vfs::{Vfs, VfsEntry};
 use crate::plugin::manager::PluginRequest;
-use crate::plugin::runtime::types::{LuaCha, LuaError, LuaFile, LuaUrl};
+use crate::plugin::runtime::types::{LuaError, LuaFile, LuaUrl};
 use mlua::{Function, Lua, MultiValue, Table, Value};
 use std::io::Read;
 use std::path::PathBuf;
@@ -139,17 +139,6 @@ fn file_of(prefix: &str, entry: &VfsEntry) -> LuaFile {
     }
 }
 
-fn cha_of(entry: &VfsEntry) -> LuaCha {
-    LuaCha {
-        is_dir: entry.is_dir,
-        is_link: entry.is_symlink,
-        is_hidden: entry.hidden,
-        len: entry.size,
-        mtime: crate::plugin::manager::snapshot::mtime_unix(entry.modified),
-        ..LuaCha::default()
-    }
-}
-
 /// The access an operation needs.
 fn access_of(op: &str) -> Access {
     match op {
@@ -210,7 +199,7 @@ async fn run(
         "cha" => {
             let result = blocking(move || vfs.stat(&path))
                 .await
-                .map(|e| cha_of(&e))
+                .map(|e| file_of(&at.prefix, &e).cha())
                 .map_err(|e| LuaError::custom(e.to_string()));
             LuaError::pair(lua, result)
         }

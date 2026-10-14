@@ -84,11 +84,26 @@ fn job_table(
     Ok(table)
 }
 
+/// Most different files one widget may show as images.
+const MAX_DECODED_IMAGES: usize = 16;
+
 /// Decodes the images of `widget` (the plugin only named the files; the
-/// host reads at most the quick view's size cap of each).
+/// host reads at most the quick view's size cap of each). A file shown
+/// several times is decoded once and shared; files past
+/// [`MAX_DECODED_IMAGES`] stay blank.
 pub fn decode_images(widget: &mut Renderable) {
+    let mut decoded: std::collections::HashMap<PathBuf, Option<Arc<image::DynamicImage>>> =
+        std::collections::HashMap::new();
     for image in widget.images_mut() {
-        image.image = load_image(&image.path);
+        let known = decoded.len() < MAX_DECODED_IMAGES || decoded.contains_key(&image.path);
+        image.image = if known {
+            decoded
+                .entry(image.path.clone())
+                .or_insert_with(|| load_image(&image.path))
+                .clone()
+        } else {
+            None
+        };
     }
 }
 
