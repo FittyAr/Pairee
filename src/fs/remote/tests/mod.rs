@@ -189,3 +189,54 @@ fn large_files_stream_both_ways_and_resume() {
         assert_eq!(tail, data[1000..]);
     }
 }
+
+/// A move within one server is a rename only when nothing is at the
+/// target: S3 (copy + delete) and many FTP servers rename over a file, so
+/// an existing one goes through the conflict setting (here: skip).
+#[test]
+fn same_server_moves_respect_existing_targets() {
+    use crate::config::settings::RemoteKind;
+    use crate::fs::transfer::job::{RemoteEndpoints, TransferJob, TransferOperation};
+    use crate::fs::transfer::options::TransferOptions;
+    let f = s3_fixture();
+    let kept = f.root.join("sub").join("a.txt");
+    f.vfs.write_file(&kept, &mut &b"keep"[..]).unwrap();
+    let conn = super::RemoteConn::new(
+        std::sync::Arc::clone(&f.vfs),
+        super::RemoteInfo {
+            kind: RemoteKind::S3,
+            host: "bucket".into(),
+            port: None,
+            username: String::new(),
+        },
+    );
+    let options = TransferOptions {
+        conflict_resolution: "skip".into(),
+        ..TransferOptions::default()
+    };
+    let mut job = TransferJob::new(
+        TransferOperation::Move,
+        vec![f.root.join("a.txt")],
+        f.root.join("sub"),
+        options,
+    );
+    job.remote = Some(RemoteEndpoints {
+        src: Some(conn.clone()),
+        dst: Some(conn),
+    });
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    runtime.block_on(async {
+        let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
+        tokio::spawn(async move { while rx.recv().await.is_some() {} });
+        crate::fs::transfer::backend::run_job(job, tx)
+            .await
+            .unwrap();
+    });
+    let read = |path: &Path| {
+        let mut out = Vec::new();
+        std::io::Read::read_to_end(&mut f.vfs.open_read(path).unwrap(), &mut out).unwrap();
+        out
+    };
+    assert_eq!(read(&kept), b"keep");
+    assert_eq!(read(&f.root.join("a.txt")), b"alpha");
+}

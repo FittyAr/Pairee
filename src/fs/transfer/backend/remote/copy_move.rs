@@ -13,6 +13,7 @@ use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::copy_phase::{CopyRequest, Endpoints, run_copy_phase};
 use crate::fs::transfer::scan::{ScanOutcome, ScanRequest, scan, top_targets};
 use anyhow::anyhow;
+use std::path::PathBuf;
 
 use super::RemoteJob;
 
@@ -25,19 +26,22 @@ pub async fn run_remote_copy_move(
         return Err(anyhow!("Remote transfer requires at least one connection"));
     }
     let same_server = matches!((&src, &dst), (Some(a), Some(b)) if a.is_same_server(b));
-    if job.operation == TransferOperation::Move && same_server {
-        let src_client = src.clone().unwrap_or_else(|| unreachable!("checked above"));
-        return blocking(move || {
-            fast_remote_rename(job.sources, job.destination, &src_client, &dst, control)
-        })
-        .await;
-    }
     let endpoints = Endpoints {
         src: endpoint_vfs(&src),
         dst: endpoint_vfs(&dst),
         same_fs: same_server,
         local: false,
     };
+    // A move within one server is a rename, unless something is already
+    // at a target: many servers rename over it, so the conflict setting
+    // goes through the copy phase instead.
+    if job.operation == TransferOperation::Move
+        && same_server
+        && let Some(roots) = free_targets(&job, &endpoints).await?
+    {
+        let src_client = src.clone().unwrap_or_else(|| unreachable!("checked above"));
+        return blocking(move || fast_remote_rename(roots, &src_client, control)).await;
+    }
     let scan = scan_blocking(&job, &endpoints, &control).await?;
     let request = CopyRequest {
         operation: job.operation,
@@ -48,6 +52,25 @@ pub async fn run_remote_copy_move(
     };
     let results = run_copy_phase(request, &control, TransferResults::default()).await?;
     control.job_completed(results)
+}
+
+/// Each source of `job` with its target, when nothing is at any target.
+async fn free_targets(
+    job: &RemoteJob,
+    endpoints: &Endpoints,
+) -> anyhow::Result<Option<Vec<(PathBuf, PathBuf)>>> {
+    let (job, fs) = (job.clone(), endpoints.clone());
+    blocking(move || {
+        let roots = top_targets(
+            &job.sources,
+            &job.destination,
+            job.operation,
+            fs.dst.as_ref(),
+        );
+        let free = roots.iter().all(|(_, dst)| !fs.dst.exists(dst));
+        Ok(free.then_some(roots))
+    })
+    .await
 }
 
 /// The scan reads the server: it runs on a blocking thread.

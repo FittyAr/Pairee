@@ -1,29 +1,24 @@
-//! Same-server remote fast rename/move via SFTP.
+//! Same-server remote move: one server-side rename per source.
 
 use super::super::super::job::TransferResults;
-use super::super::super::worker::is_destination_parent_dir;
 use crate::config::localization::t;
 use crate::fs::remote::RemoteConn;
 use crate::fs::transfer::control::JobControl;
 use std::path::PathBuf;
 
+/// Renames each source to its target (`roots`, see
+/// [`crate::fs::transfer::scan::top_targets`]) on `client`.
 pub fn fast_remote_rename(
-    sources: Vec<PathBuf>,
-    destination_dir: PathBuf,
-    src_client: &RemoteConn,
-    dst_conn: &Option<RemoteConn>,
+    roots: Vec<(PathBuf, PathBuf)>,
+    client: &RemoteConn,
     control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
-    let into_dir = is_destination_parent_dir(&sources, &destination_dir, |p| {
-        crate::fs::remote::is_dir_on(p, dst_conn)
-    });
+    let (sources, targets): (Vec<PathBuf>, Vec<PathBuf>) = roots.into_iter().unzip();
+    // `run_each` visits the sources in order.
+    let mut targets = targets.into_iter();
     control.run_each(&sources, |src| {
-        let dst = if into_dir {
-            destination_dir.join(crate::fs::file_name_lossy(src))
-        } else {
-            destination_dir.clone()
-        };
-        src_client
+        let dst = targets.next().unwrap_or_default();
+        client
             .rename(src, &dst)
             .map(|()| dst)
             .map_err(|e| t("error_remote_move_failed").replacen("{}", &e.to_string(), 1))
