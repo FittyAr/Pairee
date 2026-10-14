@@ -171,6 +171,14 @@ fn local_tools_never_write_into_an_archive_panel_path() {
         panic!("compress prompt");
     };
     assert_eq!(dest_dir, &h.left(), "beside the files, not inside the zip");
+
+    // Inside the archive, tools that walk the local disk are refused.
+    h.state.dialogs.clear();
+    h.keys("Tab");
+    for action in [Action::FindFile, Action::TreeView, Action::GitInit] {
+        assert!(refuse_unsupported(&mut h.state, &action), "{action:?}");
+        h.state.dialogs.clear();
+    }
 }
 
 #[test]

@@ -30,6 +30,11 @@ pub async fn handle_action(
         }
         return Ok(());
     }
+    // What the panel sources cannot do is refused up front, whichever
+    // handler would run it.
+    if fs_ops::capability::refuse_unsupported(state, &action) {
+        return Ok(());
+    }
     let handled = navigation::handle_navigation_action(state, &action, context)
         || jumps::handle_jump_action(state, &action, context)
         || cli_line::handle(state, &action, context)

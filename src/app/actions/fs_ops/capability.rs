@@ -16,7 +16,13 @@ fn requirements(action: &Action) -> (Option<Capability>, Option<Capability>) {
         | Action::ApplyCommand
         | Action::DescribeFile
         | Action::CompressFiles
-        | Action::ArchiveCommands => (Some(LocalTools), None),
+        | Action::ArchiveCommands
+        // Walk or open the folder with local tools.
+        | Action::FindFile
+        | Action::TreeView
+        | Action::OpenGitPanel
+        | Action::GitInit
+        | Action::GitClone => (Some(LocalTools), None),
         // Written into the other panel's folder with local tools.
         Action::CreateLink | Action::ExtractArchive => (Some(LocalTools), Some(LocalTools)),
         Action::Edit => (Some(Write), None),
