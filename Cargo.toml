@@ -135,8 +135,11 @@ libunftp = { version = "0.23", default-features = false, features = ["ring"] }
 unftp-sbe-fs = "0.4"
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio", "server", "http1"] }
-# Self-signed certificate of the FTPS test server, made at test time (ring).
+# Self-signed certificate of the FTPS / HTTPS test servers, made at test
+# time (ring), and the TLS side of the HTTPS WebDAV test server (already
+# in the tree through libunftp).
 rcgen = "0.14.10"
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring"] }
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }

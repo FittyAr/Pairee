@@ -127,6 +127,11 @@ pub fn start_connection(
     panel: TabId,
     mut conn: Connection,
 ) {
+    if conn.insecure_tls() {
+        state.dialogs.push(PopupType::info(
+            t("remote_tls_insecure_warning").replacen("{}", &conn.name, 1),
+        ));
+    }
     let timeout = std::time::Duration::from_secs(context.config.settings.ssh_timeout_secs);
     let asker = state.credential_requests.asker();
     state.remote_connect.start(move |_| {

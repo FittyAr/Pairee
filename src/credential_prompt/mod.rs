@@ -28,6 +28,9 @@ pub enum SecretKind {
     Password,
     /// The passphrase of an encrypted private key file.
     Passphrase,
+    /// Whether to trust a server certificate the system does not (TLS);
+    /// any answer trusts it, `None` refuses.
+    Certificate,
 }
 
 /// A request for one secret.
@@ -43,6 +46,15 @@ impl CredentialRequest {
         Self {
             kind: SecretKind::Password,
             subject: subject.into(),
+        }
+    }
+
+    /// Asks whether to trust the certificate of `server` (`host:port`)
+    /// with SHA-256 `fingerprint`.
+    pub fn certificate(server: &str, fingerprint: &str) -> Self {
+        Self {
+            kind: SecretKind::Certificate,
+            subject: format!("{server}\n{fingerprint}"),
         }
     }
 

@@ -53,7 +53,11 @@ impl ConnectionField {
             Self::Password => "prompt_ssh_pass",
             Self::KeyPath => "prompt_ssh_key_path",
             Self::Folder => "prompt_conn_folder",
-            Self::Options => "prompt_conn_options",
+            Self::Options if s3 => "prompt_conn_options",
+            Self::Options if matches!(kind, RemoteKind::Ftps | RemoteKind::WebDavs) => {
+                "prompt_conn_tls_options"
+            }
+            Self::Options => "prompt_conn_other_options",
         }
     }
 

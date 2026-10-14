@@ -5,6 +5,7 @@
 
 use crate::fs::archive::test_fixtures::write_tree;
 use crate::fs::vfs::contract::TREE;
+use rustls::pki_types::pem::PemObject;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -214,19 +215,84 @@ pub fn ftp_server() -> &'static Server {
     SERVER.get_or_init(|| ftp_server_on(None))
 }
 
-/// FTPS with a self-signed certificate made now, which the client trusts
-/// instead of the system's roots (see `ftp::TEST_ROOT`).
-pub fn ftps_server() -> &'static Server {
-    static SERVER: OnceLock<Server> = OnceLock::new();
-    SERVER.get_or_init(|| {
+/// The self-signed certificate (for `localhost` and `127.0.0.1`) the TLS
+/// test servers present: its PEM file, its key's PEM file and its DER.
+pub struct TestCert {
+    pub cert: PathBuf,
+    pub key: PathBuf,
+    pub der: rustls::pki_types::CertificateDer<'static>,
+}
+
+pub fn test_cert() -> &'static TestCert {
+    static CERT: OnceLock<TestCert> = OnceLock::new();
+    CERT.get_or_init(|| {
         let names = vec!["localhost".to_string(), "127.0.0.1".to_string()];
         let certified = rcgen::generate_simple_self_signed(names).unwrap();
         let dir = tempfile::tempdir().unwrap().keep();
         let (cert, key) = (dir.join("cert.pem"), dir.join("key.pem"));
         std::fs::write(&cert, certified.cert.pem()).unwrap();
         std::fs::write(&key, certified.signing_key.serialize_pem()).unwrap();
-        let _ = super::super::ftp::TEST_ROOT.set(certified.cert.der().clone());
-        ftp_server_on(Some((cert, key)))
+        TestCert {
+            cert,
+            key,
+            der: certified.cert.der().clone(),
+        }
+    })
+}
+
+/// `ca=<the test certificate>`, the URL option that trusts it.
+pub fn trust_test_cert() -> String {
+    let path = test_cert().cert.to_string_lossy().into_owned();
+    let encoded: String = url::form_urlencoded::byte_serialize(path.as_bytes()).collect();
+    format!("ca={encoded}")
+}
+
+/// FTPS with the self-signed [`test_cert`] (not trusted unless the URL
+/// says `ca=`, see [`trust_test_cert`]).
+pub fn ftps_server() -> &'static Server {
+    static SERVER: OnceLock<Server> = OnceLock::new();
+    SERVER.get_or_init(|| {
+        let cert = test_cert();
+        ftp_server_on(Some((cert.cert.clone(), cert.key.clone())))
+    })
+}
+
+/// WebDAV over HTTPS with the self-signed [`test_cert`].
+pub fn webdavs_server() -> &'static Server {
+    static SERVER: OnceLock<Server> = OnceLock::new();
+    SERVER.get_or_init(|| {
+        start(|listener, root| async move {
+            let cert = test_cert();
+            let key = rustls::pki_types::PrivateKeyDer::from_pem_file(&cert.key).unwrap();
+            let provider = std::sync::Arc::new(rustls::crypto::ring::default_provider());
+            let config = rustls::ServerConfig::builder_with_provider(provider)
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_no_client_auth()
+                .with_single_cert(vec![cert.der.clone()], key)
+                .unwrap();
+            let acceptor = tokio_rustls::TlsAcceptor::from(std::sync::Arc::new(config));
+            let handler = dav_server::DavHandler::builder()
+                .filesystem(dav_server::localfs::LocalFs::new(root, false, false, false))
+                .locksystem(dav_server::fakels::FakeLs::new())
+                .build_handler();
+            loop {
+                let (socket, _) = listener.accept().await.unwrap();
+                let (acceptor, handler) = (acceptor.clone(), handler.clone());
+                tokio::spawn(async move {
+                    let Ok(tls) = acceptor.accept(socket).await else {
+                        return;
+                    };
+                    let service = hyper::service::service_fn(move |req| {
+                        let handler = handler.clone();
+                        async move { Ok::<_, std::convert::Infallible>(handler.handle(req).await) }
+                    });
+                    let _ = hyper::server::conn::http1::Builder::new()
+                        .serve_connection(hyper_util::rt::TokioIo::new(tls), service)
+                        .await;
+                });
+            }
+        })
     })
 }
 

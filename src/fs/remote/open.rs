@@ -36,7 +36,7 @@ pub fn open(
     if password.is_none() && !conn.username.is_empty() {
         password = Some(ask_password(conn, ask)?);
     }
-    let remote = match super::connect(&url(conn, password.as_deref())?) {
+    let remote = match connect_trusting(conn, &url(conn, password.as_deref())?, ask) {
         Err(e) if e.kind() == io::ErrorKind::PermissionDenied && !conn.username.is_empty() => {
             let retry = ask_password(conn, ask)?;
             super::connect(&url(conn, Some(&retry))?)?
@@ -51,6 +51,33 @@ pub fn open(
     };
     // FTP opens the URL's folder; WebDAV and S3 root the adapter there.
     Ok((RemoteConn::new(remote.vfs, info), remote.start))
+}
+
+/// Connects to `url`; a server certificate the system does not trust is
+/// shown to the user (server and SHA-256 fingerprint) and, when they trust
+/// it, pinned for that server and the connection tried again.
+fn connect_trusting(conn: &Connection, url: &str, ask: Ask<'_>) -> io::Result<super::Remote> {
+    use super::tls::{self, Handshake};
+    let err = match super::connect(url) {
+        Err(err) => err,
+        ok => return ok,
+    };
+    let Some(untrusted) = tls::untrusted(&err) else {
+        return Err(err);
+    };
+    let handshake = match conn.kind {
+        RemoteKind::Ftps => Handshake::FtpAuthTls,
+        _ => Handshake::Direct,
+    };
+    let (host, port) = (untrusted.host.clone(), untrusted.port);
+    let cert = tls::fetch_certificate(&host, port, handshake)?;
+    let request =
+        CredentialRequest::certificate(&format!("{host}:{port}"), &tls::fingerprint(&cert));
+    if ask(request).is_none() {
+        return Err(err);
+    }
+    tls::pin(&host, port, &cert)?;
+    super::connect(url)
 }
 
 /// The folder an SFTP panel opens (the others take it from the URL).
@@ -137,5 +164,59 @@ mod tests {
             *asked.lock().unwrap(),
             vec![CredentialRequest::password("me@corp@example.com")]
         );
+    }
+
+    fn webdavs() -> Connection {
+        let server = crate::fs::remote::tests::webdavs_server();
+        Connection {
+            name: "secure".into(),
+            kind: RemoteKind::WebDavs,
+            host: "127.0.0.1".into(),
+            port: server.addr.port().to_string(),
+            ..Connection::default()
+        }
+    }
+
+    #[test]
+    fn an_untrusted_certificate_is_shown_and_pinned_once_trusted() {
+        let _root = crate::config::paths::test_root::redirect(&tempfile::tempdir().unwrap().keep());
+        let conn = webdavs();
+        let refuse = |_req: CredentialRequest| None;
+        let err = open(&conn, Duration::from_secs(5), &refuse).unwrap_err();
+        assert!(err.to_string().contains("127.0.0.1"), "{err}");
+
+        let asked = std::sync::Mutex::new(Vec::new());
+        let trust = |req: CredentialRequest| {
+            asked.lock().unwrap().push(req);
+            Some(String::new())
+        };
+        open(&conn, Duration::from_secs(5), &trust).unwrap();
+        let asked = asked.lock().unwrap();
+        assert_eq!(asked.len(), 1);
+        assert_eq!(
+            asked[0].kind,
+            crate::credential_prompt::SecretKind::Certificate
+        );
+        let fingerprint =
+            crate::fs::remote::tls::fingerprint(&crate::fs::remote::tests::test_cert().der);
+        assert!(
+            asked[0].subject.ends_with(&fingerprint),
+            "{}",
+            asked[0].subject
+        );
+
+        // Pinned: the next connection does not ask.
+        let ask_again = |_req: CredentialRequest| -> Option<String> { panic!("asked again") };
+        open(&conn, Duration::from_secs(5), &ask_again).unwrap();
+    }
+
+    #[test]
+    fn only_tls_kinds_can_turn_checks_off() {
+        let mut conn = webdavs();
+        assert!(!conn.insecure_tls());
+        conn.options = "insecure=true".into();
+        assert!(conn.insecure_tls());
+        conn.kind = RemoteKind::WebDav;
+        assert!(!conn.insecure_tls());
     }
 }

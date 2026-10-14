@@ -38,6 +38,7 @@
 - Connection manager (`Ctrl+Shift+S`, Files → Connect to server...): save, edit, delete and connect SFTP, FTP, FTPS, WebDAV (HTTP / HTTPS) and S3 connections and open them in either panel. Copy and move work between any two places: local ↔ remote and remote ↔ remote (e.g. FTP → S3), with the transfer panel's progress, conflicts, retries and verification.
 - Pairee asks for a missing password or key passphrase in a prompt while connecting, instead of failing: SFTP logins, encrypted SSH keys (also for Git fetch, pull and push), and FTP / WebDAV / S3 connections without a stored password or whose password was rejected. Esc cancels.
 - FTP: file information comes from `MLST` when the server supports it (one request instead of listing the whole folder).
+- FTPS and WebDAV over HTTPS work with self-signed and private-authority certificates: Pairee shows the SHA-256 fingerprint of a certificate the system does not trust and, when you accept it, remembers it for that server; the TLS options of a connection can also name a trusted PEM file (`ca=`) or turn checks off (`insecure=true`, with a warning on every connection).
 
 ### Improved
 - When a plugin copies text of several lines to the clipboard, Pairee says so ("Plugin X copied N lines to the clipboard"), so a command hidden on a later line does not get pasted unnoticed.

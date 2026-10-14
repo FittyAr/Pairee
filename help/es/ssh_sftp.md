@@ -28,6 +28,14 @@ La columna izquierda lista las conexiones guardadas con su protocolo, p. ej. `ba
 | **Ruta de clave** | Solo SFTP: su archivo de clave privada. Vacío: se prueban el ssh-agent y las claves predeterminadas de `~/.ssh`. |
 | **Carpeta** | La carpeta que se abre al conectar (vacío: la raíz del servidor). En WebDAV y S3 es la raíz del panel (un prefijo de claves en S3). |
 | **Opciones S3** | Solo S3: `endpoint=https://minio.local:9000&region=eu-west-1&path_style=true`. Sin endpoint se usa AWS. |
+| **Opciones TLS** | FTPS y WebDAV (HTTPS): `ca=/ruta/al/cert.pem` confía en los certificados de ese archivo PEM (una autoridad privada, o el certificado autofirmado del propio servidor) además de los del sistema; `insecure=true` desactiva la verificación de certificados (Pairee avisa cada vez que se conecta: cualquiera en el camino de red podría leer la contraseña). Se combinan con `&`. |
+
+### Certificados (FTPS, WebDAV sobre HTTPS)
+Pairee comprueba el certificado del servidor con las autoridades de confianza del sistema, como un navegador. Cuando un servidor presenta un certificado en el que el sistema no confía (autofirmado, o de una autoridad privada), Pairee muestra su **huella SHA-256** y pregunta:
+* **Enter** confía en él para ese servidor (host y puerto) desde ahora: se guarda como `certs/<host>_<puerto>.pem` en la carpeta de configuración (borre el archivo para olvidarlo). Antes, compare la huella con la que le dio el administrador del servidor.
+* **Esc** lo rechaza y la conexión falla.
+
+Para una autoridad privada que usan varios servidores, ponga su certificado en un archivo PEM y agregue `ca=<archivo>` a las opciones TLS.
 
 Botones: **Conectar**, **Guardar** (guarda los campos con su nombre y reemplaza una conexión del mismo nombre), **Eliminar** y **Cancelar**. Conectar no guarda.
 

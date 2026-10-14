@@ -5,6 +5,7 @@
 mod propfind;
 
 use super::http::{self, BodyReader, Upload};
+use super::tls::{self, Handshake, TlsTrust};
 use super::{REMOTE, Remote, credentials, file_name, invalid, not_found, remote_path};
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry};
 use propfind::DavItem;
@@ -53,13 +54,24 @@ impl WebDavVfs {
         base.set_query(None);
         let path = base.path().trim_end_matches('/').to_string();
         base.set_path(&path);
-        let client = crate::update::http::builder()
+        let mut builder = crate::update::http::builder()
             .connect_timeout(CONNECT_TIMEOUT)
-            .read_timeout(READ_TIMEOUT)
-            .build()
-            .map_err(http::io_error)?;
+            .read_timeout(READ_TIMEOUT);
+        let host = base.host_str().unwrap_or_default().to_string();
+        let port = base.port_or_known_default().unwrap_or(443);
+        let trust = match secure {
+            true => Some(TlsTrust::for_server(url, &host, port)?),
+            false => None,
+        };
+        if let Some(trust) = &trust {
+            builder = trust.apply(builder)?;
+        }
+        let client = builder.build().map_err(http::io_error)?;
         let vfs = Self { client, base, auth };
-        vfs.stat(Path::new("/"))?;
+        vfs.stat(Path::new("/")).map_err(|e| match &trust {
+            Some(trust) => tls::classify(e, &host, port, Handshake::Direct, trust),
+            None => e,
+        })?;
         Ok(Remote {
             vfs: Arc::new(vfs),
             start: PathBuf::from("/"),

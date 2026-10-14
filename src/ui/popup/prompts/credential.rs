@@ -13,6 +13,7 @@ impl DialogView for CredentialPrompt {
         let question = match self.kind {
             SecretKind::Password => "credential_prompt_password",
             SecretKind::Passphrase => "credential_prompt_passphrase",
+            SecretKind::Certificate => return render_certificate(self, f, cx),
         };
         // The subject goes in first, so the field takes the remaining `{}`.
         let template = format!(
@@ -31,4 +32,25 @@ impl DialogView for CredentialPrompt {
         .with_field(kit::field_at(&template))
         .render(f, cx.area, cx.theme);
     }
+}
+
+/// The certificate question: server, fingerprint and the keys (no field).
+fn render_certificate(prompt: &CredentialPrompt, f: &mut Frame, cx: &ViewCtx<'_>) {
+    let (server, fingerprint) = prompt
+        .subject
+        .split_once('\n')
+        .unwrap_or((prompt.subject.as_str(), ""));
+    let body = format!(
+        "{}\n\nSHA-256:\n{fingerprint}\n\n{}",
+        t("credential_prompt_certificate").replacen("{}", server, 1),
+        t("credential_prompt_certificate_hint")
+    );
+    TextBox {
+        size: (72, 11),
+        title: t("credential_prompt_certificate_title"),
+        border: kit::fg(Color::Red),
+        body: ratatui::text::Text::from(body),
+        body_style: cx.theme.popup_fg(),
+    }
+    .render(f, cx.area, cx.theme);
 }
