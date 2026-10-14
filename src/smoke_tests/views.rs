@@ -9,6 +9,42 @@ use crate::config::localization::t;
 use crate::test_harness::Harness;
 use std::path::Path;
 
+/// The tree view opens at once and gets its folders from a background read.
+#[test]
+fn tree_view_reads_its_folders_in_the_background() {
+    use crate::app::state::popup::TreeView;
+    let mut h = Harness::new();
+    h.mkdir("work/left/sub/deep");
+    h.reread();
+    let root = h.left();
+    let caller = crate::app::state::types::TreeViewCaller::Panel(h.state.panels.active);
+    crate::app::dialog_loads::open_tree(&mut h.state, root, caller, false);
+    let tree = h.state.dialogs.top_as::<TreeView>().expect("tree view");
+    assert!(tree.loading && tree.nodes.is_empty(), "nothing read yet");
+    h.render().assert_screen(&t("tree_view_loading"));
+    h.settle();
+    let tree = h.state.dialogs.top_as::<TreeView>().expect("tree view");
+    assert!(!tree.loading);
+    let names: Vec<&str> = tree.nodes.iter().map(|n| n.name.as_str()).collect();
+    assert_eq!(names[1..], ["sub", "deep"]);
+}
+
+/// The user menu reads `usermenu.toml` when it opens.
+#[test]
+fn the_user_menu_reads_its_commands_when_it_opens() {
+    use crate::app::state::popup::UserMenu;
+    let mut h = Harness::new();
+    std::fs::write(
+        h.config_dir().join("usermenu.toml"),
+        "[commands]\nX = \"echo hi\"\n",
+    )
+    .unwrap();
+    h.keys("@user_menu");
+    let menu = h.state.dialogs.top_as::<UserMenu>().expect("user menu");
+    assert_eq!(menu.items[0].command.as_deref(), Some("echo hi"));
+    h.render().assert_screen("echo hi");
+}
+
 /// `a/b/c` with the platform's separator, as the branch view names files.
 fn rel(path: &str) -> String {
     Path::new(path)

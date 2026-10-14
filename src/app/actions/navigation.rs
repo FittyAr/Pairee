@@ -3,9 +3,8 @@ use crate::app::input::{handle_backspace_key, handle_enter_key, handle_open_arch
 use crate::app::state::history::HistoryKind;
 use crate::app::state::popup::DriveSelect;
 use crate::app::state::popup::SelectGroupPrompt;
-use crate::app::state::popup::TreeView;
 use crate::app::state::{ActivePanel, AppState, PopupType, SelectMode};
-use crate::app::sys_helpers::{build_tree_nodes, get_system_drives};
+use crate::app::sys_helpers::get_system_drives;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use std::ops::RangeInclusive;
@@ -114,11 +113,9 @@ fn list_dialog_action(state: &mut AppState, action: &Action) -> bool {
     let popup = match action {
         Action::TreeView => {
             let root = state.get_active_panel().current_path.clone();
-            PopupType::TreeView(TreeView {
-                nodes: build_tree_nodes(&root, 0, 3),
-                cursor_idx: 0,
-                caller: crate::app::state::types::TreeViewCaller::Panel(state.panels.active),
-            })
+            let caller = crate::app::state::types::TreeViewCaller::Panel(state.panels.active);
+            crate::app::dialog_loads::open_tree(state, root, caller, false);
+            return true;
         }
         Action::CommandHistory => HistoryKind::Commands.list_popup(&state.history, 0),
         Action::FileViewHistory => HistoryKind::ViewedFiles.list_popup(&state.history, 0),

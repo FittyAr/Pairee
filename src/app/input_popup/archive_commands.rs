@@ -1,10 +1,10 @@
 use crate::app::actions::fs_ops::extract;
 use crate::app::context::AppContext;
+use crate::app::dialog_loads::{ArchiveRead, read_archive};
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::ArchiveCommandsMenu;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType, Screen};
-use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 use std::path::Path;
@@ -46,30 +46,8 @@ pub fn handle(
 fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) {
     state.dialogs.clear();
     match cursor_idx {
-        0 => {
-            // List contents
-            match crate::fs::archive::list_archive_files(archive_path) {
-                Ok(list) => {
-                    let viewer =
-                        crate::ui::viewer::ViewerState::from_text(archive_path.to_path_buf(), list);
-                    state.push_screen(Screen::Viewer(viewer));
-                }
-                Err(e) => {
-                    let text = t("archive_list_failed").replacen("{}", &e.to_string(), 1);
-                    state.dialogs.replace(PopupType::error(text));
-                }
-            }
-        }
-        1 => {
-            // Test integrity
-            match crate::fs::archive::list_archive_files(archive_path) {
-                Ok(_) => state.dialogs.replace(PopupType::info(t("archive_test_ok"))),
-                Err(e) => {
-                    let text = t("archive_test_failed").replacen("{}", &e.to_string(), 1);
-                    state.dialogs.replace(PopupType::error(text));
-                }
-            }
-        }
+        0 => read_archive(state, archive_path.to_path_buf(), ArchiveRead::List),
+        1 => read_archive(state, archive_path.to_path_buf(), ArchiveRead::Test),
         2 => {
             let dest = state.get_active_panel().current_path.clone();
             extract::extract_to(state, archive_path, dest);

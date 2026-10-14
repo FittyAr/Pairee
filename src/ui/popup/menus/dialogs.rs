@@ -105,13 +105,12 @@ pub fn render_user_menu_dialog(
     theme: &ResolvedTheme,
     (left_rect, right_rect): (Rect, Rect),
     active_panel: ActivePanel,
-    cursor_idx: usize,
+    (items, cursor_idx): (&[crate::app::state::popup::UserMenuItem], usize),
 ) {
     let panel_rect = match active_panel {
         ActivePanel::Left => left_rect,
         ActivePanel::Right => right_rect,
     };
-    let items = crate::app::input_popup::user_menu::get_user_menu_items();
     // Borders and the header row take three lines; the panel caps the height.
     let height = u16::try_from(items.len() + 3).unwrap_or(u16::MAX);
     let area = centered_rect_fixed(panel_rect.width * 4 / 5, height, panel_rect);

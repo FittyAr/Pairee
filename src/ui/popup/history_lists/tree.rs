@@ -9,7 +9,10 @@ impl DialogView for TreeView {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let (theme, size) = (cx.theme, cx.area);
         let TreeView {
-            nodes, cursor_idx, ..
+            nodes,
+            cursor_idx,
+            loading,
+            ..
         } = self;
         let rows = nodes
             .iter()
@@ -30,7 +33,7 @@ impl DialogView for TreeView {
             area: centered_rect_in(55, 70, size),
             title: t("tree_view_title"),
             border: theme.ui.success,
-            empty: None,
+            empty: loading.then(|| t("tree_view_loading")),
             header: Vec::new(),
             rows,
             cursor: *cursor_idx,

@@ -7,10 +7,21 @@ use crate::app::state::types::{ActivePanel, SortField};
 use crate::app::text_input::TextField;
 use std::path::PathBuf;
 
-/// User menu (F2).
+/// User menu (F2). Its items are read from `usermenu.toml` once, when it
+/// opens (`app::input_popup::user_menu::open`), not on every key or frame.
 #[derive(Debug, Clone)]
 pub struct UserMenu {
     pub cursor_idx: usize,
+    pub items: Vec<UserMenuItem>,
+}
+
+/// One user menu entry: a shell command or an action, on a shortcut key.
+#[derive(Debug, Clone)]
+pub struct UserMenuItem {
+    pub key: String,
+    pub label: String,
+    pub command: Option<String>,
+    pub action: Option<crate::keybindings::Action>,
 }
 
 /// Top menu bar with its open drop-down (and submenu).

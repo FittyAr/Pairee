@@ -56,7 +56,8 @@ pub use git_prompts::{
 };
 pub use menus::{
     ArchiveCommandsMenu, CommandPalette, ContextMenu, DriveSelect, FolderShortcuts, Hotlist, Menu,
-    OnboardingKeymap, ScreensMenu, SortModesDialog, UserMenu, YaziSortPopup, YaziViewPopup,
+    OnboardingKeymap, ScreensMenu, SortModesDialog, UserMenu, UserMenuItem, YaziSortPopup,
+    YaziViewPopup,
 };
 pub use messages::{About, ErrorMessage, Help, InfoMessage, InfoPanel};
 pub use multi_rename::{MultiRenameState, RenameField};

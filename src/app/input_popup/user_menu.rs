@@ -1,17 +1,16 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::AppState;
-use crate::app::state::popup::UserMenu;
-use crate::app::state::popup::{Dialog, KeyHandler};
+use crate::app::state::popup::{Dialog, KeyHandler, UserMenu, UserMenuItem};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
-#[derive(Clone)]
-pub struct UserMenuItem {
-    pub key: String,
-    pub label: String,
-    pub command: Option<String>,
-    pub action: Option<Action>,
+/// Opens the user menu with the items of `usermenu.toml` read now.
+pub fn open(state: &mut AppState) {
+    state.dialogs.replace(UserMenu {
+        cursor_idx: 0,
+        items: get_user_menu_items(),
+    });
 }
 
 /// The menu shown while `usermenu.toml` defines no commands: key, label, action.
@@ -29,7 +28,7 @@ const DEFAULT_ITEMS: [(&str, &str, Action); 11] = [
     ("H", "user_cmd_help", Action::Help),
 ];
 
-pub fn get_user_menu_items() -> Vec<UserMenuItem> {
+fn get_user_menu_items() -> Vec<UserMenuItem> {
     let custom_cmds = crate::app::sys_helpers::load_user_menu_commands();
     let mut items = Vec::new();
     if !custom_cmds.is_empty() {
@@ -68,10 +67,10 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(UserMenu { cursor_idx }) = state.dialogs.top_mut_as::<UserMenu>() else {
+    let Some(UserMenu { cursor_idx, items }) = state.dialogs.top_mut_as::<UserMenu>() else {
         return Err(());
     };
-    let items = get_user_menu_items();
+    let items = items.clone();
     let chosen = match list_key(ListKeys::ARROWS_VIM, key.code, cursor_idx, items.len()) {
         ListKey::Moved => return Ok(None),
         ListKey::Close => None,

@@ -301,6 +301,7 @@ impl Harness {
             || state.disk_usage.is_scanning()
             || state.dupes.is_scanning()
             || state.file_compare.is_running()
+            || state.dialog_loads.is_running()
             || state.viewer.search_progress().is_some()
             || state
                 .screens

@@ -33,7 +33,13 @@ impl DialogView for SortModesDialog {
 impl DialogView for UserMenu {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let active = cx.state.panels.active;
-        render_user_menu_dialog(f, cx.theme, cx.panels, active, self.cursor_idx);
+        render_user_menu_dialog(
+            f,
+            cx.theme,
+            cx.panels,
+            active,
+            (&self.items, self.cursor_idx),
+        );
     }
 }
 

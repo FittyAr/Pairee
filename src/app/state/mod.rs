@@ -179,6 +179,8 @@ pub struct AppState {
     pub dupes: crate::app::dupes::DupesState,
     /// Comparison of two files (diff or hashes), computed in the background.
     pub file_compare: crate::app::file_compare::FileCompareState,
+    /// Dialog contents read in the background (folder tree, archive list).
+    pub dialog_loads: crate::app::dialog_loads::DialogLoads,
     /// Frecency of the visited folders (folder jump, `z`).
     pub frecency: crate::config::frecency::FrecencyStore,
     /// Folder monitors that reread panels when their folder changes.
@@ -238,6 +240,7 @@ impl AppState {
             disk_usage: Default::default(),
             dupes: Default::default(),
             file_compare: Default::default(),
+            dialog_loads: Default::default(),
             frecency: Default::default(),
             auto_refresh: Default::default(),
             syntax_watch: Default::default(),

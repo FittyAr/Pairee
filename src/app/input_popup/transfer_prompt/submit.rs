@@ -2,7 +2,6 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::popup::CopyMoveFilterPrompt;
-use crate::app::state::popup::TreeView;
 use crate::app::state::types::TreeViewCaller;
 use crate::app::state::{AppState, PopupType};
 use crate::app::transfer_submit::submit_simple;
@@ -41,12 +40,8 @@ pub fn open_tree_view(state: &mut AppState) {
     let Some(PopupType::TransferPrompt(prompt)) = state.dialogs.top() else {
         return;
     };
-    let nodes = crate::app::sys_helpers::build_tree_nodes(&prompt.dest_dir, 0, 3);
-    state.dialogs.push(TreeView {
-        nodes,
-        cursor_idx: 0,
-        caller: TreeViewCaller::TransferPrompt,
-    });
+    let root = prompt.dest_dir.clone();
+    crate::app::dialog_loads::open_tree(state, root, TreeViewCaller::TransferPrompt, true);
 }
 
 /// "Filter" button: edit the file mask applied to the transfer.
