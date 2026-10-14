@@ -69,12 +69,26 @@ fn run_sudo(message: &str, args: &[&std::ffi::OsStr]) -> std::io::Result<std::pr
     status
 }
 
+/// A new temporary folder only the user can enter (0700 on Unix; the
+/// user's own temp folder on Windows), removed on drop. Elevated helpers
+/// read and write their files there, out of other users' reach.
+pub(crate) fn private_temp_dir(prefix: &str) -> std::io::Result<tempfile::TempDir> {
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(prefix);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(std::fs::Permissions::from_mode(0o700));
+    }
+    builder.tempdir()
+}
+
 pub fn run_in_elevated_helper(ops: Vec<FsOperation>) -> Result<()> {
     // The operations and the helper's result live in a private folder of
     // their own (0700 on Unix, random name): in the shared temp folder a
     // local attacker could swap the operations, or plant a link where the
     // helper — running as root — writes its result.
-    let private = tempfile::Builder::new().prefix("pairee-op-").tempdir()?;
+    let private = private_temp_dir("pairee-op-")?;
     let temp_file_path = private.path().join("ops.json");
 
     let json_content = serde_json::to_string(&ops)?;

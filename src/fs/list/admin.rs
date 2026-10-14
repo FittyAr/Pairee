@@ -12,7 +12,7 @@ use std::time::{Duration, SystemTime};
 /// A fixed script in the shared temp folder could be planted beforehand by
 /// another user and would then run as root / Administrator.
 fn private_script(name: &str, body: &str) -> Result<(tempfile::TempDir, PathBuf)> {
-    let dir = tempfile::Builder::new().prefix("pairee-admin-").tempdir()?;
+    let dir = crate::fs::privileges::private_temp_dir("pairee-admin-")?;
     let script = dir.path().join(name);
     std::fs::write(&script, body)
         .map_err(|e| anyhow::anyhow!("Failed to write admin-listing script: {}", e))?;

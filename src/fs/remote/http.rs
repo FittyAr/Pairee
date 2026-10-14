@@ -268,7 +268,7 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         drop(listener);
         let url = format!("http://127.0.0.1:{port}/k?X-Amz-Signature=s3cret");
-        let client = reqwest::Client::new();
+        let client = crate::update::http::builder().build().unwrap();
         let err = block_on(async move { client.get(url).send().await.map(drop) }).unwrap_err();
         let error = io_error(err);
         let message = format!("{error} {error:?}");
