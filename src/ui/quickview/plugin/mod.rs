@@ -171,7 +171,7 @@ fn draw_layout(f: &mut Frame, area: Rect, l: &WLayout, cx: Paint) {
     }
 }
 
-/// The picture fitted whole into rea (nothing to scroll).
+/// The picture fitted whole into `area` (nothing to scroll).
 fn draw_image(f: &mut Frame, area: Rect, image: &PluginImage, cx: Paint) {
     match &image.image {
         Some(img) => {
