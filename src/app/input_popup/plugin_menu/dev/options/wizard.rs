@@ -1,5 +1,6 @@
 use super::super::progress::begin_dev_op;
 use crate::app::context::AppContext;
+use crate::app::plugin_install::is_plain_name;
 use crate::app::state::{AppState, PluginMenuState};
 use crate::config::localization::t;
 use crate::plugin::developer_tool;
@@ -39,15 +40,6 @@ fn store_answer(menu: &mut PluginMenuState, required: bool, next: usize) {
     menu.dev_wizard_data.push(answer);
     menu.search_query.clear();
     menu.dev_wizard_step = next;
-}
-
-/// `name` is one path component (no folder separators, `.` or `..`).
-fn is_plain_name(name: &str) -> bool {
-    let mut parts = Path::new(name).components();
-    matches!(
-        (parts.next(), parts.next()),
-        (Some(std::path::Component::Normal(_)), None)
-    )
 }
 
 /// Something exists at `path` other than an empty folder.
@@ -217,11 +209,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_plain_names_and_new_folders_are_initialized() {
-        assert!(is_plain_name("demo.pairee"));
-        for bad in ["../demo.pairee", "a/b.pairee", "..", "."] {
-            assert!(!is_plain_name(bad), "{bad}");
-        }
+    fn only_new_folders_are_initialized() {
         let dir = tempfile::tempdir().unwrap();
         let plugin = dir.path().join("demo.pairee");
         assert!(!is_non_empty(&plugin), "missing");

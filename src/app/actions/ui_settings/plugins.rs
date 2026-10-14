@@ -73,70 +73,20 @@ pub fn install_dev_plugin(state: &mut AppState, context: &AppContext) -> bool {
         target_dir = entry.path.clone();
     }
 
-    let manifest_path = target_dir.join("manifest.toml");
-    if manifest_path.exists()
-        && let Ok(manifest_content) = std::fs::read_to_string(&manifest_path)
-        && let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&manifest_content)
-    {
-        let name = manifest.name.clone();
-        let version = manifest.version.clone();
-        let dest_dir = crate::config::paths::get_installed_plugin_dir(&name);
-
-        let _ = std::fs::create_dir_all(&dest_dir);
-        let mut success = true;
-        if let Ok(entries) = std::fs::read_dir(&target_dir) {
-            for entry in entries.filter_map(Result::ok) {
-                let path = entry.path();
-                if path.is_file() {
-                    if let Some(filename) = path.file_name() {
-                        let _ = std::fs::copy(&path, dest_dir.join(filename));
-                    }
-                } else if path.is_dir() && path.file_name().map(|n| n == "lang").unwrap_or(false) {
-                    let lang_dest = dest_dir.join("lang");
-                    let _ = std::fs::create_dir_all(&lang_dest);
-                    if let Ok(lang_entries) = std::fs::read_dir(&path) {
-                        for le in lang_entries.filter_map(Result::ok) {
-                            if le.path().is_file()
-                                && let Some(fn_lang) = le.path().file_name()
-                            {
-                                let _ = std::fs::copy(le.path(), lang_dest.join(fn_lang));
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            success = false;
-        }
-
-        if success {
-            let mut lock = crate::plugin::updater::read_lockfile();
-            let mut files_hash = std::collections::HashMap::new();
-            for (rel, p) in crate::plugin::loader::get_plugin_files(&dest_dir) {
-                if let Ok(h) = crate::update::downloader::compute_sha256(&p) {
-                    files_hash.insert(rel, h);
-                }
-            }
-            lock.plugins.insert(
-                name.clone(),
-                crate::plugin::updater::PinnedPlugin {
-                    version,
-                    pinned: false,
-                    files: files_hash,
-                },
-            );
-            let _ = crate::plugin::updater::write_lockfile(&lock);
-
-            state.dialogs.replace(crate::app::state::PopupType::info(
-                t("plugin_toast_install_dev_ok")
-                    .replace("{}", &name)
-                    .replace("{:?}", &format!("{:?}", dest_dir)),
-            ));
-        } else {
-            state.dialogs.replace(crate::app::state::PopupType::error(
-                t("plugin_toast_install_dev_failed").replace("{}", &name),
-            ));
-        }
+    if !target_dir.join("manifest.toml").exists() {
+        return true;
     }
+    let popup = match crate::app::plugin_install::install_local(&target_dir, &|_, _, _| {}) {
+        Ok(done) => crate::app::state::PopupType::info(
+            t("plugin_toast_install_dev_ok")
+                .replace("{}", &done.name)
+                .replace("{:?}", &format!("{:?}", done.dest)),
+        ),
+        Err(error) => crate::app::state::PopupType::error(format!(
+            "{}\n{error}",
+            t("plugin_toast_install_dev_failed").replace("{}", &target_dir.to_string_lossy())
+        )),
+    };
+    state.dialogs.replace(popup);
     true
 }

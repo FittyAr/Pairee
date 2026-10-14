@@ -860,6 +860,7 @@ plugin_hint_tab1 = " [Tab] Cambiar Pestaña  [/] Editar Consulta  [Enter] Buscar
 plugin_hint_tab2 = " [Tab] Cambiar Pestaña  [Enter] Ejecutar Herramienta  [Esc] Cerrar "
 plugin_init_title = " Inicializar Nuevo Plugin "
 plugin_install_dev = "InstDev"
+plugin_install_dev_into_itself = "La carpeta del plugin es la copia instalada: instálelo desde su carpeta de desarrollo."
 plugin_manager_title = " Administrador de Plugins "
 plugin_no_selected = "Ningún plugin seleccionado."
 plugin_page_indicator = "Pág {}/{} — PgUp/PgDn"
