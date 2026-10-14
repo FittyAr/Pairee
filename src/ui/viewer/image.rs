@@ -1,57 +1,29 @@
 use super::state::ViewerState;
 use crate::config::localization::t;
-use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
-use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use ratatui::{
     Frame,
-    layout::Rect,
-    style::Style,
+    layout::{Margin, Rect},
     text::Line,
-    widgets::{Block, Paragraph},
+    widgets::Paragraph,
 };
 
-pub(crate) fn render_image(
+/// Text under the picture: the decode error when there is no picture.
+pub(crate) fn placeholder(state: &ViewerState) -> Paragraph<'static> {
+    match state.image_data {
+        Some(_) => Paragraph::default(),
+        None => Paragraph::new(vec![Line::from(t("view_image_error"))]),
+    }
+}
+
+/// Draws the picture, fitted whole inside the viewer frame at `area`.
+pub(crate) fn draw_picture(
     f: &mut Frame,
     area: Rect,
     state: &ViewerState,
-    block: Block,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
-    show_scrollbar: bool,
-    scrollbar: Option<&ScrollbarUiState>,
 ) {
-    let inner_area = block.inner(area);
-    let inner_h = inner_area.height;
-
-    if inner_area.width == 0 || inner_h == 0 {
-        return;
-    }
-
-    let img = match &state.image_data {
-        Some(i) => i,
-        None => {
-            let para = Paragraph::new(vec![Line::from(t("view_image_error"))])
-                .block(block)
-                .style(Style::default().fg(theme.panel_fg));
-            f.render_widget(para, area);
-            return;
-        }
-    };
-
-    f.render_widget(block, area);
-    let rows = crate::ui::half_block_image::draw(f, inner_area, img, state.scroll, theme.panel_bg);
-    let view = ScrollView {
-        content_len: rows,
-        viewport_len: inner_h as usize,
-        offset: state.scroll,
-    };
-    let target = ScrollTarget {
-        surface: ScrollbarSurface::Panel,
-        hits: scrollbar,
-        id: ScrollTargetId::Viewer,
-    };
-    if show_scrollbar && rows > inner_h as usize {
-        scrollbar::render_vertical_right(f, inner_area, view, theme, target);
-    } else {
-        scrollbar::register_wheel(inner_area, view, target);
+    if let Some(img) = &state.image_data {
+        let inner = area.inner(Margin::new(1, 1));
+        crate::ui::half_block_image::draw(f, inner, img, theme.panel_bg);
     }
 }

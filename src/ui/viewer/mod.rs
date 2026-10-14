@@ -75,13 +75,13 @@ pub fn render_viewer(f: &mut Frame, area: Rect, state: &ViewerState, opts: &View
             Paragraph::new(text::text_lines(state, height, opts)).wrap(Wrap { trim: false })
         }
         ViewerMode::Hex => Paragraph::new(hex::hex_lines(state, height)),
-        ViewerMode::Image => {
-            image::render_image(f, area, state, block, theme, show_scrollbar, scrollbar);
-            return;
-        }
+        ViewerMode::Image => image::placeholder(state),
     };
     let para = para.block(block).style(Style::default().fg(theme.panel_fg));
     f.render_widget(para, area);
+    if state.mode == ViewerMode::Image {
+        image::draw_picture(f, area, state, theme);
+    }
     let view = ScrollView {
         content_len: state.content_rows(),
         viewport_len: height,

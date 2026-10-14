@@ -58,7 +58,7 @@ pub fn draw_quick_view(
     if let Some(widget) = plugin_widget {
         render_plugin_widget(f, area, &widget.widget, block, theme, scroll, scrollbar);
     } else if let Some(img) = image_data {
-        render_quick_view_image(f, area, img, block, theme, scroll);
+        render_quick_view_image(f, area, img, block, theme);
     } else {
         let visible_height = area.height.saturating_sub(2) as usize;
         let lines: Vec<Line> = content
