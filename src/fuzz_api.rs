@@ -148,3 +148,20 @@ pub fn rename_pattern(input: &RenameInput) {
 pub fn sha256_file(text: &str) {
     let _ = crate::update::downloader::parse_sha256_file(text);
 }
+
+/// Compiles a user syntax definition (TOML) and highlights `text` with it;
+/// the tokens of every line must be in order and on character boundaries.
+pub fn syntax_definition(definition: &str, text: &str) {
+    let Ok(lines) = crate::syntax::highlight_with_definition(definition, text) else {
+        return;
+    };
+    for (tokens, line) in lines.iter().zip(text.lines()) {
+        let mut end = 0;
+        for token in tokens {
+            assert!(token.range.start >= end && token.range.start < token.range.end);
+            assert!(line.is_char_boundary(token.range.start));
+            assert!(line.is_char_boundary(token.range.end));
+            end = token.range.end;
+        }
+    }
+}

@@ -76,6 +76,24 @@ pub struct Token {
 /// every token is plain.
 pub type LineTokens = Vec<Token>;
 
+/// Highlights `text` line by line with the language defined by
+/// `definition` (a user file), which may embed itself and the built-in
+/// languages. Errors are the ones a user would see for the file.
+#[cfg(any(test, feature = "fuzzing"))]
+pub fn highlight_with_definition(definition: &str, text: &str) -> Result<Vec<LineTokens>, String> {
+    let definition = definition::Definition::parse(definition)?;
+    let language = std::sync::Arc::new(language::Language::new(definition)?);
+    language.check()?;
+    let registry = registry::Registry::new(vec![std::sync::Arc::clone(&language)]);
+    let root = registry.root_of(&language);
+    let grammars = highlight::Grammars {
+        root: root.grammar().ok_or("no grammar")?,
+        registry: &registry,
+    };
+    let mut state = highlight::LineState::default();
+    Ok(text.lines().map(|l| state.advance(grammars, l)).collect())
+}
+
 /// When highlighting applies, from the user's settings (off by default).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SyntaxLimits {
