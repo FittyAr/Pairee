@@ -226,8 +226,12 @@ impl Scanner<'_> {
         if entry.is_symlink && self.link_policy() == LinkPolicy::Keep {
             return self.kept_link(entry, dst);
         }
-        let size = self.req.src_fs.metadata(&entry.path).map_or(0, |e| e.size);
-        if self.filter.matches(&entry.path, size) {
+        let (size, modified) = self
+            .req
+            .src_fs
+            .metadata(&entry.path)
+            .map_or((0, None), |e| (e.size, e.modified));
+        if self.filter.matches(&entry.path, size, modified) {
             self.push(entry.path, dst, size);
         }
     }
@@ -305,7 +309,8 @@ impl Scanner<'_> {
         if item.is_kept_link() {
             return self.kept_link(item.entry, dst);
         }
-        if self.filter.matches(&item.entry.path, item.entry.size) {
+        let entry = &item.entry;
+        if self.filter.matches(&entry.path, entry.size, entry.modified) {
             self.push(item.entry.path, dst, item.entry.size);
         }
     }
