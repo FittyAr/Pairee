@@ -38,6 +38,9 @@ pub struct PendingRemote {
     pub cursor: Option<String>,
     /// The connection was started (it is not started twice).
     pub connecting: bool,
+    /// The tab is locked to the remote folder (applied once connected: the
+    /// tab waits on the local home folder meanwhile).
+    pub locked: bool,
 }
 
 #[derive(Debug)]
@@ -112,7 +115,7 @@ impl Tab {
             show_long_names: panel.show_long_names,
             filter_mask: panel.filter_mask.clone(),
             name: self.name.clone(),
-            locked: self.lock.is_some(),
+            locked: self.lock.is_some() || self.pending_remote.as_ref().is_some_and(|p| p.locked),
             cursor,
             connection,
             branch_view: panel.branch_view,

@@ -95,6 +95,9 @@ pub fn finish(
                 panel.pending_focus = pending.cursor;
                 panel.cursor_index = 0;
                 panel.clear_selection();
+                if pending.locked {
+                    tab.lock_here();
+                }
             }
             state.refresh_tab(id, show_hidden, true);
         }
@@ -126,6 +129,7 @@ mod tests {
             path: "/home".into(),
             cursor: None,
             connecting: true,
+            locked: false,
         });
         assert!(next_shown_pending(&state).is_none(), "waiting for its job");
         requeue_pending(&mut state);
