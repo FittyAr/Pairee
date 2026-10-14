@@ -78,9 +78,40 @@ fn test_branches_create_rename_delete() {
     assert!(branches.iter().any(|b| b.name == "feature-2"));
 
     // Delete
-    delete_branch(&repo, "feature-2").unwrap();
+    assert_eq!(
+        delete_branch(&repo, "feature-2").unwrap(),
+        BranchDeletion::Deleted
+    );
     let branches = get_branches(&repo);
     assert!(!branches.iter().any(|b| b.name == "feature-2"));
+}
+
+#[test]
+fn an_unmerged_branch_is_kept_unless_forced() {
+    let (_dir, repo) = setup_temp_repo();
+    let base = write_and_commit(&repo, "a.txt", "a", "base");
+    let main = current_branch(&repo);
+    create_branch(&repo, "topic", "HEAD").unwrap();
+    checkout_branch(&repo, "topic").unwrap();
+    write_and_commit(&repo, "b.txt", "b", "topic work");
+    checkout_branch(&repo, &main).unwrap();
+
+    assert_eq!(
+        delete_branch(&repo, "topic").unwrap(),
+        BranchDeletion::NotMerged
+    );
+    assert!(repo.find_branch("topic", git2::BranchType::Local).is_ok());
+
+    force_delete_branch(&repo, "topic").unwrap();
+    assert!(repo.find_branch("topic", git2::BranchType::Local).is_err());
+
+    // A branch whose commits HEAD contains goes without asking.
+    repo.branch("merged", &repo.find_commit(base).unwrap(), false)
+        .unwrap();
+    assert_eq!(
+        delete_branch(&repo, "merged").unwrap(),
+        BranchDeletion::Deleted
+    );
 }
 
 #[test]

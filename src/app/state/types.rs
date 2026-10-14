@@ -132,7 +132,11 @@ pub use crate::fs::link::LinkKind;
 /// Action approved in GitConfirmAction popup.
 #[derive(Debug, Clone)]
 pub enum GitConfirmedAction {
+    /// `git branch -d`: an unmerged branch is kept and asks for
+    /// [`Self::ForceDeleteBranch`].
     DeleteBranch(String),
+    /// `git branch -D`: confirmed knowing the branch is not merged.
+    ForceDeleteBranch(String),
     DeleteRemoteBranch {
         remote: String,
         branch: String,
