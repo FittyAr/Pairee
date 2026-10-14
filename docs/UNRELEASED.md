@@ -67,6 +67,7 @@
 
 - Text in the plugin manager, shortcuts list, file associations and undo labels is cut by display width, so wide characters stay aligned.
 - Theme colors and highlighting rules are prepared once when they change instead of on every frame.
+- Pictures in the quick view, plugin previews and the viewer are resized once per size instead of on every redraw.
 
 ### Changed
 - Sizes in dialogs, the transfer panel and the viewer status line use binary units (KiB, MiB, GiB), matching the 1024-byte steps they are computed with.

@@ -250,7 +250,7 @@ mod tests {
     fn editor_bar_shows_save_as_with_shift() {
         let context = AppContext::new(AppConfig::default());
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.push_screen(Screen::Editor(EditorState::from_text("x")));
+        state.push_screen(Screen::Editor(Box::new(EditorState::from_text("x"))));
         let plain = bar_cells(&context, &state);
         assert_eq!(label(&plain, 2), t("fkey_ed_save"));
         assert_eq!(label(&plain, 3), t("fkey_ed_next"));

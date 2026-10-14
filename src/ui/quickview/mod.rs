@@ -37,7 +37,7 @@ pub fn draw_quick_view(
     tab_size: usize,
 ) {
     let (path, content, scroll) = (&qv.path, qv.content.as_slice(), qv.scroll);
-    let (image_data, plugin_widget) = (qv.image_data.as_deref(), qv.plugin.as_ref());
+    let (image_data, plugin_widget) = (qv.image_data.as_ref(), qv.plugin.as_ref());
     let file_name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
