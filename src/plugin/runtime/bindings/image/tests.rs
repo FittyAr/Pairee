@@ -99,7 +99,9 @@ fn untrusted_plugins_show_only_the_previewed_file_or_their_own() {
 
     // Bounds larger than the source never enlarge it.
     let ok: bool = lua
-        .load(r#"return image.precache(own, thumb, { max_width = 4294967295, max_height = 60000 })"#)
+        .load(
+            r#"return image.precache(own, thumb, { max_width = 4294967295, max_height = 60000 })"#,
+        )
         .eval()
         .unwrap();
     assert!(ok);

@@ -27,14 +27,12 @@ impl RegistryIndex {
     /// listed version on request). Versions that are not semver are offered
     /// when they differ.
     pub fn update_for(&self, name: &str, installed: &str) -> Option<&str> {
-        let newer = |latest: &str| {
-            match (
-                semver::Version::parse(latest),
-                semver::Version::parse(installed),
-            ) {
-                (Ok(latest), Ok(installed)) => latest > installed,
-                _ => latest != installed,
-            }
+        let newer = |latest: &str| match (
+            semver::Version::parse(latest),
+            semver::Version::parse(installed),
+        ) {
+            (Ok(latest), Ok(installed)) => latest > installed,
+            _ => latest != installed,
         };
         self.plugins
             .get(name)

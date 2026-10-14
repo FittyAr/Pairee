@@ -138,7 +138,10 @@ impl Worker {
                 .get::<Table>("_callbacks")?
                 .get::<Option<Table>>(event)?;
             callbacks
-                .map(|list| list.sequence_values().collect::<mlua::Result<Vec<mlua::Function>>>())
+                .map(|list| {
+                    list.sequence_values()
+                        .collect::<mlua::Result<Vec<mlua::Function>>>()
+                })
                 .transpose()
         })
         .await;

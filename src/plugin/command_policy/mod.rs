@@ -193,13 +193,20 @@ mod tests {
     fn untrusted_can_never_spawn() {
         let p = CommandPolicy::new(false, false, &declared(&["git"]));
         assert_eq!(p, CommandPolicy::Blocked);
-        assert!(p.authorize_command("git", &[]).unwrap_err().contains("sandboxed"));
+        assert!(
+            p.authorize_command("git", &[])
+                .unwrap_err()
+                .contains("sandboxed")
+        );
     }
 
     #[test]
     fn trusted_without_secure_mode_is_unrestricted() {
         let p = CommandPolicy::new(true, false, &[]);
-        assert_eq!(p.authorize_command("bash", &[]).unwrap().0, PathBuf::from("bash"));
+        assert_eq!(
+            p.authorize_command("bash", &[]).unwrap().0,
+            PathBuf::from("bash")
+        );
     }
 
     #[test]

@@ -427,7 +427,10 @@ mod tests {
             ("git", &["config", "core.fsmonitor", "evil"]),
             ("git", &["config", "--local", "alias.x", "!sh"]),
             ("git", &["config", "set", "Core.Pager", "sh"]),
-            ("git", &["-C", "r", "config", "--add", "filter.x.clean", "evil"]),
+            (
+                "git",
+                &["-C", "r", "config", "--add", "filter.x.clean", "evil"],
+            ),
             ("git", &["config", "--rename-section", "x", "core"]),
             ("git", &["-c", "safe.bareRepository=all", "status"]),
             ("git", &["--git-dir=data/evil", "status"]),

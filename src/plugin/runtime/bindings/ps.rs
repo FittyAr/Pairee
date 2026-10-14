@@ -92,7 +92,9 @@ mod tests {
             name: "demo".into(),
             trusted: true,
         };
-        lua.globals().set("ps", bind(&lua, origin).unwrap()).unwrap();
+        lua.globals()
+            .set("ps", bind(&lua, origin).unwrap())
+            .unwrap();
         let err = lua
             .load("ps.pub('big', string.rep('x', 2 * 1024 * 1024))")
             .exec()

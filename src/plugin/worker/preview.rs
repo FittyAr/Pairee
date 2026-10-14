@@ -173,11 +173,7 @@ impl Worker {
             return false;
         };
         if let Some(err) = err {
-            tracing::warn!(
-                "Plugin {} preload of {:?}: {err}",
-                self.name,
-                job.file_path,
-            );
+            tracing::warn!("Plugin {} preload of {:?}: {err}", self.name, job.file_path,);
         }
         if complete {
             self.preloaded.insert(key);

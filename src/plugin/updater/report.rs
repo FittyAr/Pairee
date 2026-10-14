@@ -8,7 +8,10 @@ use std::fmt;
 /// registry strings (descriptions, authors, block reasons) end up on the
 /// user's terminal and must not carry escape sequences.
 fn printable(text: String) -> String {
-    if !text.chars().any(|c| c.is_control() && !matches!(c, '\n' | '\t')) {
+    if !text
+        .chars()
+        .any(|c| c.is_control() && !matches!(c, '\n' | '\t'))
+    {
         return text;
     }
     text.chars()

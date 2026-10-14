@@ -88,7 +88,11 @@ pub async fn install(
     files.remove(MANIFEST_FILE);
 
     let mut verified = download_verified(author, name, &files, &plugin_dir, &mut report).await?;
-    verified.push(VerifiedFile::new(&plugin_dir, MANIFEST_FILE, manifest_text.into_bytes())?);
+    verified.push(VerifiedFile::new(
+        &plugin_dir,
+        MANIFEST_FILE,
+        manifest_text.into_bytes(),
+    )?);
     let written = write_all(verified)?;
 
     let mut lock = read_lockfile();

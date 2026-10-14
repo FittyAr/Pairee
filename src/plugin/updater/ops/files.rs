@@ -174,7 +174,8 @@ mod tests {
     #[test]
     fn the_signed_manifest_is_written_with_its_own_hash() {
         let dir = tempfile::tempdir().unwrap();
-        let file = VerifiedFile::new(dir.path(), "manifest.toml", b"name = \"x\"".to_vec()).unwrap();
+        let file =
+            VerifiedFile::new(dir.path(), "manifest.toml", b"name = \"x\"".to_vec()).unwrap();
         assert_eq!(
             file.sha256,
             crate::update::downloader::sha256_hex(b"name = \"x\"")

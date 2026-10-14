@@ -243,7 +243,10 @@ mod tests {
         std::fs::create_dir(&existing).unwrap();
         std::fs::write(existing.join("main.lua"), "work").unwrap();
         assert!(init_in("mine", "d", "a", None, dir.path()).is_err());
-        assert_eq!(std::fs::read_to_string(existing.join("main.lua")).unwrap(), "work");
+        assert_eq!(
+            std::fs::read_to_string(existing.join("main.lua")).unwrap(),
+            "work"
+        );
     }
 
     #[test]

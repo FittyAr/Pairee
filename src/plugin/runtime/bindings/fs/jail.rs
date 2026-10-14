@@ -133,7 +133,8 @@ impl FsPolicy {
 fn is_git_dir_name(name: &std::ffi::OsStr) -> bool {
     let name = name.to_string_lossy();
     let name = name.split(':').next().unwrap_or_default();
-    name.trim_end_matches(['.', ' ']).eq_ignore_ascii_case(".git")
+    name.trim_end_matches(['.', ' '])
+        .eq_ignore_ascii_case(".git")
 }
 
 /// `resolved` as a target under `root` when it lies inside it (`lexical`

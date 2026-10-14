@@ -244,7 +244,12 @@ version = \"1.0.0\"
     #[test]
     fn registry_folders_need_plain_names() {
         let temp = Path::new("reg");
-        for (name, author) in [("../../x", "me"), ("ok", "../x"), ("ok", "Jane Doe"), ("C:x", "me")] {
+        for (name, author) in [
+            ("../../x", "me"),
+            ("ok", "../x"),
+            ("ok", "Jane Doe"),
+            ("C:x", "me"),
+        ] {
             let manifest = PluginManifest::parse(&format!(
                 "name = {name:?}\nversion = \"1\"\nauthor = {author:?}\n"
             ))
@@ -254,7 +259,8 @@ version = \"1.0.0\"
                 "{name} {author}"
             );
         }
-        let manifest = PluginManifest::parse("name = \"demo\"\nversion = \"1\"\nauthor = \"Bob\"\n").unwrap();
+        let manifest =
+            PluginManifest::parse("name = \"demo\"\nversion = \"1\"\nauthor = \"Bob\"\n").unwrap();
         assert_eq!(
             crate::plugin::developer_tool::registry_plugin_dir(temp, &manifest).unwrap(),
             temp.join("registry").join("plugins/b/Bob/demo")

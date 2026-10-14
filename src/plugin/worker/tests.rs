@@ -328,8 +328,9 @@ fn an_image_shown_many_times_is_decoded_once() {
     decode_images(&mut widget);
     let images = widget.images_mut();
     let first = images[0].image.clone().expect("decoded");
-    assert!(images.iter().all(|i| i
-        .image
-        .as_ref()
-        .is_some_and(|img| std::sync::Arc::ptr_eq(img, &first))));
+    assert!(images.iter().all(|i| {
+        i.image
+            .as_ref()
+            .is_some_and(|img| std::sync::Arc::ptr_eq(img, &first))
+    }));
 }
