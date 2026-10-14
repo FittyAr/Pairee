@@ -122,6 +122,8 @@ pub fn conflict_summary(paths: &[String]) -> String {
 pub struct GitOpState {
     pub job: JobSlot<GitOpResult, TransferStats>,
     pending: Option<(GitNetOp, FollowUp)>,
+    /// The user asked to cancel; the job's real outcome is still awaited.
+    cancelling: bool,
 }
 
 impl GitOpState {
@@ -150,6 +152,7 @@ impl AppState {
         let job_op = op.clone();
         let asker = self.credential_requests.asker();
         self.git_op.pending = Some((op, follow_up));
+        self.git_op.cancelling = false;
         self.dialogs
             .push(crate::app::state::popup::GitProgress { title });
         self.git_op
@@ -160,18 +163,26 @@ impl AppState {
     }
 
     /// Cancels the running operation (Esc in the progress popup).
+    ///
+    /// The job is asked to stop and its outcome is still reported when it
+    /// ends: an operation that got past its last cancellation point (a
+    /// pull that merged) is shown as done, not as cancelled. A second Esc
+    /// hides the progress popup; the outcome is still shown later.
     pub fn cancel_git_op(&mut self) {
         if !self.git_op.is_running() {
             return;
         }
-        self.git_op.job.cancel();
-        self.git_op.pending = None;
-        if matches!(self.dialogs.top(), Some(PopupType::GitProgress(_))) {
-            self.dialogs.pop();
+        let on_top = matches!(self.dialogs.top(), Some(PopupType::GitProgress(_)));
+        if self.git_op.cancelling {
+            if on_top {
+                self.dialogs.pop();
+            }
+            return;
         }
-        self.dialogs
-            .push(PopupType::info(crate::config::localization::t(
-                "git_operation_cancelled",
-            )));
+        self.git_op.job.request_cancel();
+        self.git_op.cancelling = true;
+        if let Some(PopupType::GitProgress(progress)) = self.dialogs.top_mut() {
+            progress.title = crate::config::localization::t("git_operation_cancelling");
+        }
     }
 }

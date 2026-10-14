@@ -11,6 +11,9 @@ pub struct RepoSnapshot {
     /// Checked-out branch, `None` when HEAD is detached.
     pub branch: Option<String>,
     pub status: Vec<crate::git::status::GitFileStatus>,
+    /// Why the working tree status could not be read (`status` is then
+    /// empty, but the repository is not known to be clean).
+    pub status_error: Option<String>,
     pub log: Vec<crate::git::log::CommitInfo>,
     pub branches: Vec<crate::git::branches::BranchInfo>,
     pub stashes: Vec<crate::git::stash::StashInfo>,
@@ -39,10 +42,18 @@ pub fn current_branch(repo: &git2::Repository) -> Option<String> {
 /// `None` when `path` is not inside a repository.
 pub fn load(path: &Path, log_limit: usize) -> Option<RepoSnapshot> {
     let mut repo = crate::git::repo::find_repo(path)?;
+    let (status, status_error) = match crate::git::status::get_status(&repo) {
+        Ok(status) => (status, None),
+        Err(e) => {
+            log::warn!("Reading the Git status of {} failed: {e}", path.display());
+            (Vec::new(), Some(e.message().to_string()))
+        }
+    };
     Some(RepoSnapshot {
         workdir: repo.workdir().unwrap_or(path).to_path_buf(),
         branch: current_branch(&repo),
-        status: crate::git::status::get_status(&repo),
+        status,
+        status_error,
         log: crate::git::log::get_log(&repo, log_limit),
         branches: crate::git::branches::get_branches(&repo),
         stashes: crate::git::stash::list_stashes(&mut repo).unwrap_or_default(),

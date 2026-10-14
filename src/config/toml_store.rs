@@ -3,9 +3,8 @@
 //! writes them atomically (`0600` on Unix, see [`super::write_atomic`]).
 //!
 //! A state type implements [`StateFile`] (its file name and folder) and
-//! gets `load` / `read` / `save` from it. Every read and write goes
-//! through [`read`] and [`save`] here, so a cross-process lock can be added
-//! in one place later.
+//! gets `load` / `read` / `save` / `merge_save` from it. Writes take the
+//! cross-process lock of [`super::shared_file`].
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -63,12 +62,25 @@ pub trait StateFile: Serialize + DeserializeOwned {
         Self::read_from(path).unwrap_or_default()
     }
 
+    /// Replaces the file with this value (whole: the last writer wins),
+    /// under the lock other instances take ([`super::shared_file`]).
     fn save(&self) -> Result<()> {
         self.save_to(&Self::path())
     }
 
     fn save_to(&self, path: &Path) -> Result<()> {
-        save(path, self)
+        super::shared_file::with_lock(path, || save(path, self))
+    }
+
+    /// Under the shared lock: `merge` combines the value on disk (`None`
+    /// when missing or unreadable) with this instance's data, and the
+    /// result is written and returned.
+    fn merge_save(merge: impl FnOnce(Option<Self>) -> Self) -> Result<Self> {
+        Self::merge_save_to(&Self::path(), merge)
+    }
+
+    fn merge_save_to(path: &Path, merge: impl FnOnce(Option<Self>) -> Self) -> Result<Self> {
+        super::shared_file::merge_save(path, merge)
     }
 }
 

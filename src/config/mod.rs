@@ -10,6 +10,7 @@ pub mod localization;
 pub mod paths;
 pub mod session;
 pub mod settings;
+pub mod shared_file;
 pub mod theme;
 pub mod toml_store;
 pub use toml_store::StateFile;
@@ -36,6 +37,10 @@ pub struct AppConfig {
     pub theme_state: ConfigLoadState,
     /// Localized load error to show once at startup.
     pub load_error: Option<String>,
+    /// `config.toml` and `keybindings.toml` as this instance last read or
+    /// wrote them: a save keeps what other instances changed meanwhile.
+    pub settings_base: shared_file::TomlBase,
+    pub keybindings_base: shared_file::TomlBase,
 }
 
 /// Loads the language set in `config.toml` without touching any file, for
@@ -106,7 +111,7 @@ impl AppConfig {
         // 4. User syntax definitions (an invalid file is skipped and reported)
         errors.extend(load_syntax_definitions());
 
-        Ok(Self {
+        let config = Self {
             settings,
             theme,
             keybindings,
@@ -114,7 +119,22 @@ impl AppConfig {
             keybindings_state,
             theme_state,
             load_error: (!errors.is_empty()).then(|| errors.join("\n\n")),
-        })
+            ..Default::default()
+        };
+        config.remember_saved();
+        Ok(config)
+    }
+
+    /// Records the settings and keybindings as they are now as what this
+    /// instance holds of `config.toml` / `keybindings.toml`, the base of
+    /// the next save's merge (see [`shared_file::TomlBase`]).
+    pub fn remember_saved(&self) {
+        if let Ok(text) = serialize_settings(&self.settings) {
+            self.settings_base.remember(&text);
+        }
+        if let Ok(text) = toml::to_string_pretty(&self.keybindings) {
+            self.keybindings_base.remember(&text);
+        }
     }
 
     /// Switches to theme `name`: its file in the themes folder when there
@@ -167,7 +187,7 @@ impl AppConfig {
             );
         } else {
             let settings_toml = serialize_settings(&self.settings)?;
-            write_atomic(&settings_path, settings_toml.as_bytes())?;
+            self.settings_base.save(&settings_path, &settings_toml)?;
         }
 
         let keybindings_path = paths::get_keybindings_file_path();
@@ -175,7 +195,8 @@ impl AppConfig {
             log::warn!("Not overwriting invalid {keybindings_path:?} until Save setup");
         } else {
             let keybindings_toml = toml::to_string_pretty(&self.keybindings)?;
-            write_atomic(&keybindings_path, keybindings_toml.as_bytes())?;
+            self.keybindings_base
+                .save(&keybindings_path, &keybindings_toml)?;
         }
 
         // Save active theme (never to a path outside the themes folder), only

@@ -109,8 +109,36 @@ fn round_trips_through_its_file() {
     let file = dir.path().join("frecency.toml");
     let mut store = FrecencyStore::default();
     store.visit(&p("/a"), NOW);
-    store.save_to(&file).unwrap();
+    store.save_visits_to(&file).unwrap();
     assert_eq!(FrecencyStore::load_from(&file), store);
     std::fs::write(&file, "folders = 3").unwrap();
     assert_eq!(FrecencyStore::load_from(&file), FrecencyStore::default());
+}
+
+#[test]
+fn two_running_instances_add_up_their_visits() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("frecency.toml");
+    let mut start = FrecencyStore::default();
+    start.visit(&p("/shared"), NOW);
+    start.visit(&p("/forgotten"), NOW);
+    start.save_visits_to(&file).unwrap();
+
+    let mut first = FrecencyStore::load_from(&file);
+    let mut second = FrecencyStore::load_from(&file);
+    first.visit(&p("/shared"), NOW + 10);
+    first.visit(&p("/first"), NOW + 10);
+    second.visit(&p("/shared"), NOW + 20);
+    second.visit(&p("/second"), NOW + 20);
+    second.remove(&p("/forgotten"));
+    first.save_visits_to(&file).unwrap();
+    second.save_visits_to(&file).unwrap();
+
+    let saved = FrecencyStore::load_from(&file);
+    let find = |path: &str| saved.folders.iter().find(|f| f.path == p(path));
+    let shared = find("/shared").unwrap();
+    assert_eq!(shared.rank, 3.0, "one visit each on top of the first");
+    assert_eq!(shared.last_visit, NOW + 20);
+    assert!(find("/first").is_some() && find("/second").is_some());
+    assert!(find("/forgotten").is_none());
 }

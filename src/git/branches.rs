@@ -113,11 +113,47 @@ pub fn create_branch(
     Ok(())
 }
 
-/// Deletes a local branch by name.
-pub fn delete_branch(repo: &git2::Repository, branch_name: &str) -> anyhow::Result<()> {
+/// What [`delete_branch`] did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BranchDeletion {
+    Deleted,
+    /// Refused: the branch has commits that neither its upstream nor HEAD
+    /// contain (`git branch -d`); [`force_delete_branch`] deletes it anyway.
+    NotMerged,
+}
+
+/// Deletes a local branch like `git branch -d`: only when it is fully
+/// merged into its upstream, or into HEAD when it has no upstream.
+pub fn delete_branch(repo: &git2::Repository, branch_name: &str) -> anyhow::Result<BranchDeletion> {
+    let branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
+    if !is_merged(repo, &branch)? {
+        return Ok(BranchDeletion::NotMerged);
+    }
+    force_delete_branch(repo, branch_name)?;
+    Ok(BranchDeletion::Deleted)
+}
+
+/// Deletes a local branch even when it is not merged (`git branch -D`).
+pub fn force_delete_branch(repo: &git2::Repository, branch_name: &str) -> anyhow::Result<()> {
     let mut branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
     branch.delete()?;
     Ok(())
+}
+
+/// Whether the tip of `branch` is contained in its upstream (or in HEAD
+/// when it has none). An unborn HEAD contains nothing.
+fn is_merged(repo: &git2::Repository, branch: &git2::Branch<'_>) -> anyhow::Result<bool> {
+    let Some(tip) = branch.get().target() else {
+        return Ok(true);
+    };
+    let base = match branch.upstream() {
+        Ok(upstream) => upstream.get().target(),
+        Err(_) => repo.head().ok().and_then(|head| head.target()),
+    };
+    Ok(match base {
+        Some(base) => base == tip || repo.graph_descendant_of(base, tip)?,
+        None => false,
+    })
 }
 
 /// Renames a local branch.

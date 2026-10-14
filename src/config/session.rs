@@ -41,7 +41,9 @@ impl SessionFile {
 }
 
 /// Read with [`StateFile::read`]: a corrupted file is copied to
-/// `session.toml.bak`, logged and ignored.
+/// `session.toml.bak`, logged and ignored. With several instances running,
+/// the last one to quit wins, but its session is written whole (under the
+/// shared lock, see [`StateFile::save_to`]).
 impl StateFile for SessionFile {
     const FILE_NAME: &'static str = "session.toml";
 }

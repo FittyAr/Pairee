@@ -19,11 +19,18 @@ pub fn run(op: &GitNetOp, ctx: &JobContext<TransferStats>, asker: &Asker) -> Git
         progress: Some(&observer),
         ask: &ask,
     };
-    let res = execute(op, hooks);
-    if ctx.is_cancelled() {
-        return Err(None);
+    outcome(execute(op, hooks), ctx.is_cancelled())
+}
+
+/// What the user is told: an operation that completed is reported as done
+/// even when a cancel arrived meanwhile (a pull may have merged already);
+/// only one that failed after the cancel request counts as cancelled.
+pub(super) fn outcome(res: anyhow::Result<Vec<String>>, cancelled: bool) -> GitOpResult {
+    match res {
+        Ok(conflicts) => Ok(conflicts),
+        Err(_) if cancelled => Err(None),
+        Err(e) => Err(Some(e.to_string())),
     }
-    res.map_err(|e| Some(e.to_string()))
 }
 
 /// Runs `op`; `Ok` carries the files a pull left conflicted (usually none).

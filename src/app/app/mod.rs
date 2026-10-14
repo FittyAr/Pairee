@@ -90,7 +90,10 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
 
         // 3. Exit check
         if state.should_quit {
-            return Ok(crate::app::session::persist_on_exit(&state, &mut context));
+            return Ok(crate::app::session::persist_on_exit(
+                &mut state,
+                &mut context,
+            ));
         }
 
         // 4. Handle input events (or wake early when a background job finished)

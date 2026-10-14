@@ -78,9 +78,40 @@ fn test_branches_create_rename_delete() {
     assert!(branches.iter().any(|b| b.name == "feature-2"));
 
     // Delete
-    delete_branch(&repo, "feature-2").unwrap();
+    assert_eq!(
+        delete_branch(&repo, "feature-2").unwrap(),
+        BranchDeletion::Deleted
+    );
     let branches = get_branches(&repo);
     assert!(!branches.iter().any(|b| b.name == "feature-2"));
+}
+
+#[test]
+fn an_unmerged_branch_is_kept_unless_forced() {
+    let (_dir, repo) = setup_temp_repo();
+    let base = write_and_commit(&repo, "a.txt", "a", "base");
+    let main = current_branch(&repo);
+    create_branch(&repo, "topic", "HEAD").unwrap();
+    checkout_branch(&repo, "topic").unwrap();
+    write_and_commit(&repo, "b.txt", "b", "topic work");
+    checkout_branch(&repo, &main).unwrap();
+
+    assert_eq!(
+        delete_branch(&repo, "topic").unwrap(),
+        BranchDeletion::NotMerged
+    );
+    assert!(repo.find_branch("topic", git2::BranchType::Local).is_ok());
+
+    force_delete_branch(&repo, "topic").unwrap();
+    assert!(repo.find_branch("topic", git2::BranchType::Local).is_err());
+
+    // A branch whose commits HEAD contains goes without asking.
+    repo.branch("merged", &repo.find_commit(base).unwrap(), false)
+        .unwrap();
+    assert_eq!(
+        delete_branch(&repo, "merged").unwrap(),
+        BranchDeletion::Deleted
+    );
 }
 
 #[test]
@@ -272,21 +303,21 @@ fn test_stage_all_and_unstage_all() {
         .write_all(b"content 2")
         .unwrap();
 
-    let status = get_status(&repo);
+    let status = get_status(&repo).unwrap();
     assert_eq!(status.len(), 2);
     assert!(!status[0].is_staged);
     assert!(!status[1].is_staged);
 
     // Stage all
     stage_all(&repo).unwrap();
-    let status = get_status(&repo);
+    let status = get_status(&repo).unwrap();
     assert_eq!(status.len(), 2);
     assert!(status[0].is_staged);
     assert!(status[1].is_staged);
 
     // Unstage all
     unstage_all(&repo).unwrap();
-    let status = get_status(&repo);
+    let status = get_status(&repo).unwrap();
     assert_eq!(status.len(), 2);
     assert!(!status[0].is_staged);
     assert!(!status[1].is_staged);
@@ -323,7 +354,7 @@ fn test_discard_file_changes() {
     discard_file_changes(&repo, "tracked.txt").unwrap();
     let restored = std::fs::read_to_string(&tracked_path).unwrap();
     assert_eq!(restored, "v1 content");
-    let status = get_status(&repo);
+    let status = get_status(&repo).unwrap();
     assert!(!status.iter().any(|s| s.path == "tracked.txt"));
 
     // Discard untracked file (should delete file)
@@ -454,6 +485,7 @@ fn test_unstage_and_discard_take_file_names_literally() {
     unstage_file(&repo, "[id].txt").unwrap();
     let staged = |name: &str| {
         get_status(&repo)
+            .unwrap()
             .iter()
             .any(|s| s.path == name && s.is_staged)
     };

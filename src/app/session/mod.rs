@@ -44,7 +44,7 @@ pub fn start_with(
 /// Saves what outlives the run: "Save setup" when `auto_save_setup` is on,
 /// the history lists the user keeps, and the session. Returns the folder a
 /// shell wrapper should change to.
-pub fn persist_on_exit(state: &AppState, context: &mut AppContext) -> Option<PathBuf> {
+pub fn persist_on_exit(state: &mut AppState, context: &mut AppContext) -> Option<PathBuf> {
     let settings = &mut context.config.settings;
     if settings.auto_save_setup {
         crate::app::sys_helpers::capture_setup(state, settings);
@@ -53,12 +53,13 @@ pub fn persist_on_exit(state: &AppState, context: &mut AppContext) -> Option<Pat
     let settings = &context.config.settings;
     state.history.save(settings);
     // Folder frecency is part of the folders history: kept only with it.
-    let frecency = if settings.save_folders_history {
-        state.frecency.clone()
+    // Both merge with what other running instances saved meanwhile.
+    let saved = if settings.save_folders_history {
+        state.frecency.save_visits()
     } else {
-        Default::default()
+        crate::config::frecency::FrecencyStore::forget_saved()
     };
-    if let Err(e) = frecency.save() {
+    if let Err(e) = saved {
         log::warn!("Failed to save the folder frecency: {e}");
     }
     if settings.restore_session

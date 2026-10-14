@@ -32,6 +32,15 @@ pub struct NetHooks<'a> {
     pub ask: Ask<'a>,
 }
 
+impl NetHooks<'_> {
+    /// `false` once the caller cancelled the operation (asked through the
+    /// progress observer, without any progress to report).
+    pub fn still_wanted(&self) -> bool {
+        self.progress
+            .is_none_or(|observe| observe(TransferStats::default()))
+    }
+}
+
 impl Default for NetHooks<'_> {
     /// No progress, and nobody to ask (every prompt is cancelled).
     fn default() -> Self {
@@ -60,7 +69,7 @@ pub fn create_callbacks(hooks: NetHooks<'_>) -> git2::RemoteCallbacks<'_> {
             let _ = obs(TransferStats { done, total, bytes });
         });
         callbacks.push_negotiation(move |_| {
-            if obs(TransferStats::default()) {
+            if hooks.still_wanted() {
                 Ok(())
             } else {
                 Err(git2::Error::from_str(&crate::config::localization::t(

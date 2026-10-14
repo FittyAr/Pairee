@@ -181,7 +181,7 @@ impl Harness {
     /// returns the folder a shell wrapper would change to.
     pub fn quit(&mut self) -> Option<PathBuf> {
         self.state.should_quit = true;
-        crate::app::session::persist_on_exit(&self.state, &mut self.ctx)
+        crate::app::session::persist_on_exit(&mut self.state, &mut self.ctx)
     }
 
     /// The sandbox root.

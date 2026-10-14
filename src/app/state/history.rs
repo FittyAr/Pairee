@@ -2,7 +2,6 @@ use super::{AppState, PopupType};
 use crate::app::state::popup::CommandHistoryList;
 use crate::app::state::popup::FileViewHistoryList;
 use crate::app::state::popup::FoldersHistoryList;
-use crate::config::StateFile;
 use crate::config::history::HistoryStore;
 use std::path::PathBuf;
 
@@ -15,6 +14,9 @@ pub struct HistoryState {
     /// Editor search patterns and replacements (newest first).
     pub searches: Vec<String>,
     pub replacements: Vec<String>,
+    /// The lists as last loaded or saved: a save writes only what changed
+    /// since, so other running instances' entries survive it.
+    saved: HistoryStore,
 }
 
 /// One of the three history lists (Strategy for the shared history popup).
@@ -83,11 +85,15 @@ impl PopupType {
 
 impl HistoryState {
     /// Writes the lists `settings` keep to disk (best effort: a failure is
-    /// only logged). The others are never written, even mid-run.
-    pub fn save(&self, settings: &crate::config::settings::Settings) {
-        let store = crate::app::session::persisted_history(self.to_store(), settings);
-        if let Err(e) = store.save() {
-            log::warn!("Failed to save the history: {e}");
+    /// only logged). The others are never written, even mid-run. Only the
+    /// changes since the last load or save are written over the file, so
+    /// what other running instances saved meanwhile is kept.
+    pub fn save(&mut self, settings: &crate::config::settings::Settings) {
+        let kept = |store| crate::app::session::persisted_history(store, settings);
+        let mine = self.to_store();
+        match kept(mine.clone()).save_merged(&kept(self.saved.clone()), kept) {
+            Ok(_) => self.saved = mine,
+            Err(e) => log::warn!("Failed to save the history: {e}"),
         }
     }
 
@@ -114,14 +120,22 @@ impl HistoryState {
         }
     }
 
+    /// The lists of `store`, as loaded (the base of the next save).
     pub fn from_store(store: HistoryStore) -> Self {
-        Self {
-            commands: store.commands,
-            viewed_files: store.viewed_files,
-            folders: store.visited_folders,
-            searches: store.searches,
-            replacements: store.replacements,
-        }
+        let mut state = Self {
+            saved: store.clone(),
+            ..Self::default()
+        };
+        state.set_lists(store);
+        state
+    }
+
+    fn set_lists(&mut self, store: HistoryStore) {
+        self.commands = store.commands;
+        self.viewed_files = store.viewed_files;
+        self.folders = store.visited_folders;
+        self.searches = store.searches;
+        self.replacements = store.replacements;
     }
 
     pub fn to_store(&self) -> HistoryStore {
@@ -143,7 +157,7 @@ impl HistoryState {
             replacements: std::mem::take(&mut self.replacements),
         };
         f(&mut store);
-        *self = Self::from_store(store);
+        self.set_lists(store);
     }
 
     pub fn push_viewed_file(&mut self, path: PathBuf) {
@@ -185,6 +199,7 @@ impl AppState {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::StateFile;
     use super::*;
 
     #[test]
@@ -196,7 +211,7 @@ mod tests {
             save_folders_history: true,
             ..Default::default()
         };
-        let history = HistoryState {
+        let mut history = HistoryState {
             commands: vec!["mysql -p hunter2".into()],
             folders: vec![PathBuf::from("/kept")],
             ..Default::default()
@@ -207,5 +222,31 @@ mod tests {
         let stored = HistoryStore::load();
         assert!(stored.commands.is_empty(), "{:?}", stored.commands);
         assert_eq!(stored.visited_folders.len(), 1);
+    }
+
+    #[test]
+    fn two_running_instances_keep_each_others_history() {
+        let dir = tempfile::tempdir().unwrap();
+        let _root = crate::config::paths::test_root::redirect(dir.path());
+        let settings = crate::config::settings::Settings::default();
+        let mut start = HistoryState::default();
+        start.push_command("shared".into());
+        start.save(&settings);
+
+        let mut first = HistoryState::from_store(HistoryStore::load());
+        let mut second = HistoryState::from_store(HistoryStore::load());
+        first.push_command("from first".into());
+        second.push_command("from second".into());
+        first.save(&settings);
+        second.save(&settings);
+        assert_eq!(
+            HistoryStore::load().commands,
+            ["from second", "from first", "shared"]
+        );
+
+        // A removal is one instance's change too: the other's entries stay.
+        first.remove(HistoryKind::Commands, 1);
+        first.save(&settings);
+        assert_eq!(HistoryStore::load().commands, ["from second", "from first"]);
     }
 }
