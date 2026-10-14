@@ -9,6 +9,11 @@ mod spawn;
 mod target;
 
 use crate::plugin::command_policy::CommandPolicy;
+
+/// Most bytes `pairee.fs.read` loads from one file (local or remote): the
+/// whole file is held in host memory before Lua sees it, outside the
+/// plugin's memory cap.
+pub const MAX_READ_BYTES: u64 = 64 * 1024 * 1024;
 use crate::plugin::manager::PluginRequest;
 pub use jail::{Access, FsPolicy, contain, normalize_lexical};
 use mlua::{Lua, Table};

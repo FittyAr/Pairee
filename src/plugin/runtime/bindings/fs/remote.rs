@@ -22,13 +22,9 @@ use crate::fs::vfs::{Vfs, VfsEntry};
 use crate::plugin::manager::PluginRequest;
 use crate::plugin::runtime::types::{LuaError, LuaFile, LuaUrl};
 use mlua::{Function, Lua, MultiValue, Table, Value};
-use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
-
-/// Most bytes `pairee.fs.read` loads from a remote file.
-const MAX_REMOTE_READ: u64 = 64 * 1024 * 1024;
 
 /// What a plugin may do on remote URLs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -160,14 +156,7 @@ async fn run(
     let one = |v: Value| Ok(MultiValue::from_iter([v]));
     match op {
         "read" => {
-            let bytes = blocking(move || {
-                let mut out = Vec::new();
-                vfs.open_read(&path)?
-                    .take(MAX_REMOTE_READ)
-                    .read_to_end(&mut out)?;
-                Ok(out)
-            })
-            .await?;
+            let bytes = blocking(move || super::target::read_capped(vfs.open_read(&path)?)).await?;
             one(Value::String(lua.create_string(bytes)?))
         }
         "write" => {

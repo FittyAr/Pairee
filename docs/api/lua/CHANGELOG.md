@@ -27,6 +27,13 @@ Policy:
 - `pairee.ps.pub` refuses payloads over 1 MiB (as JSON) and raises an
   error while 64 messages are still being delivered; an event reaching a
   plugin whose queue is full is dropped instead of waiting.
+- `pairee.fs.read` refuses files over 64 MiB (local and remote alike;
+  remote reads used to be cut silently at that size).
+- Widget constructors refuse lists nested deeper than 16 levels, more
+  than 256 constraints, `Bar` / `Fill` symbols over 16 bytes, and stop as
+  soon as the collected text passes the widget size limits.
+- A plugin whose manifest `name` differs from its folder name is not
+  loaded; `default_language` must be a plain code.
 
 ### Fixed
 

@@ -9,7 +9,7 @@
 //! operation therefore makes the operation fail instead of escaping.
 
 use cap_std::fs::Dir;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 /// Result of `FsPolicy::check`.
@@ -66,8 +66,13 @@ impl Target {
         })
     }
 
+    /// The file as UTF-8 text, refused past [`super::MAX_READ_BYTES`].
     pub fn read_to_string(&self) -> io::Result<String> {
-        self.with(|p| std::fs::read_to_string(p), |d, r| d.read_to_string(r))
+        let bytes = self.with(
+            |p| read_capped(std::fs::File::open(p)?),
+            |d, r| read_capped(d.open(r)?),
+        )?;
+        String::from_utf8(bytes).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 
     pub fn write(&self, data: impl AsRef<[u8]>) -> io::Result<()> {
@@ -186,6 +191,20 @@ impl Target {
             )),
         })
     }
+}
+
+/// Reads `file` whole, or fails once it passes [`super::MAX_READ_BYTES`].
+pub(super) fn read_capped(file: impl io::Read) -> io::Result<Vec<u8>> {
+    let limit = super::MAX_READ_BYTES;
+    let mut bytes = Vec::new();
+    file.take(limit + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > limit {
+        return Err(io::Error::new(
+            io::ErrorKind::FileTooLarge,
+            format!("file is larger than the {limit}-byte read limit"),
+        ));
+    }
+    Ok(bytes)
 }
 
 fn open_root(root: &Path) -> io::Result<Dir> {
@@ -308,6 +327,19 @@ mod tests {
         assert!(target.read_to_string().is_err());
         assert!(out_file.write("x").is_err());
         assert!(!outside.path().join("pwn").exists());
+    }
+
+    #[test]
+    fn reads_are_capped() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = std::fs::File::create(dir.path().join("big")).unwrap();
+        file.set_len(super::super::MAX_READ_BYTES + 1).unwrap();
+        let err = jailed(dir.path(), "big").read_to_string().unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::FileTooLarge);
+        let free = Target::Free(dir.path().join("big"));
+        assert!(free.read_to_string().is_err());
+        std::fs::write(dir.path().join("small"), "ok").unwrap();
+        assert_eq!(jailed(dir.path(), "small").read_to_string().unwrap(), "ok");
     }
 
     #[test]
