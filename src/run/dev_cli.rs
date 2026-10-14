@@ -83,7 +83,7 @@ async fn submit() -> Result<()> {
     // 3. Optional token: open the PR automatically.
     let token = prompt_line(&t("plugin_dev_submit_prompt"))?;
     if token.is_empty() {
-        let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+        let temp_dir = crate::plugin::developer_tool::temp_registry_dir();
         let msg = t("plugin_dev_no_token_inst").replace("{}", &temp_dir.display().to_string());
         println!("\n{msg}");
     } else {

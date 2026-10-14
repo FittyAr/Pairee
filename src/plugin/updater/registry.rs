@@ -21,13 +21,18 @@ pub fn registry_author(author: Option<&str>) -> &str {
 /// (lowercased) letter of the author, or `_` when it is not a letter. It is
 /// also the name a signature's trusted comment must carry.
 pub fn plugin_file_path(author: &str, name: &str, rel_path: &str) -> String {
+    format!("{}/{rel_path}", plugin_dir_path(author, name))
+}
+
+/// `plugins/<shard>/<author>/<name>`: a plugin's folder inside `registry/`.
+pub fn plugin_dir_path(author: &str, name: &str) -> String {
     let first = author.chars().next().unwrap_or('u').to_ascii_lowercase();
     let shard = if first.is_ascii_alphabetic() {
         first.to_string()
     } else {
         "_".to_string()
     };
-    format!("plugins/{shard}/{author}/{name}/{rel_path}")
+    format!("plugins/{shard}/{author}/{name}")
 }
 
 /// URL of a file inside a plugin's registry folder.

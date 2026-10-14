@@ -75,22 +75,30 @@ pub fn get_plugin_files(plugin_dir: &Path) -> Vec<(String, std::path::PathBuf)> 
     files
 }
 
+/// Files under `dir` as (`/`-separated path relative to `base_dir`, path).
+/// Hidden entries (`.git`, `.env`, ...) and symbolic links are skipped: a
+/// published plugin must not carry secrets or files from outside its
+/// folder, and a link loop cannot recurse forever.
 fn collect_files_rec(dir: &Path, base_dir: &Path, files: &mut Vec<(String, std::path::PathBuf)>) {
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.filter_map(Result::ok) {
-            let path = entry.path();
-            if path.is_file() {
-                if let Ok(rel) = path.strip_prefix(base_dir) {
-                    files.push((rel.to_string_lossy().to_string(), path));
-                }
-            } else if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str())
-                    && name.starts_with('.')
-                {
-                    continue;
-                }
-                collect_files_rec(&path, base_dir, files);
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        let hidden = entry.file_name().to_string_lossy().starts_with('.');
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        if hidden || kind.is_symlink() {
+            continue;
+        }
+        if kind.is_file() {
+            if let Ok(rel) = path.strip_prefix(base_dir) {
+                let parts: Vec<_> = rel.iter().map(|p| p.to_string_lossy()).collect();
+                files.push((parts.join("/"), path));
             }
+        } else if kind.is_dir() {
+            collect_files_rec(&path, base_dir, files);
         }
     }
 }
@@ -109,6 +117,16 @@ pub async fn load_plugin(
     }
     let manifest_content = std::fs::read_to_string(&manifest_path)?;
     let manifest = PluginManifest::parse(&manifest_content)?;
+    // Trust, settings and the data folder follow the folder name; the
+    // loaded-plugin registry, keymap commands and events use the manifest
+    // name. They must agree, or a plugin could take another's identity
+    // (and replace its worker) by naming it in its manifest.
+    if manifest.name != *name {
+        anyhow::bail!(
+            "plugin folder {name}.pairee declares the name {:?}; they must match",
+            manifest.name
+        );
+    }
 
     // 2. Validate version compatibility
     if let Some(ref min_version) = manifest.min_pairee
@@ -303,6 +321,28 @@ return {}
         .unwrap();
         let err = load_plugin(&dir, &options, tx).await.unwrap_err();
         assert!(err.to_string().contains("@since 99.0"), "{err}");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_plugin_cannot_claim_another_plugins_name() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("evil.pairee");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(
+            dir.join("manifest.toml"),
+            "name = \"git-status\"\nversion = \"1.0.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("main.lua"), "return {}").unwrap();
+        let (tx, _rx) = mpsc::channel(4);
+        let options = PluginLoadOptions::new("evil", false, false);
+        let err = load_plugin(&dir, &options, tx).await.unwrap_err();
+        assert!(err.to_string().contains("must match"), "{err}");
+        assert!(
+            crate::plugin::registry::plugin_info("git-status")
+                .await
+                .is_none()
+        );
     }
 
     #[test]

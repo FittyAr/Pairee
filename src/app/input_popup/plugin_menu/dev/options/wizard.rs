@@ -126,7 +126,7 @@ fn finish_submit_wizard(
             return;
         }
         if token.is_empty() {
-            let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+            let temp_dir = crate::plugin::developer_tool::temp_registry_dir();
             let result =
                 t("plugin_dev_no_token_inst").replace("{}", &temp_dir.display().to_string());
             developer_tool::progress_finish(Some(tx), Some(result), None);

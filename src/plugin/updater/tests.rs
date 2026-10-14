@@ -96,9 +96,9 @@ fn update_detection_compares_against_registry_version() {
     let index = parse_index(INDEX).unwrap();
     assert_eq!(index.update_for("git-status", "1.1.9"), Some("1.2.0"));
     assert_eq!(index.update_for("git-status", "1.2.0"), None);
-    // The registry only lists the latest release: a different (even lower)
-    // version is still offered so users converge on the published one.
-    assert_eq!(index.update_for("git-status", "9.0.0"), Some("1.2.0"));
+    // A lower registry version (a replayed old index) is not offered.
+    assert_eq!(index.update_for("git-status", "9.0.0"), None);
+    assert_eq!(index.update_for("git-status", "dev"), Some("1.2.0"));
     assert_eq!(index.update_for("not-in-registry", "1.0.0"), None);
 }
 

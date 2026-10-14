@@ -13,6 +13,30 @@ use tokio::sync::mpsc::UnboundedSender;
 
 const TEMPLATE_BRANCH: &str = "plugin-template";
 
+/// The local clone of the plugin registry used to package and submit.
+pub fn temp_registry_dir() -> std::path::PathBuf {
+    crate::config::paths::get_cache_dir().join("temp_registry")
+}
+
+/// Folder of the plugin described by `manifest` inside the registry clone
+/// `temp_dir`; its name and author must be registry identifiers (they
+/// become path components, and the installer refuses anything else).
+pub fn registry_plugin_dir(
+    temp_dir: &std::path::Path,
+    manifest: &crate::plugin::loader::PluginManifest,
+) -> anyhow::Result<std::path::PathBuf> {
+    use crate::plugin::updater::registry::{plugin_dir_path, registry_author};
+    let author = registry_author(manifest.author.as_deref());
+    for (kind, value) in [("name", manifest.name.as_str()), ("author", author)] {
+        if !crate::plugin::updater::is_identifier(value) {
+            anyhow::bail!("Invalid plugin {kind} '{value}': only [A-Za-z0-9_-] is allowed");
+        }
+    }
+    Ok(temp_dir
+        .join("registry")
+        .join(plugin_dir_path(author, &manifest.name)))
+}
+
 #[cfg(test)]
 mod tests;
 

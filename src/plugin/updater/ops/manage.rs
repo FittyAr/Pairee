@@ -2,6 +2,7 @@
 //! a [`Report`] instead of printing.
 
 use super::install::install;
+use super::install_guard::{safe_join, validate_identifier};
 use crate::plugin::updater::lockfile::{read_lockfile, write_lockfile};
 use crate::plugin::updater::registry::{fetch_blocklist, fetch_index_with};
 use crate::plugin::updater::report::Report;
@@ -82,6 +83,7 @@ pub async fn update(name: Option<&str>, trust: &RegistryTrust) -> anyhow::Result
 }
 
 pub fn remove(name: &str) -> anyhow::Result<Report> {
+    validate_identifier("name", name)?;
     let mut lock = read_lockfile();
     if lock.plugins.remove(name).is_none() {
         anyhow::bail!("Plugin '{}' is not installed", name);
@@ -128,7 +130,11 @@ pub async fn verify(trust: &RegistryTrust) -> anyhow::Result<Report> {
         report.line(format!("Plugin: {name} v{}", info.version));
         let plugin_path = crate::config::paths::get_installed_plugin_dir(name);
         for (rel_path, expected_hash) in &info.files {
-            let file_path = plugin_path.join(rel_path);
+            let Ok(file_path) = safe_join(&plugin_path, rel_path) else {
+                clean = false;
+                report.line(format!("  ✗ Unsafe path in the lockfile: {rel_path}"));
+                continue;
+            };
             let line = match crate::update::downloader::compute_sha256(&file_path) {
                 Ok(actual) if actual.eq_ignore_ascii_case(expected_hash) => {
                     format!("  ✓ {rel_path} verified.")

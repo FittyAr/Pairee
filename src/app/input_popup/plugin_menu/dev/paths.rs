@@ -44,22 +44,9 @@ pub fn packaged_plugin_dir(active_plugin: &str) -> Option<PathBuf> {
     let manifest_path = plugin_path.join("manifest.toml");
     let content = std::fs::read_to_string(&manifest_path).ok()?;
     let manifest = crate::plugin::loader::PluginManifest::parse(&content).ok()?;
-    let name = manifest.name;
-    let author = manifest.author.as_deref().unwrap_or("unknown").trim();
-    let author = if author.is_empty() { "unknown" } else { author };
-    let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
-    let first_char_str = if first_char.is_ascii_alphabetic() {
-        first_char.to_string()
-    } else {
-        "_".to_string()
-    };
-    Some(
-        crate::config::paths::get_cache_dir()
-            .join("temp_registry")
-            .join("registry")
-            .join("plugins")
-            .join(first_char_str)
-            .join(author)
-            .join(&name),
+    crate::plugin::developer_tool::registry_plugin_dir(
+        &crate::plugin::developer_tool::temp_registry_dir(),
+        &manifest,
     )
+    .ok()
 }

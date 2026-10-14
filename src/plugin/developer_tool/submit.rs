@@ -8,7 +8,7 @@ pub fn commit_registry_changes_with_progress(
     progress: Option<UnboundedSender<DevProgress>>,
 ) -> anyhow::Result<()> {
     progress_status(&progress, t("plugin_dev_progress_staging"));
-    let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+    let temp_dir = crate::plugin::developer_tool::temp_registry_dir();
     let repo = git2::Repository::open(&temp_dir)?;
 
     let mut index = repo.index()?;
@@ -92,7 +92,7 @@ pub async fn run_automatic_submit(
     // 3. Push to fork using git2
     // Place this entire block inside its own scope so all git2 non-Send types are dropped before the next .await
     {
-        let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+        let temp_dir = crate::plugin::developer_tool::temp_registry_dir();
         let repo = git2::Repository::open(&temp_dir)?;
 
         let fork_git_url = format!("https://{}@github.com/{}/Pairee.git", token, username);
