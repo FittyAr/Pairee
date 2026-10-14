@@ -70,6 +70,7 @@ fn apply_scroll_offset(
             };
             let panel = state.panels.side_mut(side);
             let len = panel.entries.len();
+            panel.scroll_top.set(offset);
             clamp(&mut panel.cursor_index, len);
         }
         ScrollTargetId::TransferJobs | ScrollTargetId::TransferFiles => {

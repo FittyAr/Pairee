@@ -310,3 +310,43 @@ fn draw_ui_palette_keeps_a_far_cursor_in_view_and_shows_keys() {
         "title shows the palette key: {painted:?}"
     );
 }
+
+/// Entry rows the left panel registered in the last frame.
+fn left_rows_shown(context: &AppContext, state: &AppState) -> usize {
+    use crate::ui::hit::HitTarget;
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("test terminal");
+    terminal
+        .draw(|f| draw_ui(f, context, state))
+        .expect("draw");
+    state
+        .hits
+        .collect(|t| match t {
+            HitTarget::PanelRow {
+                side: crate::app::state::ActivePanel::Left,
+                index,
+            } => Some(*index),
+            _ => None,
+        })
+        .len()
+}
+
+#[test]
+fn brief_view_fills_every_row_of_both_columns() {
+    use crate::app::state::{ActivePanel, PanelViewMode};
+    let (context, mut state) = test_app();
+    let panel = state.panels.side_mut(ActivePanel::Left);
+    panel.entries = (0..200)
+        .map(|i| FileEntry {
+            name: format!("f{i}"),
+            path: PathBuf::from(format!("./f{i}")),
+            size: 0,
+            is_dir: false,
+            is_symlink: false,
+            modified: None,
+        })
+        .collect();
+    panel.view_mode = PanelViewMode::Wide;
+    let one_column = left_rows_shown(&context, &state);
+    state.panels.side_mut(ActivePanel::Left).view_mode = PanelViewMode::Brief;
+    assert_eq!(left_rows_shown(&context, &state), one_column * 2);
+}

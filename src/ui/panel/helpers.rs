@@ -111,14 +111,7 @@ pub(crate) fn visible_range(panel: &PanelState, height: usize) -> (usize, usize)
 /// `height` rows from it, and never leaving rows empty at the end.
 fn follow_cursor(top: usize, cursor: usize, height: usize, len: usize) -> usize {
     let height = height.max(1);
-    let top = if cursor < top {
-        cursor
-    } else if cursor >= top + height {
-        cursor + 1 - height
-    } else {
-        top
-    };
-    top.min(len.saturating_sub(height))
+    crate::ui::scrollbar::follow_scroll(cursor, top, height).min(len.saturating_sub(height))
 }
 
 /// Entries in `start..end`, or nothing when the range is out of bounds

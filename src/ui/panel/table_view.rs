@@ -10,6 +10,7 @@ use crate::fs::FileEntry;
 use crate::fs::attrs::format_unix_mode;
 use crate::fs::descriptions::{find_description, read_descriptions_file};
 use crate::ui::hit::{self, HitTarget};
+use crate::ui::scrollbar::ScrollView;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -250,7 +251,7 @@ pub(crate) fn render_table(
     block: Block,
     ctx: &ListCtx,
     view: &TableView,
-) {
+) -> ScrollView {
     let settings = &ctx.context.config.settings;
     let headers = view.headers && settings.show_column_titles;
     let height = area.height.saturating_sub(if headers { 3 } else { 2 }) as usize;
@@ -303,6 +304,11 @@ pub(crate) fn render_table(
         );
     }
     f.render_widget(table, area);
+    ScrollView {
+        content_len: ctx.panel.entries.len(),
+        viewport_len: height,
+        offset: start,
+    }
 }
 
 /// Records the column titles on the first inner row; the columns are laid
