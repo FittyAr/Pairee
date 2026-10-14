@@ -39,6 +39,7 @@ associations_hint_nav = "[↑/↓] Navegar  [A] Añadir  [E/Enter] Editar  [D/De
 associations_hint_nav_empty = "[A] Añadir  [Esc] Cerrar"
 associations_no_rules = "No hay reglas configuradas."
 associations_same_as_open = "(Mismo que abrir)"
+background_job_failed = "La operación se detuvo inesperadamente (detalles en el registro)."
 btn_cancel = " Cancelar "
 btn_cancel_bracket = "[ Cancelar ]"
 btn_connect_braced = "{ Conectar }"

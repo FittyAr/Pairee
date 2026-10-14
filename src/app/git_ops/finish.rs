@@ -10,6 +10,17 @@ pub fn poll_git_op(state: &mut AppState) -> bool {
         if state.git_op.is_running() {
             // Progress ticks: keep the gauge moving.
             state.mark_ui_dirty();
+        } else if state.git_op.job.take_panicked() {
+            // Ended without a result: never leave the progress popup up.
+            state.git_op.pending = None;
+            if matches!(state.dialogs.top(), Some(PopupType::GitProgress(_))) {
+                state.dialogs.pop();
+            }
+            state
+                .dialogs
+                .push(PopupType::error(t("background_job_failed")));
+            state.mark_ui_dirty();
+            return true;
         }
         return false;
     };

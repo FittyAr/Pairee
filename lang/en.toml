@@ -39,6 +39,7 @@ associations_hint_nav = "[Up/Down] Navigate  [A] Add  [E/Enter] Edit  [D/Delete]
 associations_hint_nav_empty = "[A] Add  [Esc] Close"
 associations_no_rules = "No rules configured."
 associations_same_as_open = "(Same as open)"
+background_job_failed = "The operation stopped unexpectedly (details in the log)."
 btn_cancel = " Cancel "
 btn_cancel_bracket = "[ Cancel ]"
 btn_connect_braced = "{ Connect }"
