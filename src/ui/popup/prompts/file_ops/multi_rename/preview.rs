@@ -11,7 +11,7 @@ use crate::ui::scrollbar::{
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::Line,
     widgets::Paragraph,
 };
@@ -46,7 +46,7 @@ pub(super) fn render(
         vec![Line::styled(t("multi_rename_col_status"), header)],
     ];
     for row in visible {
-        let (status, style) = status(row, normal);
+        let (status, style) = status(row, normal, theme);
         columns[0].push(Line::styled(row.old.clone(), style));
         columns[1].push(Line::styled(row.new.clone(), style));
         columns[2].push(Line::styled(status, style));
@@ -83,10 +83,10 @@ pub(super) fn render(
 }
 
 /// Status label and row style: red with the issue, dim when unchanged.
-fn status(row: &PreviewRow, normal: Style) -> (String, Style) {
+fn status(row: &PreviewRow, normal: Style, theme: &ResolvedTheme) -> (String, Style) {
     match row.issue {
-        Some(issue) => (t(issue.label_key()), kit::fg(Color::LightRed)),
-        None if !row.is_changed() => (t("multi_rename_unchanged"), kit::fg(Color::DarkGray)),
+        Some(issue) => (t(issue.label_key()), kit::fg(theme.ui.error)),
+        None if !row.is_changed() => (t("multi_rename_unchanged"), kit::fg(theme.ui.muted)),
         None => (t("multi_rename_ok"), normal),
     }
 }

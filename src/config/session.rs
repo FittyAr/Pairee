@@ -57,8 +57,11 @@ impl SessionFile {
         self.save_to(&default_path())
     }
 
+    /// Replaces the saved session: with several instances running, the
+    /// last one to quit wins, but its session is written whole (under the
+    /// shared lock, see [`super::shared_file`]).
     pub fn save_to(&self, path: &Path) -> Result<()> {
-        toml_store::save(path, self)
+        super::shared_file::with_lock(path, || toml_store::save(path, self))
     }
 }
 

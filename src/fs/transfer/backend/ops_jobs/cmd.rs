@@ -15,7 +15,8 @@ pub fn run_apply_command(
     control.run_each(&sources, |path| {
         let cmd = cmd_template.replace("%f", &crate::shell::quote_path(path));
         emit_command_output(&control, &format!("$ {cmd}"));
-        match run_shell_command_blocking(&cmd) {
+        // Cancelling the job kills the running command.
+        match run_shell_command_blocking(&cmd, &|| control.is_cancelled()) {
             Ok(text) => {
                 emit_command_output(&control, &text);
                 Ok(PathBuf::new())
@@ -51,9 +52,12 @@ fn emit_command_output(control: &JobControl, text: &str) {
 }
 
 /// Runs `cmd` in a shell on a pseudo-terminal; `Err` with its output when
-/// it fails.
-pub(crate) fn run_shell_command_blocking(cmd: &str) -> anyhow::Result<String> {
-    let result = crate::terminal::pty_cmd::run_shell_on_pty(cmd, None)?;
+/// it fails. It is killed once `cancelled` returns `true`.
+pub(crate) fn run_shell_command_blocking(
+    cmd: &str,
+    cancelled: &dyn Fn() -> bool,
+) -> anyhow::Result<String> {
+    let result = crate::terminal::pty_cmd::run_shell_on_pty(cmd, None, cancelled)?;
     if !result.success {
         anyhow::bail!("{}", result.output.trim());
     }

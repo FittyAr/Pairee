@@ -12,7 +12,7 @@ use crate::ui::text_width::truncate_to_width;
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
 };
 
@@ -29,9 +29,9 @@ impl DialogView for ShortcutsState {
         ListPopup {
             area,
             title: format!(" {} ", t("shortcuts_title")),
-            border: Color::Cyan,
+            border: theme.ui.accent,
             empty: Some(t("shortcuts_empty")),
-            header: header(s),
+            header: header(s, theme),
             rows,
             cursor,
             scroll: Scroll::Centered,
@@ -84,7 +84,7 @@ fn register_tabs(s: &ShortcutsState, area: Rect) {
 }
 
 /// Context tabs and preset, the mode line and the feedback line.
-fn header(s: &ShortcutsState) -> Vec<Line<'static>> {
+fn header(s: &ShortcutsState, theme: &ResolvedTheme) -> Vec<Line<'static>> {
     let mut tabs: Vec<Span> = ContextTab::ALL
         .iter()
         .map(|tab| {
@@ -92,7 +92,7 @@ fn header(s: &ShortcutsState) -> Vec<Line<'static>> {
             if *tab == s.tab {
                 Span::styled(
                     format!(" [{label}] "),
-                    fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                    fg(theme.ui.accent).add_modifier(Modifier::BOLD),
                 )
             } else {
                 Span::raw(format!("  {label}  "))
@@ -101,14 +101,14 @@ fn header(s: &ShortcutsState) -> Vec<Line<'static>> {
         .collect();
     tabs.push(Span::styled(
         format!("   {} ◂ {} ▸", t("shortcuts_preset"), s.preset),
-        fg(Color::Yellow),
+        fg(theme.ui.warning),
     ));
     vec![
         Line::from(tabs),
         Line::from(mode_line(s)),
         Line::from(Span::styled(
             s.message.clone().unwrap_or_default(),
-            fg(Color::Yellow),
+            fg(theme.ui.warning),
         )),
     ]
 }
@@ -143,7 +143,7 @@ fn mode_line(s: &ShortcutsState) -> String {
 
 /// Visible rows under category headings, and the line of the cursor row.
 fn list_rows(s: &ShortcutsState, theme: &ResolvedTheme) -> (Vec<(String, Style)>, usize) {
-    let heading = fg(Color::DarkGray).add_modifier(Modifier::BOLD);
+    let heading = fg(theme.ui.muted).add_modifier(Modifier::BOLD);
     let mut lines = Vec::new();
     let mut cursor_line = 0;
     let mut category: Option<Category> = None;
@@ -156,7 +156,7 @@ fn list_rows(s: &ShortcutsState, theme: &ResolvedTheme) -> (Vec<(String, Style)>
             cursor_line = lines.len();
         }
         let style = if row.chords.is_empty() {
-            fg(Color::DarkGray)
+            fg(theme.ui.muted)
         } else {
             theme.popup_fg()
         };

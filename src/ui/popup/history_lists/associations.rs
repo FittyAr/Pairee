@@ -6,7 +6,7 @@ use crate::ui::text_width::fit_to_width;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -56,7 +56,7 @@ impl DialogView for FileAssociationsDialog {
 
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
+            .border_style(Style::default().fg(theme.ui.accent))
             .title(t("prompt_associations_title"))
             .style(Style::default().bg(theme.popup_bg));
 
@@ -105,10 +105,8 @@ impl DialogView for FileAssociationsDialog {
         } else {
             t("associations_hint_nav")
         };
-        let hint_paragraph = Paragraph::new(Span::styled(
-            hint_text,
-            Style::default().fg(Color::DarkGray),
-        ));
+        let hint_paragraph =
+            Paragraph::new(Span::styled(hint_text, Style::default().fg(theme.ui.muted)));
         f.render_widget(hint_paragraph, chunks[if editing { 2 } else { 1 }]);
     }
 }
@@ -185,7 +183,7 @@ fn render_edit_box(
     let edit_paragraph = Paragraph::new(Line::from(spans)).block(
         Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow)),
+            .border_style(Style::default().fg(theme.ui.warning)),
     );
     f.render_widget(edit_paragraph, area);
 }

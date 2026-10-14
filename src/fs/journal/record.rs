@@ -24,8 +24,10 @@ pub fn from_transfer(
             count: job.sources.len(),
         });
     }
-    if let Some(client) = same_server_move(job) {
-        // A move within one SFTP server is a series of renames.
+    if let Some(client) = same_server_move(job)
+        && renamed_sources(job, results)
+    {
+        // A move within one server is a series of renames.
         let command = FsCommand::Rename {
             steps: rename_steps(results),
             remote: Some(client),
@@ -81,6 +83,15 @@ fn same_server_move(job: &TransferJob) -> Option<RemoteConn> {
 }
 
 /// The renames a job ran, one per completed entry.
+/// Every completed item is one of the job's sources: the move ran as
+/// renames (it is copied file by file when something was at a target).
+pub(super) fn renamed_sources(job: &TransferJob, results: &TransferResults) -> bool {
+    results
+        .completed_files
+        .iter()
+        .all(|f| job.sources.contains(&f.src))
+}
+
 pub(super) fn rename_steps(results: &TransferResults) -> Vec<Step> {
     results
         .completed_files

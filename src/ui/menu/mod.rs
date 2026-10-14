@@ -15,7 +15,7 @@ use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::Line,
     widgets::Paragraph,
 };
@@ -121,20 +121,20 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
                 .add_modifier(Modifier::BOLD)
         };
 
-        let hotkey_style = style.fg(ratatui::style::Color::Yellow);
+        let hotkey_style = style.fg(theme.ui.warning);
         let hotkey_spans = crate::ui::hotkey::render_hotkey_spans(title, style, hotkey_style);
         spans.extend(hotkey_spans);
     }
 
     let line = Line::from(spans);
-    let paragraph = Paragraph::new(line).style(Style::default().bg(Color::DarkGray));
+    let paragraph = Paragraph::new(line).style(Style::default().bg(theme.ui.muted));
     f.render_widget(paragraph, menu_chunks[0]);
 
     if state.is_root {
         let root_para = Paragraph::new(" [ROOT] ").style(
             Style::default()
-                .bg(Color::DarkGray)
-                .fg(ratatui::style::Color::Red)
+                .bg(theme.ui.muted)
+                .fg(theme.ui.danger)
                 .add_modifier(Modifier::BOLD),
         );
         f.render_widget(root_para, menu_chunks[1]);
@@ -143,11 +143,11 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
     if context.config.settings.interface_clock {
         let time_str = chrono::Local::now().format(" %H:%M:%S ").to_string();
         let clock_para = Paragraph::new(time_str)
-            .style(Style::default().bg(Color::DarkGray).fg(theme.panel_fg))
+            .style(Style::default().bg(theme.ui.muted).fg(theme.panel_fg))
             .alignment(ratatui::layout::Alignment::Right);
         f.render_widget(clock_para, menu_chunks[2]);
     } else {
-        let empty_para = Paragraph::new("").style(Style::default().bg(Color::DarkGray));
+        let empty_para = Paragraph::new("").style(Style::default().bg(theme.ui.muted));
         f.render_widget(empty_para, menu_chunks[2]);
     }
 }

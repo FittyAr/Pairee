@@ -261,12 +261,7 @@ fn shake_hands(
     handshake: Handshake,
     config: Arc<rustls::ClientConfig>,
 ) -> io::Result<()> {
-    use std::net::ToSocketAddrs;
-    let addr = (host, port)
-        .to_socket_addrs()?
-        .next()
-        .ok_or_else(|| io::Error::from(io::ErrorKind::AddrNotAvailable))?;
-    let mut tcp = std::net::TcpStream::connect_timeout(&addr, PROBE_TIMEOUT)?;
+    let mut tcp = super::connect_tcp(host, port, PROBE_TIMEOUT)?;
     tcp.set_read_timeout(Some(PROBE_TIMEOUT))?;
     tcp.set_write_timeout(Some(PROBE_TIMEOUT))?;
     if handshake == Handshake::FtpAuthTls {

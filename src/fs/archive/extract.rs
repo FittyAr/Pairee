@@ -16,6 +16,7 @@ use crate::fs::progress::ArchiveReport;
 pub type Selector<'a> = dyn Fn(&Path) -> Option<PathBuf> + 'a;
 
 /// Extracts the entries of `archive` chosen by `select` into `dest`.
+/// Entries that are never materialised are reported as skipped.
 pub fn extract_entries(
     reader: &dyn ArchiveReader,
     archive: &Path,
@@ -26,6 +27,8 @@ pub fn extract_entries(
     let mut guard = ExtractGuard::new(dest)?;
     let total_files = reader.count_hint(archive);
     let mut files_copied = 0usize;
+    let cancel = report.cancel_flag();
+    let cancelled = || cancel.load(std::sync::atomic::Ordering::Relaxed);
     reader.visit(archive, &mut |meta, data| {
         report.ensure_running()?;
         guard.count_entry()?;
@@ -35,7 +38,10 @@ pub fn extract_entries(
         };
         report.entry(&crate::fs::file_name_lossy(&rel), files_copied, total_files);
         files_copied += 1;
-        write_entry(&mut guard, &rel, meta, data)?;
+        if !write_entry(&mut guard, &rel, meta, data, &cancelled)? {
+            // Reported, so a move out of the archive keeps the entry.
+            report.unsupported(&rel);
+        }
         Ok(Visit::Continue)
     })?;
     report.ensure_running()?;
@@ -48,26 +54,27 @@ pub fn everything(rel: &Path) -> Option<PathBuf> {
     Some(rel.to_path_buf())
 }
 
+/// Writes one entry; `false` when its kind is never materialised.
 fn write_entry(
     guard: &mut ExtractGuard,
     rel: &Path,
     meta: &EntryMeta,
     data: &mut dyn Read,
-) -> Result<()> {
+    cancelled: &dyn Fn() -> bool,
+) -> Result<bool> {
     match &meta.kind {
         EntryKind::Dir => {
             guard.create_dir(rel)?;
         }
         EntryKind::File => {
             guard.check_declared_size(meta.size)?;
-            if let Some(mut out) = guard.create_file(rel)? {
-                guard.copy_limited(data, &mut out)?;
-                #[cfg(unix)]
-                if let Some(mode) = meta.mode {
-                    use std::os::unix::fs::PermissionsExt;
-                    // Drop setuid/setgid/sticky bits from archive modes.
-                    let _ = out.set_permissions(std::fs::Permissions::from_mode(mode & 0o777));
-                }
+            #[cfg_attr(not(unix), allow(unused_variables))]
+            let written = guard.write_file(rel, data, cancelled)?;
+            #[cfg(unix)]
+            if let (Some(out), Some(mode)) = (written, meta.mode) {
+                use std::os::unix::fs::PermissionsExt;
+                // Drop setuid/setgid/sticky bits from archive modes.
+                let _ = out.set_permissions(std::fs::Permissions::from_mode(mode & 0o777));
             }
         }
         #[cfg(unix)]
@@ -80,7 +87,8 @@ fn write_entry(
                 rel,
                 other
             );
+            return Ok(false);
         }
     }
-    Ok(())
+    Ok(true)
 }

@@ -21,7 +21,7 @@ mod source;
 #[cfg(test)]
 pub(crate) mod contract;
 
-pub use entry::{VfsEntry, panel_listing, parent_entry};
+pub use entry::{VfsEntry, is_plain_name, panel_listing, parent_entry};
 pub use local::LocalVfs;
 pub use source::PanelSource;
 
@@ -103,6 +103,20 @@ pub fn unsupported() -> io::Error {
         io::ErrorKind::Unsupported,
         crate::config::localization::t("vfs_unsupported_operation"),
     )
+}
+
+/// `Err` unless the folder `dir` of `vfs` is empty: for adapters whose
+/// folder deletion takes the contents with it (WebDAV `DELETE`, archive
+/// rewrites), so [`Vfs::remove_dir`] keeps its "empty folders only" promise.
+pub fn ensure_empty_dir(vfs: &dyn Vfs, dir: &Path) -> io::Result<()> {
+    if vfs.list(dir)?.is_empty() {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::DirectoryNotEmpty,
+            dir.to_string_lossy().into_owned(),
+        ))
+    }
 }
 
 /// [`Vfs::replace`] for servers whose rename refuses an existing target
@@ -237,7 +251,8 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
         Err(unsupported())
     }
 
-    /// Removes the empty folder `path`.
+    /// Removes the empty folder `path`; a folder that still holds anything
+    /// is an error (moves rely on it to keep what they skipped).
     fn remove_dir(&self, _path: &Path) -> io::Result<()> {
         Err(unsupported())
     }

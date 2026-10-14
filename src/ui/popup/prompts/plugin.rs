@@ -5,7 +5,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
 };
@@ -81,7 +81,7 @@ fn render_confirm(
         f,
         area,
         format!(" {title} "),
-        crate::ui::popup::kit::fg(Color::Yellow),
+        crate::ui::popup::kit::fg(theme.ui.warning),
         theme,
     );
 
@@ -103,19 +103,19 @@ fn render_confirm(
 
     let yes_style = if cursor_idx == 0 {
         Style::default()
-            .fg(Color::Black)
-            .bg(Color::Green)
+            .fg(theme.ui.badge_fg)
+            .bg(theme.ui.success)
             .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::Green)
+        Style::default().fg(theme.ui.success)
     };
     let no_style = if cursor_idx == 1 {
         Style::default()
-            .fg(Color::Black)
-            .bg(Color::Red)
+            .fg(theme.ui.badge_fg)
+            .bg(theme.ui.danger)
             .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::Red)
+        Style::default().fg(theme.ui.danger)
     };
     let labels = [
         format!(" [{}] ", t("plugin_dialog_yes")),
@@ -134,7 +134,7 @@ fn render_confirm(
         span_buttons(chunks[1], &labels, (2, false), keys);
     }
     f.render_widget(
-        Paragraph::new(t("plugin_dialog_confirm_hint")).style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(t("plugin_dialog_confirm_hint")).style(Style::default().fg(theme.ui.muted)),
         chunks[2],
     );
 }
@@ -175,7 +175,7 @@ fn render_input(
     spans.extend(view.spans(style, theme.selection(), true));
     f.render_widget(Paragraph::new(ratatui::text::Line::from(spans)), chunks[0]);
     f.render_widget(
-        Paragraph::new(t("plugin_dialog_input_hint")).style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(t("plugin_dialog_input_hint")).style(Style::default().fg(theme.ui.muted)),
         chunks[1],
     );
 }
@@ -194,7 +194,7 @@ fn render_which(
             f,
             area,
             "",
-            crate::ui::popup::kit::fg(Color::Cyan),
+            crate::ui::popup::kit::fg(theme.ui.accent),
             theme,
         );
         f.render_widget(
@@ -211,7 +211,7 @@ fn render_which(
         f,
         area,
         t("plugin_dialog_which_title"),
-        crate::ui::popup::kit::fg(Color::Cyan),
+        crate::ui::popup::kit::fg(theme.ui.accent),
         theme,
     );
 
@@ -224,7 +224,7 @@ fn render_which(
                 Span::styled(
                     format!("  {keys:<12} "),
                     Style::default()
-                        .fg(Color::Yellow)
+                        .fg(theme.ui.warning)
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(desc.to_string(), Style::default().fg(theme.popup_fg)),
@@ -244,7 +244,7 @@ fn render_which(
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         t("plugin_dialog_which_hint"),
-        Style::default().fg(Color::DarkGray),
+        Style::default().fg(theme.ui.muted),
     )));
     f.render_widget(Paragraph::new(lines), inner);
 }

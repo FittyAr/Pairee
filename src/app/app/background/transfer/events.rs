@@ -46,6 +46,8 @@ pub fn handle_transfer_event(
             if context.config.settings.transfer.auto_report {
                 save_report(transfer, context, job_id, &results);
             }
+            // Where the job wrote: the drive an "eject" post-action ejects.
+            let destination = results.completed_files.last().map(|f| f.dst.clone());
             effects.finished.push((job_id, Some(results)));
             use crate::fs::transfer::post_action::{PostAction, execute_post_action};
             if transfer.engine.queue.pending_count() == 0 {
@@ -55,7 +57,7 @@ pub fn handle_transfer_event(
                     // saved, unsaved editors kept), never `process::exit`.
                     PostAction::CloseApp => effects.quit = true,
                     action => {
-                        let _ = execute_post_action(action);
+                        let _ = execute_post_action(action, destination.as_deref());
                     }
                 }
             }

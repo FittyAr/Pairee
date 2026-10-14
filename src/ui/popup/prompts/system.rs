@@ -3,7 +3,7 @@ use crate::app::state::popup::{ApplyCommandPrompt, ErrorMessage, InfoMessage, Se
 use crate::config::localization::t;
 use crate::ui::popup::kit::{self, TextBox};
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{Frame, style::Color};
+use ratatui::Frame;
 
 impl DialogView for ApplyCommandPrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
@@ -11,7 +11,7 @@ impl DialogView for ApplyCommandPrompt {
         kit::PromptBox {
             size: (65, 10),
             title: t("prompt_apply_cmd_title"),
-            border: kit::fg(Color::Yellow),
+            border: kit::fg(cx.theme.ui.warning),
             template: &template,
             field: &self.input,
         }
@@ -33,7 +33,7 @@ impl DialogView for SelectGroupPrompt {
         kit::PromptBox {
             size: (50, 9),
             title: t(title),
-            border: kit::fg(Color::Cyan),
+            border: kit::fg(cx.theme.ui.accent),
             template: &template,
             field: &self.query,
         }
@@ -50,9 +50,9 @@ impl DialogView for ErrorMessage {
         TextBox {
             size: (50, 8),
             title: t("prompt_error_title"),
-            border: kit::fg(Color::Red),
+            border: kit::fg(cx.theme.ui.danger),
             body: message_body(&self.0),
-            body_style: kit::fg(Color::LightRed),
+            body_style: kit::fg(cx.theme.ui.error),
         }
         .render(f, cx.area, cx.theme);
     }
@@ -63,7 +63,7 @@ impl DialogView for InfoMessage {
         TextBox {
             size: (55, 9),
             title: t("prompt_info_title"),
-            border: kit::fg(Color::Cyan),
+            border: kit::fg(cx.theme.ui.accent),
             body: message_body(&self.0),
             body_style: cx.theme.popup_fg(),
         }

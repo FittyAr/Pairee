@@ -5,25 +5,29 @@ use crate::config::localization::t;
 use crate::credential_prompt::CredentialRequest;
 use anyhow::{Context, Result};
 use ssh2::Session;
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+/// Time allowed to reach the server.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub fn open_session(login: &SshLogin<'_>) -> Result<Session> {
     let (host, port) = (login.host, login.port);
-    let addr = format!("{}:{}", host, port);
-    let socket_addrs = addr
-        .to_socket_addrs()
-        .context(t("error_ssh_resolve_host"))?
-        .collect::<Vec<SocketAddr>>();
-
-    if socket_addrs.is_empty() {
-        anyhow::bail!(t("error_ssh_no_socket_addr").replace("{}", host));
-    }
-
-    // Connect with a 5 second timeout
-    let stream = TcpStream::connect_timeout(&socket_addrs[0], Duration::from_secs(5))
-        .context(t("error_ssh_connect_timeout"))?;
+    // Every address of the host is tried (an unreachable IPv6 address no
+    // longer hides a working IPv4 one); IPv6 literals work as hosts.
+    let stream = crate::fs::remote::connect_tcp(host, port, CONNECT_TIMEOUT).map_err(|e| {
+        use std::io::ErrorKind as K;
+        let key = match e.kind() {
+            K::AddrNotAvailable => "error_ssh_no_socket_addr",
+            K::TimedOut
+            | K::ConnectionRefused
+            | K::ConnectionReset
+            | K::HostUnreachable
+            | K::NetworkUnreachable => "error_ssh_connect_timeout",
+            _ => "error_ssh_resolve_host",
+        };
+        anyhow::Error::new(e).context(t(key).replace("{}", host))
+    })?;
 
     let mut sess = Session::new().context(t("error_ssh_create_session"))?;
     sess.set_tcp_stream(stream);
@@ -84,13 +88,11 @@ fn verify_host_key(sess: &mut Session, host: &str, port: u16) -> Result<()> {
     };
 
     if !kh_loaded {
-        anyhow::bail!(
-            "Refusing SSH connection to {}:{} because host key \
-             verification is not available. Add the server's host key to \
-             your known_hosts file and try again.",
+        anyhow::bail!(host_key_message(
+            "error_ssh_known_hosts_unavailable",
             host,
             port
-        );
+        ));
     }
 
     let hostkey = sess
@@ -116,26 +118,29 @@ pub(super) fn host_key_verdict(
     match result {
         ssh2::CheckResult::Match => Ok(()),
         ssh2::CheckResult::Mismatch => {
-            anyhow::bail!(
-                "SSH host key for {}:{} does NOT match the key in known_hosts.                  This may indicate a man-in-the-middle attack.",
-                host,
-                port
-            );
+            anyhow::bail!(host_key_message("error_ssh_host_key_mismatch", host, port));
         }
         ssh2::CheckResult::NotFound => {
+            let file = known_hosts_path
+                .map(|p| p.display().to_string())
+                .unwrap_or_default();
             anyhow::bail!(
-                "SSH host key for {}:{} is not in known_hosts. Refusing to                  connect. Add the server's host key to {:?} and try again.",
-                host,
-                port,
-                known_hosts_path
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_default()
+                host_key_message("error_ssh_host_key_unknown", host, port).replacen("{}", &file, 1)
             );
         }
         ssh2::CheckResult::Failure => {
-            anyhow::bail!("SSH host key check failed for {}:{}", host, port);
+            anyhow::bail!(host_key_message(
+                "error_ssh_host_key_check_failed",
+                host,
+                port
+            ));
         }
     }
+}
+
+/// The message under `key` with its first `{}` set to `host:port`.
+fn host_key_message(key: &str, host: &str, port: u16) -> String {
+    t(key).replacen("{}", &format!("{host}:{port}"), 1)
 }
 
 /// Logs in with, in order: the connection's key file (its passphrase is

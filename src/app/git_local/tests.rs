@@ -148,6 +148,58 @@ fn confirmed_action_runs_in_background_and_reports() {
     assert!(repo.tag_names(None).unwrap().is_empty());
 }
 
+#[test]
+fn an_unmerged_branch_needs_a_second_force_confirmation() {
+    let dir = repo();
+    {
+        // "topic" holds a commit that HEAD does not.
+        let repo = git2::Repository::open(dir.path()).unwrap();
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        let sig = git2::Signature::now("T", "t@example.com").unwrap();
+        let tree = head.tree().unwrap();
+        let tip = repo
+            .commit(None, &sig, &sig, "topic", &tree, &[&head])
+            .unwrap();
+        repo.branch("topic", &repo.find_commit(tip).unwrap(), false)
+            .unwrap();
+    }
+    let mut state = state_with_panel(dir.path());
+    let mut context = AppContext::new(AppConfig::default());
+    let enter = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
+    let exists = || {
+        git2::Repository::open(dir.path())
+            .unwrap()
+            .find_branch("topic", git2::BranchType::Local)
+            .is_ok()
+    };
+
+    open_confirm(
+        &mut state,
+        dir.path(),
+        "delete?".into(),
+        GitConfirmedAction::DeleteBranch("topic".into()),
+    );
+    crate::app::input_popup::handle_popup_input(&mut state, enter, &mut context).unwrap();
+    match state.dialogs.top() {
+        Some(PopupType::GitConfirmAction(confirm)) => {
+            assert_eq!(
+                confirm.message,
+                t("git_confirm_force_delete_branch").replace("{}", "topic")
+            );
+            assert!(matches!(
+                &confirm.action,
+                GitConfirmedAction::ForceDeleteBranch(name) if name == "topic"
+            ));
+        }
+        other => panic!("expected the force-delete confirmation, got {other:?}"),
+    }
+    assert!(exists(), "kept until the force delete is confirmed");
+
+    crate::app::input_popup::handle_popup_input(&mut state, enter, &mut context).unwrap();
+    assert!(!exists());
+    assert!(matches!(state.dialogs.top(), Some(PopupType::GitPanel(_))));
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn busy_while_running_and_refuses_a_second_operation() {
     let dir = repo();

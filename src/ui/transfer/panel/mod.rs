@@ -1,6 +1,6 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 
 use crate::app::context::AppContext;
@@ -29,6 +29,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
         return;
     }
 
+    let theme = &context.theme();
     let size = f.area();
     // Popup centrado: 80% ancho, 75% alto
     let popup_area = centered_rect_in(80, 75, size);
@@ -40,7 +41,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
     let block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Double)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(theme.ui.accent))
         .title(format!(" {} ", t("transfer_title")));
 
     let inner_area = block.inner(popup_area);
@@ -53,8 +54,6 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
         .split(inner_area);
 
     let jobs = transfer_state.engine.queue.get_all();
-
-    let theme = &context.theme();
 
     // --- 1. RENDER SIDEBAR (COL IZQUIERDA) ---
     jobs::render_jobs_sidebar(
@@ -71,13 +70,13 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
         let empty_p = Paragraph::new(t("transfer_no_jobs"))
             .style(
                 Style::default()
-                    .fg(Color::Gray)
+                    .fg(theme.ui.secondary)
                     .add_modifier(Modifier::ITALIC),
             )
             .block(
                 Block::default()
                     .borders(Borders::LEFT)
-                    .border_style(Style::default().fg(Color::DarkGray)),
+                    .border_style(Style::default().fg(theme.ui.muted)),
             );
         f.render_widget(empty_p, main_layout[1]);
         return;
@@ -105,7 +104,7 @@ fn render_inspector(
     // Aseguramos una división vertical del inspector con borde izquierdo
     let inspector_block = Block::default()
         .borders(Borders::LEFT)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(theme.ui.muted));
     let inner_inspector = inspector_block.inner(inspector_area);
     f.render_widget(inspector_block, inspector_area);
 
@@ -123,7 +122,7 @@ fn render_inspector(
     let results = &selected_job.results;
 
     // Header
-    inspector::render_header(f, chunks[0], transfer_state, progress, selected_job);
+    inspector::render_header(f, chunks[0], transfer_state, progress, selected_job, theme);
 
     // Tabs
     inspector::render_tabs(f, chunks[1], transfer_state.active_tab, theme);
@@ -139,10 +138,10 @@ fn render_inspector(
             Some(&state.scrollbar),
         ),
         TransferTab::Options => {
-            inspector::render_options_tab(f, chunks[2], transfer_state, selected_job)
+            inspector::render_options_tab(f, chunks[2], transfer_state, selected_job, theme)
         }
         TransferTab::Status => {
-            inspector::render_status_tab(f, chunks[2], transfer_state, progress, results)
+            inspector::render_status_tab(f, chunks[2], transfer_state, progress, results, theme)
         }
         TransferTab::Log => inspector::render_log_tab(
             f,
@@ -155,7 +154,7 @@ fn render_inspector(
     }
 
     // Footer
-    inspector::render_footer(f, chunks[3], selected_job);
+    inspector::render_footer(f, chunks[3], theme);
 }
 
 pub fn summarize_path(path: &std::path::Path) -> String {

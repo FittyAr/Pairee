@@ -15,7 +15,7 @@ use crate::update::detect::InstallMethod;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -75,7 +75,7 @@ fn render(
         height: area.height.saturating_sub(2),
     };
 
-    let muted = Color::DarkGray;
+    let muted = theme.ui.muted;
 
     // Layout: version line + url line + notes + separator + buttons + optional progress
     let progress_height: u16 = if install_progress.is_some() { 3 } else { 0 };
@@ -94,7 +94,7 @@ fn render(
         ])
         .split(inner);
 
-    render_version_lines(f, &layout, info, &method, fg_style);
+    render_version_lines(f, &layout, (info, &method), fg_style, theme);
 
     render_notes(f, layout[2], info, theme, scroll_y, scrollbar);
 
@@ -110,12 +110,11 @@ fn render(
         *cursor_idx,
         install_progress.as_ref(),
         error.as_ref(),
-        theme.popup_fg,
-        theme.popup_bg,
+        theme,
     );
 
     // Hint line at the bottom
-    render_hint(f, area, size, &method);
+    render_hint(f, (area, size), &method, theme);
 }
 
 /// ` (12.3 MB)` for the download this install method would fetch.
@@ -133,12 +132,12 @@ fn download_size_suffix(info: &UpdateInfo, method: &InstallMethod) -> String {
 fn render_version_lines(
     f: &mut Frame,
     layout: &[Rect],
-    info: &UpdateInfo,
-    method: &InstallMethod,
+    (info, method): (&UpdateInfo, &InstallMethod),
     fg_style: Style,
+    theme: &ResolvedTheme,
 ) {
-    let accent = Color::Cyan;
-    let muted = Style::default().fg(Color::DarkGray);
+    let accent = theme.ui.accent;
+    let muted = Style::default().fg(theme.ui.muted);
     let ver_line = Line::from(vec![
         Span::styled(t("update_current"), muted),
         Span::styled(format!("v{}", env!("CARGO_PKG_VERSION")), muted),
@@ -182,7 +181,7 @@ fn render_notes(
             let clean = l.trim_start_matches('#').trim();
             let style = if is_heading {
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(theme.ui.warning)
                     .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(theme.popup_fg)
@@ -208,7 +207,12 @@ fn render_notes(
 }
 
 /// Below the popup: the package-manager command, or the key hint.
-fn render_hint(f: &mut Frame, area: Rect, size: Rect, method: &InstallMethod) {
+fn render_hint(
+    f: &mut Frame,
+    (area, size): (Rect, Rect),
+    method: &InstallMethod,
+    theme: &ResolvedTheme,
+) {
     let hint_y = area.y + area.height;
     if hint_y >= size.height {
         return;
@@ -223,13 +227,13 @@ fn render_hint(f: &mut Frame, area: Rect, size: Rect, method: &InstallMethod) {
         Some(managed_cmd) => {
             let short_cmd: String = managed_cmd.chars().take(area.width as usize).collect();
             Line::from(vec![
-                Span::styled(" $ ", Style::default().fg(Color::Green)),
-                Span::styled(short_cmd, Style::default().fg(Color::Yellow)),
+                Span::styled(" $ ", Style::default().fg(theme.ui.success)),
+                Span::styled(short_cmd, Style::default().fg(theme.ui.warning)),
             ])
         }
         None => Line::from(Span::styled(
             t("update_hint"),
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme.ui.muted),
         )),
     };
     f.render_widget(Paragraph::new(line), hint_area);

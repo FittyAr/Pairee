@@ -226,6 +226,14 @@ async fn copies_into_a_zip_follow_the_conflict_setting() {
     assert_eq!(a, b"old");
 }
 
+/// A conflict setting the engine does not know asks (here answered with
+/// skip) instead of overwriting.
+#[tokio::test]
+async fn an_unknown_conflict_setting_asks_instead_of_overwriting() {
+    let (_, a) = copy_over_existing("Overwrite ", ConflictResolution::Skip).await;
+    assert_eq!(a, b"old");
+}
+
 #[tokio::test]
 async fn asking_about_a_zip_conflict_waits_for_the_answer() {
     let asked_skip = copy_over_existing("ask", ConflictResolution::Skip).await;
@@ -257,4 +265,62 @@ async fn single_item_target_path_is_not_made_a_folder() {
         .await
         .unwrap();
     assert!(sorted_names(&archive).contains(&"sub/new.txt".to_string()));
+}
+
+/// Moving a folder into an archive that lies inside it would pack the
+/// archive into itself and then delete it with the sources.
+#[tokio::test]
+async fn moving_a_folder_into_an_archive_inside_it_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("docs");
+    fs::create_dir(&folder).unwrap();
+    fs::write(folder.join("n.txt"), b"note").unwrap();
+    let archive = folder.join("a.zip");
+    write_zip(&archive, &[("keep.txt", b"keep")]);
+
+    let moved = job(
+        TransferOperation::Move,
+        vec![folder.clone()],
+        archive.clone(),
+    );
+    assert!(plan(&moved).unwrap().is_err());
+    assert!(run(moved).await.is_err());
+    assert_eq!(fs::read(folder.join("n.txt")).unwrap(), b"note");
+    assert_eq!(sorted_names(&archive), ["keep.txt"]);
+}
+
+/// A hard link entry is never extracted: moving its folder out keeps the
+/// folder in the archive instead of dropping the link.
+#[tokio::test]
+async fn moving_out_keeps_entries_that_were_not_extracted() {
+    let dir = tempfile::tempdir().unwrap();
+    let archive = dir.path().join("a.tar");
+    let mut builder = tar::Builder::new(Vec::new());
+    let mut header = tar::Header::new_gnu();
+    header.set_size(5);
+    header.set_mode(0o644);
+    header.set_cksum();
+    builder
+        .append_data(&mut header, "sub/b.txt", &b"bravo"[..])
+        .unwrap();
+    let mut link = tar::Header::new_gnu();
+    link.set_entry_type(tar::EntryType::Link);
+    link.set_size(0);
+    builder
+        .append_link(&mut link, "sub/hard.txt", "sub/b.txt")
+        .unwrap();
+    fs::write(&archive, builder.into_inner().unwrap()).unwrap();
+    let out = dir.path().join("out");
+    fs::create_dir(&out).unwrap();
+
+    run(job(
+        TransferOperation::Move,
+        vec![archive.join("sub")],
+        out.clone(),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(fs::read(out.join("sub").join("b.txt")).unwrap(), b"bravo");
+    let names = sorted_names(&archive);
+    assert!(names.contains(&"sub/hard.txt".to_string()), "{names:?}");
 }

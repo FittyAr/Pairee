@@ -2,6 +2,7 @@
 //! controlling terminal (new session + `TIOCSCTTY`), size via `TIOCSWINSZ`.
 
 use super::{ChildKiller, ChildWaiter, PtyCommand, PtyMaster, PtySize, SpawnedPty};
+use crate::lock::LockExt;
 use rustix::fs::{Mode, OFlags};
 use rustix::io::FdFlags;
 use rustix::process::{Pid, Signal};
@@ -12,6 +13,8 @@ use std::io;
 use std::os::fd::{AsFd, OwnedFd};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 pub(super) fn spawn(cmd: &PtyCommand) -> io::Result<SpawnedPty> {
     let master = open_master()?;
@@ -20,12 +23,19 @@ pub(super) fn spawn(cmd: &PtyCommand) -> io::Result<SpawnedPty> {
     let child = command(cmd, slave)?.spawn()?;
     let pid = child.id();
     let master = File::from(master);
+    let child = Arc::new(Mutex::new(ChildSlot {
+        child,
+        reaped: false,
+    }));
     Ok(SpawnedPty {
         pid: Some(pid),
         reader: Box::new(master.try_clone()?),
         writer: Box::new(master.try_clone()?),
         master: Box::new(Master(master)),
-        killer: Box::new(Killer(pid)),
+        killer: Box::new(Killer {
+            child: Arc::clone(&child),
+            hung_up: false,
+        }),
         waiter: Box::new(Waiter(child)),
     })
 }
@@ -90,25 +100,70 @@ impl PtyMaster for Master {
     }
 }
 
-/// Hangs the child up, like closing its terminal window would: the shell
-/// and its foreground job exit unless they handle `SIGHUP`.
-struct Killer(u32);
+/// How often [`Waiter`] checks whether the child exited.
+const WAIT_POLL: Duration = Duration::from_millis(20);
+
+/// The child, shared by the [`Waiter`] (the only one that reaps it) and
+/// the [`Killer`]. Reaping happens under the lock and the killer checks
+/// `reaped` under it too, so a signal never reaches a recycled PID: until
+/// it is reaped, the child (even a zombie) keeps its PID and its process
+/// group ID.
+struct ChildSlot {
+    child: Child,
+    reaped: bool,
+}
+
+type SharedChild = Arc<Mutex<ChildSlot>>;
+
+/// Hangs up the child's whole process group (it leads a session of its
+/// own, so the group is the shell and every job it started), like closing
+/// its terminal window would. They exit unless they handle `SIGHUP`;
+/// asking again sends `SIGKILL`.
+struct Killer {
+    child: SharedChild,
+    hung_up: bool,
+}
 
 impl ChildKiller for Killer {
     fn kill(&mut self) -> io::Result<()> {
-        let pid = i32::try_from(self.0)
+        let slot = self.child.lock_safe();
+        if slot.reaped {
+            return Ok(());
+        }
+        let pid = i32::try_from(slot.child.id())
             .ok()
             .and_then(Pid::from_raw)
             .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
-        Ok(rustix::process::kill_process(pid, Signal::HUP)?)
+        let signal = if self.hung_up {
+            Signal::KILL
+        } else {
+            Signal::HUP
+        };
+        self.hung_up = true;
+        // The group is the child's PID (`setsid` in `command`); should it
+        // be gone already, signal the child itself.
+        rustix::process::kill_process_group(pid, signal)
+            .or_else(|_| rustix::process::kill_process(pid, signal))?;
+        Ok(())
     }
 }
 
-struct Waiter(Child);
+struct Waiter(SharedChild);
 
 impl ChildWaiter for Waiter {
-    fn wait(mut self: Box<Self>) -> io::Result<bool> {
-        Ok(self.0.wait()?.success())
+    /// Polls instead of blocking in `wait()`: a blocking wait would reap
+    /// the child without the lock, racing the killer.
+    fn wait(self: Box<Self>) -> io::Result<bool> {
+        loop {
+            {
+                let mut slot = self.0.lock_safe();
+                if let Some(status) = slot.child.try_wait()? {
+                    slot.reaped = true;
+                    return Ok(status.success());
+                }
+            }
+            std::thread::sleep(WAIT_POLL);
+        }
     }
 }
 
@@ -150,6 +205,36 @@ mod tests {
     fn child_has_a_controlling_terminal() {
         let out = run("tty >/dev/null && echo CTTY_OK", PtySize::DEFAULT);
         assert!(out.contains("CTTY_OK"), "{out:?}");
+    }
+
+    #[test]
+    fn kill_hangs_up_the_group_then_insists_and_spares_a_reaped_pid() {
+        let cmd = PtyCommand {
+            program: "sh".into(),
+            // Ignores SIGHUP, and so does `sleep`, which inherits that.
+            args: vec!["-c".into(), "trap '' HUP; sleep 30".into()],
+            env: Vec::new(),
+            cwd: None,
+            size: PtySize::DEFAULT,
+        };
+        let SpawnedPty {
+            mut killer, waiter, ..
+        } = spawn(&cmd).expect("spawn on pty");
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(waiter.wait());
+        });
+        std::thread::sleep(Duration::from_millis(200));
+        killer.kill().expect("SIGHUP to the group");
+        assert!(
+            rx.recv_timeout(Duration::from_millis(300)).is_err(),
+            "SIGHUP is ignored"
+        );
+        killer.kill().expect("SIGKILL to the group");
+        let exit = rx.recv_timeout(Duration::from_secs(5)).expect("killed");
+        assert!(!exit.expect("wait"));
+        // Reaped: its PID may belong to someone else now, so no signal.
+        killer.kill().expect("no-op once reaped");
     }
 
     #[test]

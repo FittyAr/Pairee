@@ -48,14 +48,7 @@ pub fn commit(part: &Path, dst: &Path, trash_old: bool) -> io::Result<Replaced> 
     let mut replaced = Replaced::Nothing;
     if let Ok(meta) = std::fs::symlink_metadata(dst) {
         if meta.is_dir() {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                crate::config::localization::t("transfer_folder_in_the_way").replacen(
-                    "{}",
-                    &dst.to_string_lossy(),
-                    1,
-                ),
-            ));
+            return Err(folder_in_the_way(dst));
         }
         replaced = Replaced::Overwritten;
         if trash_old && trash::delete(dst).is_ok() {
@@ -66,6 +59,19 @@ pub fn commit(part: &Path, dst: &Path, trash_old: bool) -> io::Result<Replaced> 
     }
     std::fs::rename(part, dst)?;
     Ok(replaced)
+}
+
+/// The error of a copy whose destination is a folder: a file never
+/// replaces one (some servers would delete the whole folder to do it).
+pub fn folder_in_the_way(dst: &Path) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        crate::config::localization::t("transfer_folder_in_the_way").replacen(
+            "{}",
+            &dst.to_string_lossy(),
+            1,
+        ),
+    )
 }
 
 /// Windows refuses to rename over a read-only file (clear the flag first)

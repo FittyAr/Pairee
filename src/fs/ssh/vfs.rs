@@ -7,7 +7,7 @@ use crate::fs::FileEntry;
 use crate::fs::attrs::{AttrChange, FileAttrs};
 use crate::fs::file_id::FileIdentity;
 use crate::fs::list::ListOptions;
-use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, panel_listing};
+use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name, panel_listing};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::SystemTime;
@@ -51,8 +51,15 @@ impl Vfs for SharedSshClient {
 
     fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
         let items = self.lock().sftp.readdir(dir).map_err(io_err)?;
+        // The path is the folder joined with the name the server sent: only
+        // plain names (no `..`, no `\` on Windows) stay inside the folder.
+        let plain = |path: &Path| {
+            path.strip_prefix(dir)
+                .is_ok_and(|rel| is_plain_name(&rel.to_string_lossy()))
+        };
         Ok(items
             .into_iter()
+            .filter(|(path, _)| plain(path))
             .filter_map(|(path, stat)| sftp_entry(path, &stat))
             .collect())
     }

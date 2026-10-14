@@ -50,7 +50,9 @@ pub fn spawn<T: Send + 'static>(
     runtime().spawn(future)
 }
 
-/// An HTTP error as an I/O error.
+/// An HTTP error as an I/O error, without its URL: S3 URLs are signed and
+/// carry the access key and signature in their query, which error
+/// messages and logs must not show.
 pub fn io_error(e: reqwest::Error) -> io::Error {
     let kind = if e.is_timeout() {
         io::ErrorKind::TimedOut
@@ -59,7 +61,7 @@ pub fn io_error(e: reqwest::Error) -> io::Error {
     } else {
         io::ErrorKind::Other
     };
-    io::Error::new(kind, e)
+    io::Error::new(kind, e.without_url())
 }
 
 /// The I/O error of a response with a failure `status`.
@@ -93,6 +95,21 @@ pub fn send(request: reqwest::RequestBuilder, what: &str) -> io::Result<reqwest:
 /// The body of `response` as text.
 pub fn text(response: reqwest::Response) -> io::Result<String> {
     block_on(async move { response.text().await.map_err(io_error) })
+}
+
+/// The body of a `GET` sent with `Range: bytes=<offset>-`, from `offset`:
+/// a server that ignores the range sends everything, and the first
+/// `offset` bytes are skipped here (never written twice).
+pub fn body_from(response: reqwest::Response, offset: u64) -> io::Result<BodyReader> {
+    let partial = response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
+    let mut reader = BodyReader::new(response);
+    if offset > 0 && !partial {
+        let skipped = io::copy(&mut (&mut reader).take(offset), &mut io::sink())?;
+        if skipped < offset {
+            return Err(io::Error::from(io::ErrorKind::UnexpectedEof));
+        }
+    }
+    Ok(reader)
 }
 
 /// A response body read as a stream, one network chunk at a time.
@@ -237,5 +254,24 @@ impl Drop for Upload {
                 response.abort();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A failed request never shows its (signed) URL.
+    #[test]
+    fn errors_leave_the_url_out() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let url = format!("http://127.0.0.1:{port}/k?X-Amz-Signature=s3cret");
+        let client = crate::update::http::builder().build().unwrap();
+        let err = block_on(async move { client.get(url).send().await.map(drop) }).unwrap_err();
+        let error = io_error(err);
+        let message = format!("{error} {error:?}");
+        assert!(!message.contains("s3cret"), "{message}");
     }
 }

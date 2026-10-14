@@ -10,7 +10,7 @@ use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier},
+    style::Modifier,
     widgets::Paragraph,
 };
 
@@ -42,8 +42,8 @@ pub fn render_name_prompt(f: &mut Frame, prompt: &Prompt, theme: &ResolvedTheme,
     let inner = kit::frame_in(
         f,
         centered_rect_in(60, 25, size),
-        kit::accent_title(format!(" {} ", title), Color::Cyan),
-        kit::fg(Color::Cyan),
+        kit::accent_title(format!(" {} ", title), theme.ui.accent),
+        kit::fg(theme.ui.accent),
         theme,
     );
     let chunks = Layout::default()
@@ -89,8 +89,8 @@ pub fn render_field_pair(
     let inner = kit::frame_in(
         f,
         centered_rect_in(65, 38, size),
-        kit::accent_title(texts.title, Color::Cyan),
-        kit::fg(Color::Cyan),
+        kit::accent_title(texts.title, theme.ui.accent),
+        kit::fg(theme.ui.accent),
         theme,
     );
     let chunks = Layout::default()
@@ -112,5 +112,5 @@ pub fn render_field_pair(
         kit::mouse::FormFocus::new(crate::app::form::FormLayout::new(2, 2), pair.focus)
             .field(area, i, field);
     }
-    f.render_widget(kit::hint(texts.hint), chunks[5]);
+    f.render_widget(kit::hint(texts.hint, theme), chunks[5]);
 }

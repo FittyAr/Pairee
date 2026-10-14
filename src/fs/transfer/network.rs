@@ -50,17 +50,26 @@ pub fn is_lan_path(path: &Path) -> bool {
 /// point in `/proc/mounts`); `None` where that file does not exist.
 #[cfg(not(target_os = "windows"))]
 pub fn mount_fs_type(path: &Path) -> Option<String> {
+    mount_of(path).map(|(_, fs_type)| fs_type)
+}
+
+/// The device and file system type of the mount `path` lies on (the
+/// longest mount point that contains it, from `/proc/mounts`).
+#[cfg(not(target_os = "windows"))]
+pub fn mount_of(path: &Path) -> Option<(String, String)> {
     let mounts = std::fs::read_to_string("/proc/mounts").ok()?;
     mounts
         .lines()
         .filter_map(|line| {
             let mut parts = line.split_whitespace();
-            let (_, mount_point, fs_type) = (parts.next()?, parts.next()?, parts.next()?);
-            path.starts_with(mount_point)
-                .then(|| (mount_point.len(), fs_type.to_string()))
+            let (device, mount_point, fs_type) = (parts.next()?, parts.next()?, parts.next()?);
+            path.starts_with(mount_point).then(|| {
+                let found = (device.to_string(), fs_type.to_string());
+                (mount_point.len(), found)
+            })
         })
         .max_by_key(|(len, _)| *len)
-        .map(|(_, fs_type)| fs_type)
+        .map(|(_, found)| found)
 }
 
 /// Free bytes available to the user on the volume holding `path` (the

@@ -12,7 +12,13 @@ pub enum PostAction {
 }
 
 /// Ejecuta la acción post-procesamiento correspondiente de manera multiplataforma.
-pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
+/// Runs `action` once the queue is done. An [`PostAction::EjectDrive`]
+/// without a drive ejects the one `destination` (where the last job wrote)
+/// lies on; when that cannot be told nothing is ejected.
+pub fn execute_post_action(
+    action: PostAction,
+    destination: Option<&std::path::Path>,
+) -> Result<(), std::io::Error> {
     match action {
         PostAction::None => Ok(()),
         PostAction::Shutdown => {
@@ -63,32 +69,24 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             Ok(())
         }
         PostAction::EjectDrive(drive) => {
+            // Never a guessed default (it used to be `D:` or `/dev/sdb`,
+            // whatever the transfer wrote to).
+            let drive = Some(drive)
+                .filter(|d| !d.is_empty())
+                .or_else(|| destination.and_then(drive_of))
+                .filter(|d| is_ejectable_name(d))
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "no drive to eject for this transfer",
+                    )
+                })?;
             #[cfg(target_os = "windows")]
-            {
-                // Drive letter is validated to be exactly `X:` (one ASCII
-                // letter + colon). Even so, we avoid string-interpolating
-                // the letter into a PowerShell `-Command` source string by
-                // shipping a static `.ps1` and passing the letter as a
-                // typed parameter. Defence in depth: a future validation
-                // regression (or a non-Windows PowerShell dialect) cannot
-                // turn the drive letter into a code-injection vector.
-                let is_valid = drive.len() == 2
-                    && drive
-                        .chars()
-                        .next()
-                        .map(|c| c.is_ascii_alphabetic())
-                        .unwrap_or(false)
-                    && drive.chars().nth(1) == Some(':');
-                let drive_letter = if is_valid { drive } else { "D:".to_string() };
-                eject_windows_drive(&drive_letter)?;
-            }
+            eject_windows_drive(&drive)?;
             #[cfg(not(target_os = "windows"))]
-            {
-                let dev = if drive.is_empty() { "/dev/sdb" } else { &drive };
-                Command::new("udisksctl")
-                    .args(["power-off", "-b", dev])
-                    .spawn()?;
-            }
+            Command::new("udisksctl")
+                .args(["power-off", "-b", &drive])
+                .spawn()?;
             Ok(())
         }
         PostAction::RunScript(path) => {
@@ -97,10 +95,9 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             }
             Ok(())
         }
-        PostAction::CloseApp => {
-            // Cerramos de forma limpia indicando salida exitosa
-            std::process::exit(0);
-        }
+        // The app quits through its event loop (terminal restored, session
+        // saved); exiting the process here would skip all of that.
+        PostAction::CloseApp => Ok(()),
     }
 }
 
@@ -109,27 +106,82 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
 /// The script body never sees the drive letter as source, so a
 /// regression in the caller-side validation cannot turn it into a code
 /// injection vector.
+/// The drive `path` lies on: its letter (`X:`) on Windows, the block
+/// device of its mount elsewhere.
+fn drive_of(path: &std::path::Path) -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        match path.components().next()? {
+            std::path::Component::Prefix(prefix) => match prefix.kind() {
+                std::path::Prefix::Disk(letter) | std::path::Prefix::VerbatimDisk(letter) => {
+                    Some(format!("{}:", char::from(letter)))
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        super::network::mount_of(path).map(|(device, _)| device)
+    }
+}
+
+/// A drive name that is safe to hand to the eject command: exactly `X:` on
+/// Windows (it reaches PowerShell, see [`eject_windows_drive`]), a device
+/// below `/dev/` elsewhere.
+fn is_ejectable_name(drive: &str) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        let bytes = drive.as_bytes();
+        bytes.len() == 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        drive.starts_with("/dev/") && !drive.contains("..")
+    }
+}
+
+/// The drive letter is checked by [`is_ejectable_name`]; it also reaches
+/// PowerShell as a quoted literal, never as code.
 #[cfg(target_os = "windows")]
 fn eject_windows_drive(drive_letter: &str) -> Result<(), std::io::Error> {
-    use std::io::Write;
+    crate::fs::privileges::powershell(
+        "$ErrorActionPreference = 'Stop'; (New-Object -ComObject Shell.Application).Namespace(17).ParseName($v0).InvokeVerb('Eject')",
+        &[std::ffi::OsStr::new(drive_letter)],
+    )
+    .map_err(std::io::Error::other)?
+    .spawn()?;
+    Ok(())
+}
 
-    let script_dir = std::env::temp_dir().join("pairee-eject");
-    std::fs::create_dir_all(&script_dir)?;
-    let script_path = script_dir.join("EjectDrive.ps1");
-    let script_body = "param(\r\n    [Parameter(Mandatory = $true)]\r\n    [string] $Drive\r\n)\r\n$ErrorActionPreference = 'Stop'\r\n(New-Object -ComObject Shell.Application).Namespace(17).ParseName($Drive).InvokeVerb('Eject')\r\n";
-    if !script_path.exists() {
-        let mut f = std::fs::File::create(&script_path)?;
-        f.write_all(script_body.as_bytes())?;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Without a drive and a destination to tell it from, nothing is
+    /// ejected (it used to power off `/dev/sdb` or eject `D:`).
+    #[test]
+    fn eject_without_a_known_drive_does_nothing() {
+        let result = execute_post_action(PostAction::EjectDrive(String::new()), None);
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidInput);
     }
 
-    Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-ExecutionPolicy")
-        .arg("Bypass")
-        .arg("-File")
-        .arg(&script_path)
-        .arg("-Drive")
-        .arg(drive_letter)
-        .spawn()?;
-    Ok(())
+    #[test]
+    fn only_plain_drive_names_are_ejected() {
+        #[cfg(target_os = "windows")]
+        {
+            assert!(is_ejectable_name("E:"));
+            assert!(!is_ejectable_name("E:; rm"));
+            assert_eq!(
+                drive_of(std::path::Path::new(r"F:\backup\a.txt")).as_deref(),
+                Some("F:")
+            );
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            assert!(is_ejectable_name("/dev/sdc1"));
+            assert!(!is_ejectable_name("tmpfs"));
+        }
+    }
 }

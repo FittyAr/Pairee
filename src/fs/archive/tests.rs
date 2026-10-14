@@ -154,3 +154,18 @@ fn bzip2_and_xz_tars_list_and_extract() {
         assert_eq!(snapshot(&out), expected(SAMPLE_TREE, None), "{name}");
     }
 }
+
+/// A tar updated with `tar -u` holds several entries of one name; the
+/// last is the file, for listings, reads and extraction alike.
+#[test]
+fn the_last_of_duplicate_tar_entries_wins() {
+    use crate::fs::vfs::Vfs;
+    let dir = tempfile::tempdir().unwrap();
+    let archive = dir.path().join("u.tar");
+    super::test_fixtures::write_tar(&archive, &[("a.txt", b"old"), ("a.txt", b"newer")]);
+    let vfs = ArchiveVfs::open(archive.clone()).unwrap();
+    let entry = archive.join("a.txt");
+    assert_eq!(vfs.stat(&entry).unwrap().size, 5);
+    assert_eq!(vfs.read_prefix(&entry, 64).unwrap(), b"newer");
+    assert_eq!(extract_all(&archive)["a.txt"], b"newer");
+}

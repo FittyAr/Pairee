@@ -7,7 +7,7 @@ use crate::ui::text_width::pad_to_width;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -21,8 +21,8 @@ pub fn render_remote_manage(
     let inner = kit::frame_in(
         f,
         centered_rect_in(70, 60, size),
-        kit::accent_title(t("git_remote_manage_title"), Color::Cyan),
-        kit::fg(Color::Cyan),
+        kit::accent_title(t("git_remote_manage_title"), theme.ui.accent),
+        kit::fg(theme.ui.accent),
         theme,
     );
 
@@ -35,7 +35,7 @@ pub fn render_remote_manage(
         .split(inner);
 
     if state.remotes.is_empty() {
-        f.render_widget(kit::hint(t("git_remote_no_remotes")), chunks[0]);
+        f.render_widget(kit::hint(t("git_remote_no_remotes"), theme), chunks[0]);
     } else {
         let start = crate::ui::scrollbar::centered_scroll(
             state.selected_idx,
@@ -55,7 +55,7 @@ pub fn render_remote_manage(
                     Span::styled(
                         format!(" {} ", pad_to_width(&remote.name, 16)),
                         Style::default()
-                            .fg(Color::Yellow)
+                            .fg(theme.ui.warning)
                             .bg(bg)
                             .add_modifier(Modifier::BOLD),
                     ),
@@ -72,5 +72,5 @@ pub fn render_remote_manage(
         );
     }
 
-    f.render_widget(kit::hint(t("git_remote_manage_hint")), chunks[1]);
+    f.render_widget(kit::hint(t("git_remote_manage_hint"), theme), chunks[1]);
 }

@@ -81,13 +81,30 @@ impl ArchiveReader for ZipReader {
 /// Packs `sources` (files, and folders with everything below them; links
 /// are stored as what they point to, links to folders as empty folders)
 /// into the new archive `dest_archive`. An unreadable file or folder fails
-/// the compression instead of leaving it out.
+/// the compression instead of leaving it out. An existing `dest_archive` is
+/// never replaced, and the archive is written to a temporary file that only
+/// takes its name once complete: a failure or a cancellation leaves nothing.
 pub fn compress_zip(
     sources: Vec<PathBuf>,
     dest_archive: &Path,
     report: &mut ArchiveReport,
 ) -> Result<()> {
-    let mut zip = zip::ZipWriter::new(fs::File::create(dest_archive)?);
+    if fs::symlink_metadata(dest_archive).is_ok() {
+        anyhow::bail!("{} already exists", dest_archive.display());
+    }
+    crate::fs::transfer::part::write_atomically(
+        dest_archive,
+        |part| write_zip(&sources, part, report).map_err(io::Error::other),
+        |from, to| fs::rename(from, to),
+        crate::fs::transfer::part::discard,
+    )
+    .map_err(Into::into)
+}
+
+/// Writes the zip of `sources` to `out` (see [`compress_zip`]); the file
+/// `out` itself is never packed.
+fn write_zip(sources: &[PathBuf], out: &Path, report: &mut ArchiveReport) -> Result<()> {
+    let mut zip = zip::ZipWriter::new(fs::File::create(out)?);
     let total_files = sources.len();
     let mut added = 0usize;
     let mut add_file = |zip: &mut zip::ZipWriter<fs::File>,
@@ -108,13 +125,17 @@ pub fn compress_zip(
         report.ensure_running()?;
         let top = src.file_name().unwrap_or_default().to_os_string();
         if !src.is_dir() {
-            add_file(&mut zip, report, &src, top.to_string_lossy().into_owned())?;
+            add_file(&mut zip, report, src, top.to_string_lossy().into_owned())?;
             continue;
         }
         zip.add_directory(zip_entry_name(&top, Path::new("")), file_options(0))?;
-        for item in Walker::new(&LocalVfs, &src, WalkOptions::default()).with_cancel(&cancelled) {
+        for item in Walker::new(&LocalVfs, src, WalkOptions::default()).with_cancel(&cancelled) {
             let item = item?;
-            let rel = item.path().strip_prefix(&src).unwrap_or(item.path());
+            if item.path() == out {
+                // The archive being written lies inside a packed folder.
+                continue;
+            }
+            let rel = item.path().strip_prefix(src).unwrap_or(item.path());
             let name = zip_entry_name(&top, rel);
             if item.entry.is_dir {
                 zip.add_directory(name, file_options(0))?;
@@ -124,6 +145,7 @@ pub fn compress_zip(
         }
     }
     zip.finish()?;
+    report.ensure_running()?;
     Ok(())
 }
 
@@ -158,6 +180,47 @@ mod tests {
             fs::read(dest.join("sub").join("new.txt")).unwrap(),
             b"hello"
         );
+    }
+
+    #[test]
+    fn compress_never_replaces_an_existing_archive() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("a.txt");
+        fs::write(&src, b"data").unwrap();
+        let dest = dir.path().join("a.zip");
+        fs::write(&dest, b"precious").unwrap();
+
+        let result = compress_zip(vec![src], &dest, &mut ArchiveReport::detached(false));
+        assert!(result.is_err());
+        assert_eq!(fs::read(&dest).unwrap(), b"precious");
+    }
+
+    #[test]
+    fn cancelled_compress_leaves_no_archive() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("folder");
+        fs::create_dir(&folder).unwrap();
+        fs::write(folder.join("a.txt"), b"data").unwrap();
+        let dest = dir.path().join("out.zip");
+
+        let result = compress_zip(vec![folder], &dest, &mut ArchiveReport::detached(true));
+        assert!(result.is_err());
+        assert!(!dest.exists());
+        assert!(!crate::fs::transfer::part::part_path(&dest).exists());
+    }
+
+    #[test]
+    fn compress_into_the_packed_folder_skips_itself() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("folder");
+        fs::create_dir(&folder).unwrap();
+        fs::write(folder.join("a.txt"), b"data").unwrap();
+        let dest = folder.join("self.zip");
+
+        compress_zip(vec![folder], &dest, &mut ArchiveReport::detached(false)).unwrap();
+        let names = crate::fs::archive::list_archive_files(&dest).unwrap();
+        assert!(names.iter().all(|n| !n.contains("self.zip")), "{names:?}");
+        assert!(names.iter().any(|n| n == "folder/a.txt"), "{names:?}");
     }
 
     #[test]

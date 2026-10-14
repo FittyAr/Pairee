@@ -195,6 +195,16 @@ pub fn removes_trees(f: &Fixture) {
     assert_eq!(names(&f.vfs.list(&f.root).unwrap()), [".hidden"]);
 }
 
+/// `remove_dir` never takes the contents of a folder with it (a move
+/// relies on it to keep the files it skipped).
+pub fn keeps_folders_that_are_not_empty(f: &Fixture) {
+    let _ = f.vfs.remove_dir(&f.root.join("sub"));
+    assert_eq!(
+        read_all(f.vfs.as_ref(), &f.root.join("sub").join("b.txt")),
+        b"bravo"
+    );
+}
+
 pub fn renames_entries(f: &Fixture) {
     let to = f.root.join("z.txt");
     let result = f.vfs.rename(&f.root.join("a.txt"), &to);
@@ -266,6 +276,10 @@ macro_rules! vfs_contract {
             #[test]
             fn removes_trees() {
                 c::removes_trees(&$fixture());
+            }
+            #[test]
+            fn keeps_folders_that_are_not_empty() {
+                c::keeps_folders_that_are_not_empty(&$fixture());
             }
             #[test]
             fn renames_entries() {

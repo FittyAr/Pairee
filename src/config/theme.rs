@@ -23,6 +23,73 @@ pub struct Theme {
     /// theme files without it get the default ones).
     #[serde(default)]
     pub syntax: SyntaxColors,
+    /// Semantic colors of dialogs, progress bars and status labels (`[ui]`;
+    /// theme files without it get the default ones).
+    #[serde(default)]
+    pub ui: UiColors,
+}
+
+/// Semantic colors shared by dialogs, status labels and progress bars.
+/// The same defaults serve every built-in theme.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UiColors {
+    /// Borders and titles of informational dialogs, progress bars, bullets.
+    pub accent: String,
+    /// Second accent: the application name, copies to the left panel.
+    pub accent_alt: String,
+    /// Borders of confirmations, key hints, hotkeys, labels to notice.
+    pub warning: String,
+    /// Second warning tone: entries found only in the right folder.
+    pub warning_alt: String,
+    /// Destructive dialogs, deleted entries, cancelled jobs.
+    pub danger: String,
+    /// Error messages, conflicts, failed jobs.
+    pub error: String,
+    /// Confirmed actions, added entries, running jobs.
+    pub success: String,
+    /// Completed jobs, entries found only in the left folder, names.
+    pub success_alt: String,
+    /// Dim text (hints, separators, inactive items); background of the menu
+    /// bar and of the key labels.
+    pub muted: String,
+    /// Secondary text: details, logs, queued jobs.
+    pub secondary: String,
+    /// Folders in lists, verifying jobs.
+    pub info: String,
+    /// Links, the menu row whose submenu is open.
+    pub link: String,
+    /// Untracked files, code in help pages.
+    pub special: String,
+    /// Strong text and text on danger labels.
+    pub strong: String,
+    /// Text on accent, warning and success labels.
+    pub badge_fg: String,
+    /// Background of alerts over the transfer panel (file conflicts).
+    pub alert_bg: String,
+}
+
+impl Default for UiColors {
+    fn default() -> Self {
+        Self {
+            accent: "Cyan".into(),
+            accent_alt: "LightCyan".into(),
+            warning: "Yellow".into(),
+            warning_alt: "LightYellow".into(),
+            danger: "Red".into(),
+            error: "LightRed".into(),
+            success: "Green".into(),
+            success_alt: "LightGreen".into(),
+            muted: "DarkGray".into(),
+            secondary: "Gray".into(),
+            info: "LightBlue".into(),
+            link: "Blue".into(),
+            special: "Magenta".into(),
+            strong: "White".into(),
+            badge_fg: "Black".into(),
+            alert_bg: "Black".into(),
+        }
+    }
 }
 
 /// Colors of the token classes of syntax highlighting.
@@ -94,6 +161,7 @@ impl Default for Theme {
             popup_fg: "White".to_string(),
             popup_border: "DarkGray".to_string(),
             syntax: SyntaxColors::default(),
+            ui: UiColors::default(),
         }
     }
 }
@@ -123,6 +191,7 @@ impl Theme {
                 "#00AAAA", "#55FF55", "#FFFFFF", "#FF55FF", "#FFFF55", "#55FFFF", "#FFFFFF",
                 "#FF5555",
             ]),
+            ui: UiColors::default(),
         }
     }
 }
@@ -137,7 +206,7 @@ pub struct ColorProp {
 /// Builds [`COLOR_PROPS`] from the field list, so the order and the
 /// accessors cannot drift apart.
 macro_rules! color_props {
-    ([$($field:ident),* $(,)?] [$($syntax:ident),* $(,)?]) => {
+    ([$($field:ident),* $(,)?] [$($syntax:ident),* $(,)?] [$($ui:ident),* $(,)?]) => {
         /// Theme colors in the order the "Color groups" dialog lists them.
         pub const COLOR_PROPS: &[ColorProp] = &[$(ColorProp {
             name: stringify!($field),
@@ -147,12 +216,16 @@ macro_rules! color_props {
             name: concat!("syntax_", stringify!($syntax)),
             get: |t| &t.syntax.$syntax,
             get_mut: |t| &mut t.syntax.$syntax,
+        },)* $(ColorProp {
+            name: concat!("ui_", stringify!($ui)),
+            get: |t| &t.ui.$ui,
+            get_mut: |t| &mut t.ui.$ui,
         },)*];
     };
 }
 
 /// Calls `$callback!` with every theme color field in dialog order, then
-/// every [`SyntaxColors`] field: the one list [`COLOR_PROPS`] and the UI's
+/// every [`SyntaxColors`] field, then every [`UiColors`] field: the one list [`COLOR_PROPS`] and the UI's
 /// resolved theme are both built from.
 #[macro_export]
 macro_rules! with_theme_colors {
@@ -175,6 +248,8 @@ macro_rules! with_theme_colors {
             popup_fg,
             popup_border,]
             [comment, string, keyword, constant, function, type_name, operator, tag]
+            [accent, accent_alt, warning, warning_alt, danger, error, success, success_alt,
+            muted, secondary, info, link, special, strong, badge_fg, alert_bg]
         );
     };
 }
@@ -222,7 +297,10 @@ mod tests {
     #[test]
     fn color_props_cover_fields_in_order() {
         let mut theme = Theme::default();
-        assert_eq!(COLOR_PROPS.len(), 24);
+        assert_eq!(COLOR_PROPS.len(), 40);
+        assert_eq!(COLOR_PROPS[24].name, "ui_accent");
+        *(COLOR_PROPS[39].get_mut)(&mut theme) = "Red".into();
+        assert_eq!(theme.ui.alert_bg, "Red");
         assert_eq!(COLOR_PROPS[16].name, "syntax_comment");
         *(COLOR_PROPS[23].get_mut)(&mut theme) = "Blue".into();
         assert_eq!(theme.syntax.tag, "Blue");
@@ -236,9 +314,16 @@ mod tests {
     fn theme_files_without_syntax_colors_still_load() {
         let mut table = toml::Table::try_from(Theme::classic_blue()).unwrap();
         table.remove("syntax");
+        table.remove("ui");
         let theme: Theme = toml::from_str(&table.to_string()).unwrap();
         assert_eq!(theme.panel_bg, "#0000AA");
         assert_eq!(theme.syntax, SyntaxColors::default());
+        assert_eq!(theme.ui, UiColors::default());
+        let partial: UiColors = toml::from_str("accent = \"Red\"").unwrap();
+        assert_eq!(
+            (partial.accent.as_str(), partial.muted.as_str()),
+            ("Red", "DarkGray")
+        );
         let partial: SyntaxColors = toml::from_str("comment = \"Red\"").unwrap();
         assert_eq!(
             (partial.comment.as_str(), partial.string.as_str()),

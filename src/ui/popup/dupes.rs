@@ -10,11 +10,12 @@ use crate::ui::panel::helpers::{format_date, format_file_size};
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{self, FocusStyles, ListPopup, Scroll, mouse::FormFocus};
 use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
+    style::{Modifier, Style},
+    text::Line,
     widgets::Paragraph,
 };
 
@@ -81,9 +82,9 @@ impl DialogView for DuplicatesView {
         ListPopup {
             area: centered_rect_in(85, 85, cx.area),
             title: t("dupes_title"),
-            border: Color::Cyan,
+            border: cx.theme.ui.accent,
             empty: Some(empty_text(dupes)),
-            header: header(dupes),
+            header: header(dupes, cx.theme),
             rows,
             cursor: cursor_row,
             scroll: Scroll::HalfPage,
@@ -97,8 +98,9 @@ impl DialogView for DuplicatesView {
 /// Group headings and file rows, with each row's file index (`None` for
 /// headings).
 fn rows(dupes: &DupesState, cx: &ViewCtx<'_>) -> (Vec<(String, Style)>, Vec<Option<usize>>) {
+    let theme = cx.theme;
     let heading = Style::default()
-        .fg(Color::Yellow)
+        .fg(theme.ui.warning)
         .add_modifier(Modifier::BOLD);
     let (mut rows, mut items) = (Vec::new(), Vec::new());
     let mut index = 0;
@@ -112,7 +114,7 @@ fn rows(dupes: &DupesState, cx: &ViewCtx<'_>) -> (Vec<(String, Style)>, Vec<Opti
         for file in &group.files {
             let marked = dupes.is_marked(file);
             let style = if marked {
-                Style::default().fg(Color::LightRed)
+                Style::default().fg(theme.ui.error)
             } else {
                 cx.theme.popup_fg()
             };
@@ -131,7 +133,7 @@ fn rows(dupes: &DupesState, cx: &ViewCtx<'_>) -> (Vec<(String, Style)>, Vec<Opti
 }
 
 /// Totals (or search progress) and the "incomplete" note.
-fn header(dupes: &DupesState) -> Vec<Line<'static>> {
+fn header(dupes: &DupesState, theme: &ResolvedTheme) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     if dupes.is_scanning() {
         lines.push(Line::from(progress_text(dupes.progress())));
@@ -143,16 +145,8 @@ fn header(dupes: &DupesState) -> Vec<Line<'static>> {
             .replace("{wasted}", &format_file_size(wasted))
             .replace("{marked}", &dupes.marked().len().to_string())
             .replace("{marked_size}", &format_file_size(dupes.marked_bytes()));
-        lines.push(Line::from(Span::styled(
-            format!(" {totals}"),
-            Style::default().fg(Color::Yellow),
-        )));
-        if report.partial {
-            lines.push(Line::from(Span::styled(
-                format!(" {}", t("dupes_partial_note")),
-                Style::default().fg(Color::LightRed),
-            )));
-        }
+        let partial = report.partial.then_some("dupes_partial_note");
+        lines.extend(kit::summary_lines(&totals, partial, theme));
     }
     lines.push(Line::from(""));
     lines

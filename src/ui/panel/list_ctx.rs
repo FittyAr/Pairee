@@ -6,11 +6,12 @@ use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, PanelState};
 use crate::app::text_filter::TextFilter;
 use crate::fs::FileEntry;
+use crate::git::status::StatusKind;
 use crate::ui::highlight::Highlighter;
 use crate::ui::hit::{self, HitTarget};
 use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use std::sync::Arc;
 
 pub(crate) struct ListCtx<'a> {
@@ -85,32 +86,23 @@ impl ListCtx<'_> {
         };
         if !is_selected
             && (!is_cursor || !self.is_active)
-            && let Some(color) = self.git_status(entry).and_then(git_status_color)
+            && let Some(color) = self
+                .git_status(entry)
+                .and_then(StatusKind::from_label)
+                .map(|kind| theme.git_status(&kind))
         {
             style = style.fg(color);
         }
         if self.is_dimmed(entry) {
-            style = style.fg(Color::DarkGray);
+            style = style.fg(theme.ui.muted);
         }
         if is_selected {
             style = style.fg(theme.marked_fg);
         }
         match (is_cursor, self.is_active) {
             (true, true) => style.patch(theme.selection()).add_modifier(Modifier::BOLD),
-            (true, false) => style.bg(Color::DarkGray),
+            (true, false) => style.bg(theme.ui.muted),
             _ => style,
         }
     }
-}
-
-/// Foreground for a Git status letter.
-fn git_status_color(status: &str) -> Option<Color> {
-    Some(match status {
-        "M" => Color::Yellow,
-        "A" => Color::Green,
-        "?" => Color::Magenta,
-        "D" => Color::Red,
-        "!" => Color::LightRed,
-        _ => return None,
-    })
 }

@@ -3,7 +3,7 @@ use crate::app::state::popup::CreateLinkPrompt;
 use crate::config::localization::t;
 use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{Frame, style::Color};
+use ratatui::Frame;
 
 impl DialogView for CreateLinkPrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
@@ -21,7 +21,7 @@ impl DialogView for CreateLinkPrompt {
         kit::PromptBox {
             size: (60, 9),
             title,
-            border: kit::fg(Color::Yellow),
+            border: kit::fg(theme.ui.warning),
             template: &template,
             field: dest_input,
         }

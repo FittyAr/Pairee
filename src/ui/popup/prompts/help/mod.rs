@@ -96,7 +96,7 @@ fn render(
     f.render_widget(
         Paragraph::new(hint_text)
             .alignment(ratatui::layout::Alignment::Center)
-            .style(Style::default().fg(Color::DarkGray)),
+            .style(Style::default().fg(theme.ui.muted)),
         hint_area,
     );
 }
@@ -104,7 +104,7 @@ fn render(
 /// Yellow border on the focused pane, the theme border otherwise.
 fn focus_color(focused: bool, theme: &ResolvedTheme) -> Color {
     if focused {
-        Color::Yellow
+        theme.ui.warning
     } else {
         theme.popup_border
     }
@@ -131,11 +131,11 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &ResolvedTheme, list: 
         ])
         .split(left_area);
 
-    let dim = Style::default().fg(Color::DarkGray);
+    let dim = Style::default().fg(theme.ui.muted);
     let tab_style = |idx: usize| {
         if list.active_tab == idx {
             Style::default()
-                .fg(Color::Yellow)
+                .fg(theme.ui.warning)
                 .add_modifier(ratatui::style::Modifier::BOLD)
         } else {
             dim
@@ -242,7 +242,7 @@ fn render_content(
     scroll_y: usize,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
-    let parsed_lines = parse_markdown_to_lines(content);
+    let parsed_lines = parse_markdown_to_lines(content, theme);
     let inner_width = (right_area.width.saturating_sub(4)) as usize;
     let wrapped_lines = wrap_lines(parsed_lines, inner_width);
     let inner = right_block.inner(right_area);

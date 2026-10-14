@@ -16,3 +16,10 @@ pub mod x11_poll;
 
 pub use backend::TerminalBackend;
 pub use events::{Event, EventHandler};
+
+/// Pairee saved what it keeps and restored the terminal: on Windows, a
+/// console close, logoff or shutdown held until now may end the process.
+pub fn cleanup_finished() {
+    #[cfg(windows)]
+    signals_windows::cleanup_finished();
+}

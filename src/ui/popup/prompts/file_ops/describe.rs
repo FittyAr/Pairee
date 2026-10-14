@@ -2,7 +2,7 @@ use crate::app::state::popup::DescribeFilePrompt;
 use crate::config::localization::t;
 use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{Frame, style::Color};
+use ratatui::Frame;
 
 impl DialogView for DescribeFilePrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
@@ -18,7 +18,7 @@ impl DialogView for DescribeFilePrompt {
         kit::PromptBox {
             size: (60, 10),
             title: t("prompt_description_title"),
-            border: kit::fg(Color::Cyan),
+            border: kit::fg(theme.ui.accent),
             template: &template,
             field: input,
         }

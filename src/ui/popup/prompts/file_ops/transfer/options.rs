@@ -1,12 +1,7 @@
 use crate::app::state::CopyMovePromptState as Prompt;
 use crate::config::localization::t;
 use crate::ui::popup::kit::{self, FocusStyles};
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Style},
-    widgets::Paragraph,
-};
+use ratatui::{Frame, layout::Rect, style::Style, widgets::Paragraph};
 
 const EXISTING_KEYS: [&str; Prompt::EXISTING_CHOICES] =
     ["opt_ask", "opt_overwrite", "opt_skip", "opt_append"];
@@ -21,11 +16,11 @@ pub fn render_options(
     chunks: &[Rect],
     prompt: &Prompt,
     styles: FocusStyles,
-    width: u16,
+    (width, theme): (u16, &crate::ui::resolved_theme::ResolvedTheme),
 ) {
     let focus = prompt.cursor_idx;
     let form = kit::mouse::FormFocus::new(Prompt::FORM, focus);
-    let sep = Style::default().fg(Color::Yellow);
+    let sep = Style::default().fg(theme.ui.warning);
     for chunk in [1, 10, 12] {
         f.render_widget(kit::separator(width, sep), chunks[chunk]);
     }

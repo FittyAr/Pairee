@@ -4,7 +4,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     widgets::Paragraph,
 };
 
@@ -27,7 +27,7 @@ impl DialogView for ConfirmDelete {
             size,
             (50, 8),
             title,
-            crate::ui::popup::kit::fg(Color::Red),
+            crate::ui::popup::kit::fg(theme.ui.danger),
             theme,
         );
 

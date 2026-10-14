@@ -9,7 +9,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Style},
+    style::Style,
     widgets::{Paragraph, Wrap},
 };
 
@@ -84,14 +84,14 @@ impl DialogView for PluginSettingsDialog {
         if let Some(row) = self.rows.get(self.focus) {
             f.render_widget(
                 Paragraph::new(help_text(row))
-                    .style(kit::fg(Color::DarkGray))
+                    .style(kit::fg(theme.ui.muted))
                     .wrap(Wrap { trim: true }),
                 line(below, 2),
             );
         }
         if let Some((_, message)) = &self.error {
             f.render_widget(
-                Paragraph::new(message.as_str()).style(Style::default().fg(Color::Red)),
+                Paragraph::new(message.as_str()).style(Style::default().fg(theme.ui.danger)),
                 line(below + 2, 1),
             );
         }
@@ -106,7 +106,10 @@ impl DialogView for PluginSettingsDialog {
             FormFocus::new(self.layout(), self.focus),
             styles,
         );
-        f.render_widget(kit::hint(t("plugin_settings_hint")), line(below + 4, 1));
+        f.render_widget(
+            kit::hint(t("plugin_settings_hint"), theme),
+            line(below + 4, 1),
+        );
     }
 }
 

@@ -15,7 +15,7 @@ use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -68,7 +68,7 @@ impl DialogView for GitPanelState {
         f.render_widget(
             crate::ui::popup::kit::separator(
                 inner.width,
-                crate::ui::popup::kit::fg(Color::DarkGray),
+                crate::ui::popup::kit::fg(theme.ui.muted),
             ),
             chunks[1],
         );
@@ -76,7 +76,7 @@ impl DialogView for GitPanelState {
         f.render_widget(
             Paragraph::new(Span::styled(
                 t(tab_keys(panel.active_tab).2),
-                Style::default().fg(Color::Yellow),
+                Style::default().fg(theme.ui.warning),
             )),
             chunks[3],
         );
@@ -105,11 +105,11 @@ fn frame_block(
     }
     Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(theme.ui.accent))
         .title(Span::styled(
             title,
             Style::default()
-                .fg(Color::Cyan)
+                .fg(theme.ui.accent)
                 .add_modifier(Modifier::BOLD),
         ))
         .style(Style::default().bg(theme.popup_bg))
@@ -186,15 +186,21 @@ fn render_content(
         _ => Vec::new(),
     };
     if rows.is_empty() {
-        let notice = if loading {
-            t("panel_loading")
+        let failed = panel
+            .status_error
+            .as_ref()
+            .filter(|_| panel.active_tab == 0);
+        let (notice, color) = if loading {
+            (t("panel_loading"), theme.ui.muted)
+        } else if let Some(error) = failed {
+            (t("git_status_failed").replace("{}", error), theme.ui.danger)
         } else {
-            t(tab_keys(panel.active_tab).1)
+            (t(tab_keys(panel.active_tab).1), theme.ui.muted)
         };
         f.render_widget(
             Paragraph::new(Span::styled(
                 format!("  {}", notice),
-                Style::default().fg(Color::DarkGray),
+                Style::default().fg(color),
             )),
             area,
         );

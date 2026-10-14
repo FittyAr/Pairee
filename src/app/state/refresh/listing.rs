@@ -38,6 +38,9 @@ pub struct PanelGitInfo {
     pub branch: String,
     /// Entry name -> status label ("M", "A", "?", …).
     pub statuses: HashMap<String, String>,
+    /// The status could not be read: `statuses` is empty, but the
+    /// repository is not known to be clean.
+    pub status_failed: bool,
 }
 
 /// Result of a listing job.
@@ -131,7 +134,14 @@ fn git_info(path: &Path, entries: &[FileEntry], branch_view: bool) -> Option<Pan
     let branch = branch_label(&repo);
     let workdir = repo.workdir()?.to_path_buf();
     let pathspec = git_pathspec_for(&workdir, path);
-    let statuses = crate::git::status::get_status_scoped(&repo, pathspec.as_deref());
+    let (statuses, status_failed) =
+        match crate::git::status::get_status_scoped(&repo, pathspec.as_deref()) {
+            Ok(statuses) => (statuses, false),
+            Err(e) => {
+                log::warn!("Reading the Git status of {} failed: {e}", path.display());
+                (Vec::new(), true)
+            }
+        };
 
     let norm_path = normalize(path);
     let mut map = HashMap::new();
@@ -159,6 +169,7 @@ fn git_info(path: &Path, entries: &[FileEntry], branch_view: bool) -> Option<Pan
     Some(PanelGitInfo {
         branch,
         statuses: map,
+        status_failed,
     })
 }
 
