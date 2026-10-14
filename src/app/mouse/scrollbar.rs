@@ -3,15 +3,33 @@
 use crate::app::state::popup::DialogScroll;
 use crate::app::state::{ActivePanel, AppState, Screen};
 use crate::ui::scrollbar::{self, ScrollTargetId};
-use crossterm::event::MouseEvent;
+use crossterm::event::{MouseEvent, MouseEventKind};
+use ratatui::layout::Position;
 
 /// Handle a mouse event against last-frame scrollbar hit targets.
 /// Returns `true` if a scrollbar consumed the event.
 pub fn handle_scrollbar_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
-    let targets = state.hits.scrollbars();
-    let Some((id, offset)) =
-        scrollbar::handle_mouse_on_targets(&targets, mouse, &mut state.scrollbar.interaction)
-    else {
+    let mut targets = state.hits.scrollbars();
+    // The bar only checks the row of a vertical track: a press counts only
+    // on the bar's own cells, and a drag or release goes to the bar that
+    // was pressed (never to another one in the same rows).
+    let pointer = Position::new(mouse.column, mouse.row);
+    match mouse.kind {
+        MouseEventKind::Down(_) => targets.retain(|t| t.area.contains(pointer)),
+        MouseEventKind::Drag(_) | MouseEventKind::Up(_) => {
+            let pressed = state.mouse.scrollbar_drag;
+            targets.retain(|t| Some(t.id) == pressed);
+        }
+        _ => {}
+    }
+    let found =
+        scrollbar::handle_mouse_on_targets(&targets, mouse, &mut state.scrollbar.interaction);
+    match mouse.kind {
+        MouseEventKind::Down(_) => state.mouse.scrollbar_drag = found.map(|(id, _)| id),
+        MouseEventKind::Up(_) => state.mouse.scrollbar_drag = None,
+        _ => {}
+    }
+    let Some((id, offset)) = found else {
         return false;
     };
 
