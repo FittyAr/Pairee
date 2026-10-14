@@ -135,22 +135,16 @@ impl PanelState {
     /// Moves the cursor index up by one, wrapping at boundaries.
     pub fn move_cursor_up(&mut self) {
         if !self.entries.is_empty() {
-            if self.cursor_index > 0 {
-                self.cursor_index -= 1;
-            } else {
-                self.cursor_index = self.entries.len() - 1;
-            }
+            self.cursor_index =
+                crate::app::list_nav::wrap_prev(self.cursor_index, self.entries.len());
         }
     }
 
     /// Moves the cursor index down by one, wrapping at boundaries.
     pub fn move_cursor_down(&mut self) {
         if !self.entries.is_empty() {
-            if self.cursor_index < self.entries.len() - 1 {
-                self.cursor_index += 1;
-            } else {
-                self.cursor_index = 0;
-            }
+            self.cursor_index =
+                crate::app::list_nav::wrap_next(self.cursor_index, self.entries.len());
         }
     }
 
