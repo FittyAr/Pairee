@@ -154,23 +154,11 @@ pub async fn load_plugin(
     Ok(())
 }
 
-/// Parses a version for the `min_pairee` check: full semver (pre-release
-/// and build metadata included), or `X` / `X.Y` padded with zeros.
-fn parse_version(v: &str) -> anyhow::Result<semver::Version> {
-    let v = v.trim();
-    let padded = match v.split(['-', '+']).next().unwrap_or(v).matches('.').count() {
-        0 => format!("{v}.0.0"),
-        1 => format!("{v}.0"),
-        _ => v.to_string(),
-    };
-    semver::Version::parse(&padded).map_err(|e| anyhow::anyhow!("invalid version {v:?}: {e}"))
-}
-
 /// Fails when `current` is older than `min_version` or either cannot be
 /// parsed (an unreadable requirement is not silently accepted).
 pub(crate) fn check_version_compatibility(min_version: &str, current: &str) -> anyhow::Result<()> {
-    let min = parse_version(min_version)?;
-    let cur = parse_version(current)?;
+    let min = crate::update::version::parse(min_version)?;
+    let cur = crate::update::version::parse(current)?;
     if cur >= min {
         Ok(())
     } else {
