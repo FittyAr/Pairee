@@ -173,14 +173,8 @@ fn render_content(
     scrollbar: Option<&ScrollbarUiState>,
 ) {
     let height = area.height as usize;
-    let (cursor, scroll) = (panel.cursor_idx, panel.scroll);
-    let offset = if cursor < scroll {
-        cursor
-    } else if cursor >= scroll + height {
-        cursor.saturating_sub(height - 1)
-    } else {
-        scroll
-    };
+    let cursor = panel.cursor_idx;
+    let offset = crate::ui::scrollbar::follow_scroll(cursor, panel.scroll, height);
     let rows: Vec<Line> = match panel.active_tab {
         0 => lines::render_status_lines(&panel.status_entries, cursor, offset, height, theme),
         1 => lines::render_log_lines(&panel.log_entries, cursor, offset, height, theme),

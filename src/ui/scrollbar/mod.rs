@@ -10,7 +10,7 @@ pub mod render;
 pub mod types;
 
 pub use interaction::handle_mouse_on_targets;
-pub use layout::{centered_scroll, clamp_cursor_to_offset};
+pub use layout::{centered_scroll, clamp_cursor_to_offset, follow_scroll};
 pub use render::{
     ScrollTarget, ScrollView, register_wheel, render_vertical, render_vertical_inside_block,
     render_vertical_right,
@@ -24,6 +24,15 @@ mod tests {
     use super::*;
     use crate::ui::resolved_theme::ResolvedTheme;
     use ratatui::layout::Rect;
+
+    #[test]
+    fn follow_scroll_moves_the_least_and_survives_no_rows() {
+        assert_eq!(follow_scroll(2, 5, 10), 2);
+        assert_eq!(follow_scroll(7, 5, 10), 5);
+        assert_eq!(follow_scroll(20, 5, 10), 11);
+        // A collapsed pane (0 rows) used to underflow `height - 1`.
+        assert_eq!(follow_scroll(20, 5, 0), 20);
+    }
 
     #[test]
     fn track_area_right_uses_last_column() {
