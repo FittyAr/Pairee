@@ -1,4 +1,4 @@
 #!/bin/sh
-# Fast checks before every push: rustfmt, typos, translation key parity.
+# Fast checks before every push: rustfmt, typos, translations and help pages.
 # Installed with `cargo xtask install-hooks`; skip once with `git push --no-verify`.
 exec cargo xtask lint

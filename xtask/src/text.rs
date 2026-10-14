@@ -37,20 +37,4 @@ impl TextFile {
         std::fs::write(&self.path, content)
             .map_err(|e| format!("cannot write {}: {e}", self.path.display()).into())
     }
-
-    /// Replaces the first line accepted by `matches` with `replacement`.
-    /// Returns whether a line was found.
-    pub fn replace_line(
-        &mut self,
-        matches: impl Fn(&str) -> bool,
-        replacement: impl FnOnce(&str) -> String,
-    ) -> bool {
-        match self.lines.iter_mut().find(|l| matches(l)) {
-            Some(line) => {
-                *line = replacement(line);
-                true
-            }
-            None => false,
-        }
-    }
 }

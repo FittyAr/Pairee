@@ -42,4 +42,4 @@ let label = t("my_new_key");
 ### Step 4: Verification
 Verify that both files are properly formatted:
 - Run `cargo fmt` to check Rust files.
-- Run `python scripts/clean_translations.py` to ensure there are no unused keys remaining.
+- Run `python scripts/check_translations.py --unused`: it must pass, and it lists keys no source file names (review them before deleting any).

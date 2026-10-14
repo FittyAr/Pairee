@@ -77,10 +77,12 @@ jobs:
             echo "::warning::No changelog section for ${VERSION}"
             BODY="See the [changelog](https://github.com/${GITHUB_REPOSITORY}/blob/master/docs/CHANGELOG.md)."
           fi
+          # A random delimiter: no changelog line can end the value early.
+          delimiter="CHANGELOG_$(openssl rand -hex 16)"
           {
-            echo "body<<CHANGELOG_EOF"
+            echo "body<<${delimiter}"
             echo "$BODY"
-            echo "CHANGELOG_EOF"
+            echo "${delimiter}"
           } >> "$GITHUB_OUTPUT"
 
   build:
@@ -274,4 +276,7 @@ jobs:
     uses: ./.github/workflows/winget.yml
     with:
       tag: ${{ github.ref_name }}
-    secrets: inherit
+    # Only the token it needs: `secrets: inherit` would also hand it the
+    # release signing key.
+    secrets:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}

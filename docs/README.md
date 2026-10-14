@@ -30,7 +30,7 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 | [UNRELEASED.md](./UNRELEASED.md) | Implemented (staging) |
 | [PRIVACY.md](./PRIVACY.md) | Implemented |
 | [THREAT_MODEL.md](./THREAT_MODEL.md) | **Implemented** | Plugins, SSH, update, elevated helper |
-| [i18n.md](./i18n.md) | **Implemented** | How to add a language; EN/ES key parity in CI |
+| [i18n.md](./i18n.md) | **Implemented** | How to add a language; `scripts/check_translations.py` in lint and CI |
 | [winget-submission-guide.md](./winget-submission-guide.md) | Implemented |
 
 ---
@@ -46,13 +46,17 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 | [technical/plugin-system-design-es.md](./technical/plugin-system-design-es.md) | Partial | Same as EN |
 | [technical/plugin-roadmap.md](./technical/plugin-roadmap.md) | Partial | Dialogs/File/cx/Command done; G1–G14 leftovers remain |
 | [technical/plugin-registry-spec.md](./technical/plugin-registry-spec.md) | Partial | |
-| [technical/plugin-dev-guide.md](../docs/plugin-dev-guide.md) | Partial | See also ES guide |
 | [plugin-dev-guide.md](./plugin-dev-guide.md) | Partial | |
 | [plugin-dev-guide-es.md](./plugin-dev-guide-es.md) | Partial | |
-| [api/lua/README.md](./api/lua/README.md) | **Implemented** | Lua API semver **1.1.0** |
+| [api/lua/README.md](./api/lua/README.md) | **Implemented** | Lua API semver **1.3.0** |
 | [api/lua/v1.md](./api/lua/v1.md) | **Implemented** | Inventario estable v1 |
 | [technical/installer_guide.md](./technical/installer_guide.md) | Implemented | |
 | [technical/microsoft-store-publishing.md](./technical/microsoft-store-publishing.md) | Planned / process | |
+| [technical/keybindings-presets-plan.md](./technical/keybindings-presets-plan.md) | Historical | Presets, shortcuts dialog and plugin keys (ES) |
+| [technical/mouse-support-plan.md](./technical/mouse-support-plan.md) | Historical | Mouse support plan (ES) |
+| [technical/settings-audit.md](./technical/settings-audit.md) | Historical | Settings fields vs. runtime use |
+| [technical/duplication-report.md](./technical/duplication-report.md) | Historical | How duplication is measured; what is left |
+| [technical/audit-2026-10.md](./technical/audit-2026-10.md) | Historical | Full audit of 0.10.0 and its progress (ES) |
 
 ---
 
@@ -67,6 +71,8 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 | Git | [help/en/git_integration.md](../help/en/git_integration.md) | [help/es/git_integration.md](../help/es/git_integration.md) |
 | SSH/SFTP | [help/en/ssh_sftp.md](../help/en/ssh_sftp.md) | [help/es/ssh_sftp.md](../help/es/ssh_sftp.md) |
 | Configuration | [help/en/configuration_details.md](../help/en/configuration_details.md) | [help/es/configuration_details.md](../help/es/configuration_details.md) |
+| Coming from another program | [help/en/coming_from.md](../help/en/coming_from.md) | [help/es/coming_from.md](../help/es/coming_from.md) |
+| Keys per preset | `help/en/keymap_<preset>.md` (norton, standard, neovim, yazi, vi) | `help/es/keymap_<preset>.md` |
 
 ---
 

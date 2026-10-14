@@ -112,17 +112,18 @@ pub fn run(args: &[String]) -> Result {
     Ok(())
 }
 
+/// The files every release rewrites, besides the WinGet manifest folder.
+/// (installer.iss gets its version from the packaging script.)
+pub(super) const RELEASE_FILES: [&str; 4] = [
+    version::CARGO_TOML,
+    version::CARGO_LOCK,
+    changelog::CHANGELOG,
+    changelog::UNRELEASED,
+];
+
 /// Every file the release may rewrite, as it is now.
 fn release_files(current: Version) -> Result<Vec<PathBuf>> {
-    let mut files: Vec<PathBuf> = [
-        version::CARGO_TOML,
-        version::CARGO_LOCK,
-        version::INSTALLER,
-        changelog::CHANGELOG,
-        changelog::UNRELEASED,
-    ]
-    .map(PathBuf::from)
-    .to_vec();
+    let mut files: Vec<PathBuf> = RELEASE_FILES.map(PathBuf::from).to_vec();
     if let Some(dir) = winget::source_dir(current) {
         files.extend(winget::manifests(&dir)?);
     }

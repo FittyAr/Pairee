@@ -42,7 +42,7 @@ Our custom build script `build.rs` automatically captures target compilation, gi
 ### Formatting & Lints
 
 Install the git hook once so every `git push` runs the fast checks (rustfmt,
-[typos](https://github.com/crate-ci/typos), translation key parity) first:
+[typos](https://github.com/crate-ci/typos), translations and help pages; Python 3.11+) first:
 
 ```sh
 cargo xtask install-hooks
@@ -115,7 +115,7 @@ cargo xtask release            # or `cargo xtask dev release`
 ```
 
 The task updates every dependency to its latest compatible version, runs the
-local gate (lint, clippy, tests), bumps the version (Cargo.toml, installer,
+local gate (lint, clippy, tests), bumps the version (Cargo.toml and the
 WinGet manifests), moves `docs/UNRELEASED.md` into `docs/CHANGELOG.md`, then
 commits, tags and pushes the branch and the tag in one atomic push.
 `cargo xtask help` lists its options.

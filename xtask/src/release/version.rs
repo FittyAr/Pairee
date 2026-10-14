@@ -9,7 +9,6 @@ use crate::{Result, changelog, ui};
 
 pub const CARGO_TOML: &str = "Cargo.toml";
 pub const CARGO_LOCK: &str = "Cargo.lock";
-pub const INSTALLER: &str = "installer.iss";
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Version(pub u64, pub u64, pub u64);
@@ -95,17 +94,6 @@ pub fn bump_files(current: Version, new: Version, snapshot: &mut Snapshot) -> Re
     let line = package_version_line(&manifest.lines).ok_or("no [package] version in Cargo.toml")?;
     manifest.lines[line] = format!("version = \"{new}\"");
     manifest.save()?;
-
-    let mut installer = TextFile::load(INSTALLER)?;
-    if installer.replace_line(
-        |l| l.starts_with("#define AppVersion"),
-        |_| format!("#define AppVersion \"{new}\""),
-    ) {
-        installer.save()?;
-        files.push(INSTALLER.into());
-    } else {
-        ui::warn("installer.iss has no `#define AppVersion` line");
-    }
 
     match winget::source_dir(current) {
         Some(from) => {

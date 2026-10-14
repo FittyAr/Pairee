@@ -34,7 +34,7 @@ $minisignPubKey = "RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
 # minisign for Windows: https://github.com/jedisct1/minisign/releases
 $minisignVersion = "0.12"
 $minisignZipSha256 = "37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479"
-$installDir = Join-Path $HOME "AppData\Local\Programs\pairee"
+$installDir = Join-Path $env:LOCALAPPDATA "Programs\pairee"
 $configDir = Join-Path $env:APPDATA "pairee\config"
 $exePath = Join-Path $installDir "pairee.exe"
 
@@ -70,8 +70,40 @@ function Get-ArchiveNames([string]$tag) {
     return @("pairee-$num-$platform.zip", "pairee-$tag-$legacyTarget.zip")
 }
 
-# Uninstall logic
-if ($Uninstall) {
+# The user PATH as stored in the registry. [Environment]::GetEnvironmentVariable
+# expands entries such as %USERPROFILE%\bin and SetEnvironmentVariable writes
+# the result back as a plain string, so they would lose their variables.
+function Get-UserPathEntries {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment")
+    try {
+        $raw = $key.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    } finally {
+        $key.Close()
+    }
+    return @("$raw" -split ';' | Where-Object { $_ })
+}
+
+function Set-UserPathEntries([string[]]$entries) {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
+    try {
+        $key.SetValue("Path", ($entries -join ';'), [Microsoft.Win32.RegistryValueKind]::ExpandString)
+    } finally {
+        $key.Close()
+    }
+    # Setting a user variable through .NET broadcasts WM_SETTINGCHANGE, so
+    # terminals opened from now on see the new PATH.
+    [Environment]::SetEnvironmentVariable("PAIREE_PATH_REFRESH", "1", "User")
+    [Environment]::SetEnvironmentVariable("PAIREE_PATH_REFRESH", $null, "User")
+}
+
+# Whether a PATH entry names $installDir (case, a trailing backslash and
+# environment variables aside).
+function Test-IsInstallDir([string]$entry) {
+    return [Environment]::ExpandEnvironmentVariables($entry).TrimEnd('\') -eq $installDir.TrimEnd('\')
+}
+
+# No `exit` here: run through `irm | iex`, it would close the user's shell.
+function Invoke-Uninstall {
     Write-Host "Pairee Uninstaller" -ForegroundColor Blue
     Write-Host "=============================="
 
@@ -86,7 +118,7 @@ if ($Uninstall) {
 
     if ($installs.Length -eq 0 -and -not (Test-Path $configDir)) {
         Write-Host "No Pairee installations or configurations found."
-        exit 0
+        return
     }
 
     $toRemove = @()
@@ -101,7 +133,7 @@ if ($Uninstall) {
             $toRemove += $activeInst.Path
         } else {
             Write-Host "Uninstall cancelled."
-            exit 0
+            return
         }
     } else {
         Write-Host "Multiple Pairee installations detected:"
@@ -114,12 +146,12 @@ if ($Uninstall) {
         } elseif ($selection) {
             $ids = $selection -split '\s+'
             foreach ($id in $ids) {
-                $match = $installs | Where-Object { $_.Id -eq [int]$id }
+                $match = $installs | Where-Object { $_.Id -eq ($id -as [int]) }
                 if ($match) { $toRemove += $match.Path }
             }
         } else {
             Write-Host "Uninstall cancelled."
-            exit 0
+            return
         }
     }
 
@@ -139,30 +171,25 @@ if ($Uninstall) {
     if (Test-Path $configDir) {
         $confirmConfig = Read-Host "Do you want to delete the configuration, themes, and history settings at $configDir? [y/N]"
         if ($confirmConfig -match "^[yY](es)?$") {
-            Write-Host "Removing configuration folder: $configDir"
             $configParent = Split-Path $configDir
+            Write-Host "Removing configuration folder: $configParent"
             Remove-Item -Recurse -Force $configParent -ErrorAction SilentlyContinue
         } else {
             Write-Host "Keeping configuration settings."
         }
     }
 
-    $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-    if ($userPath -split ';' -contains $installDir) {
+    $entries = Get-UserPathEntries
+    $kept = @($entries | Where-Object { -not (Test-IsInstallDir $_) })
+    if ($kept.Count -ne $entries.Count) {
         Write-Host "Removing Pairee from User PATH..." -ForegroundColor Yellow
-        $pathList = $userPath -split ';' | Where-Object { $_ -ne $installDir }
-        $newPath = $pathList -join ';'
-        [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+        Set-UserPathEntries $kept
         Write-Host "User PATH updated successfully." -ForegroundColor Green
     }
 
     Write-Host "=============================="
     Write-Host "Uninstall process completed successfully!" -ForegroundColor Green
-    exit 0
 }
-
-Write-Host "Pairee Installer for Windows" -ForegroundColor Blue
-Write-Host "=============================="
 
 # Downloads the pinned minisign release into $dir and returns its minisign.exe.
 function Get-Minisign([string]$dir) {
@@ -328,10 +355,10 @@ function Install-Files([string]$package) {
 }
 
 function Add-ToUserPath {
-    $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-    if ($userPath -split ';' -notcontains $installDir) {
+    $entries = Get-UserPathEntries
+    if (-not @($entries | Where-Object { Test-IsInstallDir $_ })) {
         Write-Host "Adding Pairee directory to User PATH..." -ForegroundColor Yellow
-        [Environment]::SetEnvironmentVariable("PATH", "$userPath;$installDir", "User")
+        Set-UserPathEntries (@($entries) + $installDir)
         # Update current process PATH
         $env:PATH = "$env:PATH;$installDir"
         Write-Host "PATH updated successfully. You might need to restart your terminal/IDE to refresh PATH changes." -ForegroundColor Green
@@ -340,8 +367,10 @@ function Add-ToUserPath {
     }
 }
 
-# No `exit` below: run through `irm | iex`, it would close the user's shell.
+# No `exit` here: run through `irm | iex`, it would close the user's shell.
 function Invoke-Install {
+    Write-Host "Pairee Installer for Windows" -ForegroundColor Blue
+    Write-Host "=============================="
     if (-not $VerifyOnly -and -not (Confirm-Overwrite)) {
         return
     }
@@ -370,4 +399,8 @@ function Invoke-Install {
     Write-Host "Run Pairee by typing: pairee" -ForegroundColor Green
 }
 
-Invoke-Install
+if ($Uninstall) {
+    Invoke-Uninstall
+} else {
+    Invoke-Install
+}

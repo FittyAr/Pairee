@@ -1,11 +1,11 @@
 # Pairee Lua API (versioned)
 
-This is the **semver contract** for plugins. Crate version (`0.7.x`) can move
+This is the **semver contract** for plugins. The crate version (`0.x`) can move
 without a Lua major bump if `pairee.*` stays compatible.
 
 | Item | Location |
 |------|----------|
-| Current version | **1.1.0** (`pairee._lua_api_version`) |
+| Current version | **1.3.0** (`pairee._lua_api_version`, `LUA_API_VERSION` in `src/plugin/runtime/api_version.rs`) |
 | Surface inventory | [v1.md](./v1.md) |
 | Lua-only changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | How-to | [plugin-dev-guide.md](../../plugin-dev-guide.md) |
