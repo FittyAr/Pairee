@@ -5,7 +5,7 @@
 //! with `ansi-to-tui`. The child sees `isatty(stdout) == true`.
 
 use super::pty::{ChildWaiter, NativePty, PtyCommand, PtySize, PtySystem, SpawnedPty};
-use super::pty_control::{Control, PtyControl};
+use super::pty_control::{Control, PtyControl, spawn_writer};
 use anyhow::{Context, anyhow};
 use std::io::Read;
 use std::path::Path;
@@ -73,7 +73,7 @@ fn spawn_on(
         .with_context(|| format!("spawn in pty: {script}"))?;
     let control = PtyControl::new(Control {
         pid,
-        writer: Some(writer),
+        input: Some(spawn_writer(writer)),
         master: Some(master),
         killer: Some(killer),
     });
