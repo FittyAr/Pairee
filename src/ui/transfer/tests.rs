@@ -193,6 +193,18 @@ fn the_expanded_panel_lists_jobs_and_inspects_the_selected_one() {
 }
 
 #[test]
+fn the_selected_transfer_option_stays_in_view_on_a_short_screen() {
+    let mut h = Harness::builder().size(100, 30).build();
+    let job = running(&h, 0, 1);
+    queue(&mut h, vec![job], TransferViewMode::Expanded);
+    let ts = h.state.transfer.as_mut().unwrap();
+    ts.active_tab = TransferTab::Options;
+    ts.options_cursor = 11;
+    let last = t("transfer_opt_bandwidth").replace("{}", "");
+    h.assert_screen(last.trim_end());
+}
+
+#[test]
 fn an_empty_queue_says_how_to_start_a_transfer() {
     let mut h = Harness::new();
     queue(&mut h, Vec::new(), TransferViewMode::Expanded);
