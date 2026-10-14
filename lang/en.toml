@@ -291,6 +291,7 @@ feature_plugins_disabled = "Plugins are disabled in Settings → System → Opti
 feature_section = "Optional features"
 feature_ssh = "Remote connections (SFTP, FTP, WebDAV, S3)"
 feature_ssh_disabled = "Remote connections are disabled in Settings → System → Optional features."
+folder_open_failed = "Cannot open {}: {}"
 folder_shortcut_unassigned = "(not assigned)"
 folder_shortcuts_hint = " [Enter] Go  [Ins/Space/1-9] Assign current folder  [Del] Clear  [Esc] Close "
 git_author_email = "Author email"

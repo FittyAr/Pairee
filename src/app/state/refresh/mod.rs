@@ -10,8 +10,10 @@ mod tests;
 
 use super::tabs::TabId;
 use super::{ActivePanel, AppState, PanelState};
+use crate::fs::archive::split_archive_path;
 use filter::{partition_entries_by_mask, skip_auto_update};
 use listing::{ListingOptions, ListingRequest, PanelListing};
+use std::path::PathBuf;
 
 impl AppState {
     /// Digit runs compare numerically when "treat digits as numbers" is on or
@@ -123,8 +125,8 @@ impl AppState {
             let panel = &mut tab.panel;
             if let Some(listing) = panel.listing.poll() {
                 let show_hidden = listing.show_hidden;
-                if let Some(error) = apply_listing(panel, listing) {
-                    failed.push((tab.id, error, show_hidden));
+                if let Some(failure) = apply_listing(panel, listing) {
+                    failed.push((tab.id, failure, show_hidden));
                 }
                 changed = true;
             }
@@ -133,13 +135,29 @@ impl AppState {
             // Files found so far by a branch view being read.
             changed |= panel.branch_view && panel.listing.is_running();
         }
-        for (id, error, show_hidden) in failed {
-            self.leave_unreadable_archive(id, &error, show_hidden);
+        for (id, failure, show_hidden) in failed {
+            match failure.not_entered {
+                Some(path) => self.report_not_entered(&path, &failure.error),
+                None => self.leave_unreadable_archive(id, &failure.error, show_hidden),
+            }
         }
         if changed {
             self.mark_ui_dirty();
         }
         changed
+    }
+
+    /// Says why `path` (a folder or an archive) could not be opened.
+    fn report_not_entered(&mut self, path: &std::path::Path, error: &str) {
+        let key = match split_archive_path(path) {
+            Some(_) => "archive_open_failed",
+            None => "folder_open_failed",
+        };
+        self.dialogs.replace(super::PopupType::error(
+            crate::config::localization::t(key)
+                .replacen("{}", &path.to_string_lossy(), 1)
+                .replacen("{}", error, 1),
+        ));
     }
 
     /// An archive that cannot be read is not entered: the panel goes back
@@ -229,20 +247,48 @@ fn emit_on_cd(path: &std::path::Path, side: ActivePanel) {
     });
 }
 
+/// A listing that failed.
+#[derive(Debug)]
+pub(crate) struct ListingFailure {
+    pub error: String,
+    /// The folder that could not be entered; the panel stayed on the one
+    /// it showed (`None`: a reread of the shown folder failed).
+    pub not_entered: Option<PathBuf>,
+}
+
 /// Installs a finished listing, keeping the cursor and selection stable.
-/// Returns the error of a failed listing.
-pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) -> Option<String> {
+/// A folder that cannot be read is not entered: the panel stays on the
+/// folder its entries belong to.
+pub(crate) fn apply_listing(
+    panel: &mut PanelState,
+    listing: PanelListing,
+) -> Option<ListingFailure> {
     if listing.path != panel.current_path {
         // The panel moved on; a newer request is (or will be) in flight.
         return None;
     }
     let mut failure = None;
     let same_dir = panel.listed_path.as_ref() == Some(&listing.path);
-    if !same_dir {
-        panel.dir_sizes.clear();
-    }
     match listing.entries {
+        Err(error) if !same_dir && panel.listed_path.is_some() => {
+            log::warn!("Cannot enter {:?}: {}", listing.path, error);
+            let shown = panel.listed_path.clone().unwrap_or_default();
+            panel.pending_focus = None;
+            panel.source = panel.source.locate(&shown);
+            panel.current_path = shown.clone();
+            panel.last_path = shown;
+            if let Some(idx) = panel.entries.iter().position(|e| e.path == listing.path) {
+                panel.cursor_index = idx;
+            }
+            return Some(ListingFailure {
+                error,
+                not_entered: Some(listing.path),
+            });
+        }
         Ok(entries) => {
+            if !same_dir {
+                panel.dir_sizes.clear();
+            }
             let focus_path = panel
                 .entries
                 .get(panel.cursor_index)
@@ -267,10 +313,13 @@ pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) -> Op
             panel.selection_order.retain(|p| present.contains(p));
             panel.dir_sizes.sync_listing(&panel.entries);
         }
-        Err(err) => {
-            log::warn!("Listing {:?} failed: {}", listing.path, err);
+        Err(error) => {
+            log::warn!("Listing {:?} failed: {}", listing.path, error);
             panel.pending_focus = None;
-            failure = Some(err);
+            failure = Some(ListingFailure {
+                error,
+                not_entered: None,
+            });
         }
     }
     panel.listed_path = Some(listing.path);
