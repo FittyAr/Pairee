@@ -144,7 +144,10 @@ mod tests {
         let args = parse(&["--", "--standalone"]).unwrap();
         assert!(!args.standalone);
         assert_eq!(args.paths, [PathBuf::from("--standalone")]);
-        assert!(parse(&["--standalone", "--bad"]).is_err(), "validated first");
+        assert!(
+            parse(&["--standalone", "--bad"]).is_err(),
+            "validated first"
+        );
     }
 
     #[test]

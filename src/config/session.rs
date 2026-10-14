@@ -115,7 +115,10 @@ mod tests {
     #[test]
     fn missing_session_is_none() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(SessionFile::read_from(&dir.path().join(SessionFile::FILE_NAME)), None);
+        assert_eq!(
+            SessionFile::read_from(&dir.path().join(SessionFile::FILE_NAME)),
+            None
+        );
     }
 
     #[test]

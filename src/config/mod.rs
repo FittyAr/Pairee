@@ -449,12 +449,11 @@ mod tests {
 
         let config = AppConfig::load_or_create().unwrap();
         assert!(config.settings.active_dev_plugin.is_none());
+        assert_eq!(config.settings.connections[0].secret(), Some("pw"));
+        let id = &config.settings.connections[0].id;
+        assert!(!id.is_empty(), "given an id on load");
         assert_eq!(
-            config.settings.connections[0].secret(),
-            Some("pw")
-        );
-        assert_eq!(
-            credentials::test_store::secret("connection:box").as_deref(),
+            credentials::test_store::secret(&format!("connection-id:{id}")).as_deref(),
             Some("pw")
         );
     }

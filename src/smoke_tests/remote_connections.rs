@@ -131,7 +131,10 @@ fn background_jobs_get_the_secret_typed_in_the_prompt() {
     h.assert_screen("******");
     h.assert_no_screen("s3cret");
     h.keys("Enter");
-    assert_eq!(job.join().unwrap().as_deref().map(String::as_str), Some("s3cret"));
+    assert_eq!(
+        job.join().unwrap().as_deref().map(String::as_str),
+        Some("s3cret")
+    );
     assert!(h.state.dialogs.top_as::<CredentialPrompt>().is_none());
 }
 

@@ -109,7 +109,9 @@ pub(super) fn prune_removed(settings: &Settings) -> Result<(), String> {
         .filter(|a| !current.contains(a))
     {
         if let Err(e) = store().delete(&stale) {
-            tracing::warn!("Cannot delete the keyring entry {stale:?} of a removed connection: {e}");
+            tracing::warn!(
+                "Cannot delete the keyring entry {stale:?} of a removed connection: {e}"
+            );
             index.push(stale);
         }
     }

@@ -6,10 +6,7 @@ use crate::config::localization::t;
 #[test]
 fn index_paths_keep_their_bytes() {
     use crate::git::outcome::index_path;
-    assert_eq!(
-        index_path(b"dir/a.txt"),
-        std::path::Path::new("dir/a.txt")
-    );
+    assert_eq!(index_path(b"dir/a.txt"), std::path::Path::new("dir/a.txt"));
     #[cfg(unix)]
     {
         use std::os::unix::ffi::OsStrExt;

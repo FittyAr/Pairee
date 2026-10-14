@@ -125,7 +125,13 @@ impl<'a> CredentialState<'a> {
         } else {
             None
         };
-        git2::Cred::ssh_key(username, None, path, passphrase.as_ref().map(|s| s.as_str())).ok()
+        git2::Cred::ssh_key(
+            username,
+            None,
+            path,
+            passphrase.as_ref().map(|s| s.as_str()),
+        )
+        .ok()
     }
 }
 

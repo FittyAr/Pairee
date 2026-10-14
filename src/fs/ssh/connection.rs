@@ -234,8 +234,8 @@ pub(crate) fn with_prompts(
 ) -> Result<()> {
     let mut last = None;
     for _ in 0..prompts {
-        let asked =
-            ask(request.clone()).ok_or_else(|| anyhow::anyhow!(t("credential_prompt_cancelled")))?;
+        let asked = ask(request.clone())
+            .ok_or_else(|| anyhow::anyhow!(t("credential_prompt_cancelled")))?;
         match attempt(&asked) {
             Ok(()) => return Ok(()),
             Err((true, e)) => {

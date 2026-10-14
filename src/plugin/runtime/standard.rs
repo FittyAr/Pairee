@@ -100,11 +100,7 @@ pub fn bind_runtime(
     b::preview::bind(
         lua,
         &pairee,
-        (
-            &options.name,
-            Arc::clone(&fs_policy),
-            options.host.syntax,
-        ),
+        (&options.name, Arc::clone(&fs_policy), options.host.syntax),
         tx.clone(),
     )?;
 

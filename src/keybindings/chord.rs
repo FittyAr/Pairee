@@ -208,7 +208,11 @@ mod tests {
         assert_eq!(split_chords(",, a"), [",", "a"]);
         assert_eq!(split_chords("a, ,"), ["a", ","]);
         assert_eq!(split_chords("Ctrl+-, gray-, -"), ["Ctrl+-", "gray-", "-"]);
-        assert_eq!(split_chords(" a ,  , b "), ["a", "b"], "empty entries skipped");
+        assert_eq!(
+            split_chords(" a ,  , b "),
+            ["a", "b"],
+            "empty entries skipped"
+        );
         let parsed: Vec<KeySeq> = split_chords("Ctrl+,, Alt+Comma")
             .into_iter()
             .map(|chord| seq(&normalize_chord(chord, None)))

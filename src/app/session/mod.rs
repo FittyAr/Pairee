@@ -12,8 +12,8 @@ mod tests;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
-use crate::config::history::HistoryStore;
 use crate::config::StateFile;
+use crate::config::history::HistoryStore;
 use crate::config::session::SessionFile;
 use crate::config::settings::Settings;
 use std::path::PathBuf;

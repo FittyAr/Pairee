@@ -207,7 +207,9 @@ mod tests {
         );
 
         // Pinned: the next connection does not ask.
-        let ask_again = |_req: CredentialRequest| -> Option<crate::credential_prompt::Secret> { panic!("asked again") };
+        let ask_again = |_req: CredentialRequest| -> Option<crate::credential_prompt::Secret> {
+            panic!("asked again")
+        };
         open(&conn, Duration::from_secs(5), &ask_again).unwrap();
     }
 

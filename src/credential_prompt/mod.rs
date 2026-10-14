@@ -189,7 +189,10 @@ mod tests {
         };
         assert_eq!(pending.request, CredentialRequest::password("me@host"));
         pending.answer(Some(Secret::new("pw".into())));
-        assert_eq!(job.join().unwrap().as_deref().map(String::as_str), Some("pw"));
+        assert_eq!(
+            job.join().unwrap().as_deref().map(String::as_str),
+            Some("pw")
+        );
     }
 
     #[test]

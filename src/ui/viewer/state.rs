@@ -303,7 +303,10 @@ mod tests {
         assert!(vs.syntax.borrow().is_none(), "read as bytes: no shebang");
         vs.set_encoding(encoding_rs::UTF_16LE);
         assert_eq!(
-            vs.syntax.borrow().as_ref().map(|c| c.language().to_string()),
+            vs.syntax
+                .borrow()
+                .as_ref()
+                .map(|c| c.language().to_string()),
             Some("Shell".into())
         );
     }

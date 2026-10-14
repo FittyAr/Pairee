@@ -116,8 +116,9 @@ fn saved_ftp_connections_open_on_their_folder() {
         ..Connection::default()
     };
     let timeout = std::time::Duration::from_secs(5);
-    let never =
-        |_: CredentialRequest| -> Option<crate::credential_prompt::Secret> { panic!("an anonymous login asks nothing") };
+    let never = |_: CredentialRequest| -> Option<crate::credential_prompt::Secret> {
+        panic!("an anonymous login asks nothing")
+    };
     let (remote, start) = super::open(&conn, timeout, &never).unwrap();
     assert_eq!(start, Path::new("/").join(&name));
     assert_eq!(remote.info().kind, RemoteKind::Ftp);

@@ -63,8 +63,12 @@ fn passwords_are_read_back_and_cleared_ones_deleted() {
 fn connections_with_the_same_name_keep_their_own_password() {
     reset();
     let mut settings = Settings::default();
-    settings.connections.push(connection("box", "", Some("one")));
-    settings.connections.push(connection("box", "", Some("two")));
+    settings
+        .connections
+        .push(connection("box", "", Some("one")));
+    settings
+        .connections
+        .push(connection("box", "", Some("two")));
     assert!(load_passwords(&mut settings).migrated);
     let ids: Vec<String> = settings.connections.iter().map(|c| c.id.clone()).collect();
     assert!(!ids[0].is_empty() && ids[0] != ids[1], "{ids:?}");

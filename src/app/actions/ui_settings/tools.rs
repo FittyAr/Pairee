@@ -10,11 +10,11 @@ use crate::app::state::popup::SaveSetupConfirm;
 use crate::app::state::popup::ScreensMenu;
 use crate::app::state::popup::SearchPrompt;
 use crate::app::state::popup::TaskListDialog;
-use crate::config::StateFile;
 use crate::app::state::popup::TransferPanel;
 use crate::app::state::popup::UpdateAvailable;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::get_process_list;
+use crate::config::StateFile;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 

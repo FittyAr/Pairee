@@ -96,7 +96,10 @@ pub fn branch_of_remote<'n>(remote: &str, name: &'n str) -> Option<&'n str> {
 /// Splits a remote-tracking branch name into its remote and branch: the
 /// longest configured remote that prefixes it (remote names may contain
 /// `/`), else the text before the first `/`. `None` without a `/`.
-pub fn split_remote_branch<'n>(repo: &git2::Repository, name: &'n str) -> Option<(&'n str, &'n str)> {
+pub fn split_remote_branch<'n>(
+    repo: &git2::Repository,
+    name: &'n str,
+) -> Option<(&'n str, &'n str)> {
     let remotes = repo.remotes().ok();
     let names: Vec<&str> = remotes
         .as_ref()
