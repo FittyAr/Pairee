@@ -8,9 +8,10 @@ use std::mem::Discriminant;
 /// Which dialog a placement belongs to: stack depth and dialog kind. A new
 /// dialog (or the same kind opened again elsewhere in the stack) starts
 /// centered.
-type DialogKey = (usize, Discriminant<PopupType>);
+pub(super) type DialogKey = (usize, Discriminant<PopupType>);
 
-fn key_of(dialogs: &DialogStack) -> Option<DialogKey> {
+/// The dialog keys go to (and placements belong to), if one is open.
+pub(super) fn key_of(dialogs: &DialogStack) -> Option<DialogKey> {
     dialogs
         .top()
         .map(|popup| (dialogs.depth(), std::mem::discriminant(popup)))

@@ -207,16 +207,14 @@ pub fn drop_target(state: &AppState, drag: &FileDrag, target: Option<&HitTarget>
         {
             folder(*side, state.panels.tabs(*side).panel().current_path.clone())
         }
-        HitTarget::Tab(id) => [ActivePanel::Left, ActivePanel::Right]
-            .into_iter()
-            .find_map(|side| {
-                let tab = state.panels.tabs(side).find(*id)?;
-                Some(Drop::Folder {
-                    side,
-                    dir: tab.panel.current_path.clone(),
-                    tab: Some(*id),
-                })
-            }),
+        HitTarget::Tab(id) => {
+            let (side, tab) = state.panels.find_tab(*id)?;
+            Some(Drop::Folder {
+                side,
+                dir: tab.panel.current_path.clone(),
+                tab: Some(*id),
+            })
+        }
         HitTarget::Action(crate::keybindings::Action::FocusCli) => Some(Drop::CommandLine),
         _ => None,
     }?;
