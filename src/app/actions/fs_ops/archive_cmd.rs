@@ -3,14 +3,9 @@ use crate::app::state::popup::ArchiveCommandsMenu;
 use crate::config::localization::t;
 
 pub fn handle(state: &mut AppState) -> bool {
-    let active = state.get_active_panel();
-    if let Some(entry) = active
-        .entries
-        .get(active.cursor_index)
-        .filter(|e| !e.is_dir)
-    {
+    if let Some(archive_path) = super::extract::cursor_file(state) {
         state.dialogs.replace(ArchiveCommandsMenu {
-            archive_path: entry.path.clone(),
+            archive_path,
             items: vec![
                 t("menu_archive_list"),
                 t("menu_archive_test"),
