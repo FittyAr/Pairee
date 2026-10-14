@@ -65,12 +65,6 @@ fn render_about(
 
     let inner_width = area.width.saturating_sub(4) as usize;
     let wrapped_lines = wrap_lines(about_lines(&styles), inner_width);
-    let total_lines = wrapped_lines.len();
-    let inner_height = area.height.saturating_sub(4) as usize; // reserve space for borders and bottom hint
-
-    // Clamp scroll_y to valid range
-    let max_scroll = total_lines.saturating_sub(inner_height);
-    let clamped_scroll = scroll_y.min(max_scroll);
 
     // Sub-layout: Content (top) and Hint (bottom)
     let popup_chunks = ratatui::layout::Layout::default()
@@ -81,25 +75,11 @@ fn render_about(
         ])
         .split(block.inner(area));
 
-    let paragraph = Paragraph::new(wrapped_lines)
-        .scroll((clamped_scroll as u16, 0))
-        .style(styles.text);
-    f.render_widget(paragraph, popup_chunks[0]);
-
-    // Fractional scrollbar on the content pane
-    scrollbar::render_vertical(
+    scrollbar::render_text_pane(
         f,
-        Rect {
-            x: area.x + area.width.saturating_sub(1),
-            y: area.y + 1,
-            width: 1,
-            height: area.height.saturating_sub(3),
-        },
-        scrollbar::ScrollView {
-            content_len: total_lines,
-            viewport_len: inner_height,
-            offset: clamped_scroll,
-        },
+        popup_chunks[0],
+        (wrapped_lines, styles.text),
+        scroll_y,
         theme,
         scrollbar::ScrollTarget {
             surface: ScrollbarSurface::Popup,

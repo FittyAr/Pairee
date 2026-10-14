@@ -8,7 +8,7 @@ use crate::app::state::popup::Help;
 use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
-use crate::ui::scrollbar::{ScrollTarget, ScrollView};
+use crate::ui::scrollbar::ScrollTarget;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -241,24 +241,13 @@ fn render_content(
     let parsed_lines = parse_markdown_to_lines(content);
     let inner_width = (right_area.width.saturating_sub(4)) as usize;
     let wrapped_lines = wrap_lines(parsed_lines, inner_width);
-    let total_lines = wrapped_lines.len();
-
-    let paragraph = Paragraph::new(wrapped_lines)
-        .block(right_block)
-        .scroll((scroll_y as u16, 0))
-        .style(Style::default().fg(theme.popup_fg));
-    f.render_widget(paragraph, right_area);
-
-    // Fractional scrollbar when content overflows the viewer pane
-    let inner_height = right_area.height.saturating_sub(2) as usize;
-    scrollbar::render_vertical_inside_block(
+    let inner = right_block.inner(right_area);
+    f.render_widget(right_block, right_area);
+    scrollbar::render_text_pane(
         f,
-        right_area,
-        ScrollView {
-            content_len: total_lines,
-            viewport_len: inner_height,
-            offset: scroll_y,
-        },
+        inner,
+        (wrapped_lines, Style::default().fg(theme.popup_fg)),
+        scroll_y,
         theme,
         ScrollTarget {
             surface: ScrollbarSurface::Popup,

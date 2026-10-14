@@ -8,7 +8,7 @@ use crate::app::state::popup::UpdateAvailable;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
-use crate::ui::scrollbar::{ScrollTarget, ScrollView};
+use crate::ui::scrollbar::ScrollTarget;
 use crate::update::UpdateInfo;
 use crate::update::detect::InstallMethod;
 use ratatui::{
@@ -191,25 +191,11 @@ fn render_notes(
 
     let inner_width = (area.width as usize).saturating_sub(3);
     let wrapped_notes = wrap_lines(notes_lines, inner_width);
-    let total_lines = wrapped_notes.len();
-    let inner_height = area.height as usize;
-
-    let max_scroll = total_lines.saturating_sub(inner_height);
-    let clamped_scroll = scroll_y.min(max_scroll);
-
-    let paragraph = Paragraph::new(wrapped_notes)
-        .scroll((clamped_scroll as u16, 0))
-        .style(Style::default().bg(theme.popup_bg));
-    f.render_widget(paragraph, area);
-
-    scrollbar::render_vertical_right(
+    scrollbar::render_text_pane(
         f,
         area,
-        ScrollView {
-            content_len: total_lines,
-            viewport_len: inner_height,
-            offset: clamped_scroll,
-        },
+        (wrapped_notes, Style::default().bg(theme.popup_bg)),
+        scroll_y,
         theme,
         ScrollTarget {
             surface: ScrollbarSurface::Popup,

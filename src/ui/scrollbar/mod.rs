@@ -12,7 +12,7 @@ pub mod types;
 pub use interaction::handle_mouse_on_targets;
 pub use layout::{centered_scroll, clamp_cursor_to_offset, follow_scroll};
 pub use render::{
-    ScrollTarget, ScrollView, register_wheel, render_vertical, render_vertical_inside_block,
+    ScrollTarget, ScrollView, register_wheel, render_text_pane, render_vertical_inside_block,
     render_vertical_right,
 };
 pub use types::{ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
@@ -24,6 +24,27 @@ mod tests {
     use super::*;
     use crate::ui::resolved_theme::ResolvedTheme;
     use ratatui::layout::Rect;
+
+    #[test]
+    fn text_pane_never_scrolls_past_the_last_screenful() {
+        use ratatui::{Terminal, backend::TestBackend, style::Style, text::Line};
+        let theme = ResolvedTheme::default();
+        let lines: Vec<Line<'static>> = (0..10).map(|i| Line::from(format!("l{i}"))).collect();
+        let mut terminal = Terminal::new(TestBackend::new(10, 4)).unwrap();
+        terminal
+            .draw(|f| {
+                let target = ScrollTarget {
+                    surface: ScrollbarSurface::Popup,
+                    hits: None,
+                    id: ScrollTargetId::About,
+                };
+                render_text_pane(f, f.area(), (lines, Style::default()), 100, &theme, target);
+            })
+            .unwrap();
+        let buf = terminal.backend().buffer();
+        assert_eq!(buf[(1, 0)].symbol(), "6", "first of the last four lines");
+        assert_eq!(buf[(1, 3)].symbol(), "9");
+    }
 
     #[test]
     fn follow_scroll_moves_the_least_and_survives_no_rows() {
