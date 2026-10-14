@@ -110,3 +110,27 @@ fn a_same_server_move_is_journaled_as_renames() {
     assert_eq!(steps[1].from, PathBuf::from("/srv/b"));
     assert_eq!(steps[1].to, PathBuf::from("/srv/x/b"));
 }
+
+/// A same-server move that was copied file by file (something was at a
+/// target) is not a series of renames of its sources.
+#[test]
+fn a_same_server_move_copied_file_by_file_is_not_journaled_as_renames() {
+    use crate::fs::transfer::job::{TransferJob, TransferOperation, TransferResults};
+    let job = TransferJob::new(
+        TransferOperation::Move,
+        vec![PathBuf::from("/srv/dir")],
+        PathBuf::from("/srv/x"),
+        Default::default(),
+    );
+    let start = std::time::Instant::now();
+    let done = |from: &str, to: &str| {
+        crate::fs::transfer::control::done(Path::new(from), PathBuf::from(to), 0, start)
+    };
+    let mut results = TransferResults::default();
+    results.completed_files.push(done("/srv/dir", "/srv/x/dir"));
+    assert!(super::super::record::renamed_sources(&job, &results));
+    results
+        .completed_files
+        .push(done("/srv/dir/f.txt", "/srv/x/dir/f.txt"));
+    assert!(!super::super::record::renamed_sources(&job, &results));
+}
