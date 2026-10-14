@@ -110,6 +110,13 @@ impl FrecencyStore {
         self.folders.retain(|f| f.path != path);
     }
 
+    /// Forgets every folder `gone` says no longer exists; returns how many.
+    pub fn prune(&mut self, gone: impl Fn(&Path) -> bool) -> usize {
+        let before = self.folders.len();
+        self.folders.retain(|f| !gone(&f.path));
+        before - self.folders.len()
+    }
+
     /// Shrinks the ranks once they add up to [`MAX_TOTAL_RANK`] (dropping
     /// folders whose rank falls under one) and keeps the best
     /// [`MAX_FOLDERS`].

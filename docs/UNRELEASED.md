@@ -1,8 +1,10 @@
 ## [Unreleased]
 
 ### Added
+- Duplicate finder: "Follow symbolic links" option (files below linked folders are searched; a file reached twice counts once and loops are skipped).
+- Plugin API 1.3.0: positional widgets (`ui.Rect`, `Pad`, `Pos`, `Bar`, `Clear`, `Fill`, `widget:area(rect)`, `Layout:split(rect)`, lists of widgets from `peek`), `pairee.cx.tabs` / `tasks` / `yanked` and panel URLs, `File` inherits the fields of `Cha`, and `pairee.fs` on remote URLs of connections open in a panel (trusted plugins; read-only in Secure Mode).
 - `pairee --help` (`-h`) lists the options and subcommands, and `pairee plugin|developer|keymap --help` the commands of each, in the configured language.
-- Linux and macOS: "Copy attributes" in the Copy / Move dialog also copies extended attributes, and "Copy access control list" copies POSIX ACLs (Linux).
+- Linux and macOS: "Copy attributes" in the Copy / Move dialog also copies extended attributes, and "Copy access control list" copies POSIX ACLs (Linux) and extended ACLs (macOS).
 - Interrupted copies to and from SSH servers resume from the part already written, like local ones.
 - Tar (plain, .gz, .bz2, .xz) and 7z archives can be changed like zip ones: copy files into them, create folders, edit and delete entries. Files and folders can also be moved into and out of zip, tar and 7z archives.
 - `install.sh` installs the aarch64 build on 64-bit ARM Linux, and `install.ps1` the ARM64 build on ARM64 Windows.
@@ -39,8 +41,18 @@
 - Connection manager (`Ctrl+Shift+S`, Files → Connect to server...): save, edit, delete and connect SFTP, FTP, FTPS, WebDAV (HTTP / HTTPS) and S3 connections and open them in either panel. Copy and move work between any two places: local ↔ remote and remote ↔ remote (e.g. FTP → S3), with the transfer panel's progress, conflicts, retries and verification.
 - Pairee asks for a missing password or key passphrase in a prompt while connecting, instead of failing: SFTP logins, encrypted SSH keys (also for Git fetch, pull and push), and FTP / WebDAV / S3 connections without a stored password or whose password was rejected. Esc cancels.
 - FTP: file information comes from `MLST` when the server supports it (one request instead of listing the whole folder).
+- FTPS and WebDAV over HTTPS work with self-signed and private-authority certificates: Pairee shows the SHA-256 fingerprint of a certificate the system does not trust and, when you accept it, remembers it for that server; the TLS options of a connection can also name a trusted PEM file (`ca=`) or turn checks off (`insecure=true`, with a warning on every connection).
 
 ### Improved
+- The frequent-folder list leaves out (and forgets) local folders that no longer exist when it opens, not only when one is chosen.
+- The branch view is kept in the session (a restored tab shows it again) and refreshes itself when files change in any subfolder (watched natively, or polled on network folders and SFTP).
+- When a plugin copies text of several lines to the clipboard, Pairee says so ("Plugin X copied N lines to the clipboard"), so a command hidden on a later line does not get pasted unnoticed.
+- Plugins in Secure Mode can no longer use arguments of an allowed tool to run other programs (`git -c core.sshCommand=…`, `--upload-pack`, `tar --to-command`, `fd --exec`, `rg --pre`, `fzf --preview`, ...); `sed` and editors can no longer be declared.
+- Plugins: `pairee.ps.sub` callbacks get who sent each event (`meta.sender`, `meta.trusted`, `meta.from_host`), set by Pairee, and untrusted plugins can no longer publish under Pairee's own event names (`on_cd`, `on_key`, ... and `pairee.*`).
+- Git: a pull whose merge conflicts no longer gives up: like `git pull`, it leaves the merge in progress with conflict markers in the files, lists them, and the Git panel title shows "MERGING (N conflicts)"; stage each resolved file with Space and commit, or abort with `X` (also for cherry-picks and reverts).
+- Git: merges, cherry-picks and reverts without conflicts are committed at once, like the Git command line (default merge message, original message and author for cherry-picks, "Revert ..." for reverts).
+- Git: passphrase prompts of fetch, pull, push and clone go to the window that started them (the same per-state prompt connections use) instead of a process-wide one.
+- Git errors that were still in English (no working directory, unsupported merge, branch not found, rebase failures, no remote) are translated.
 - A viewer still opening a file applies highlighting settings changed in the meantime once the file is loaded.
 - A dialog opened from another one now shows over it instead of hiding it: the file mask and folder tree of the Copy / Move dialog, the Git prompts (commit, checkout, diff, branch and tag names, confirmations, remotes) over the Git panel, and the development plugin picker over the Plugin Manager. Closing it returns to the dialog underneath.
 - The screens list (F12) opened over dialogs brings all of them back when closed, not only the top one.
@@ -86,6 +98,7 @@
 - `run.bat` and `run.sh`: their developer menu is now `cargo xtask dev` (also `cargo xtask dev <action>`, e.g. `cargo xtask dev clippy`).
 
 ### Fixed
+- Folder sizes and the disk usage view are marked incomplete again when some entries of a folder cannot be read, and copies report such folders instead of silently leaving those entries out.
 - Previews drawn with `pairee.ui` are shown in the Quick View, and plugin commands, previews and hooks can use dialogs, `pairee.sync` and other calls that wait; waiting for the user no longer counts against a plugin's 10-second limit.
 - A keyring that could not be read at startup (locked, temporarily unavailable) no longer makes the next save delete the stored connection password; it is read again when connecting.
 - Removing or renaming an SSH preset now deletes its old password from the system keyring.

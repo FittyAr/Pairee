@@ -21,6 +21,7 @@ impl AppState {
             .map(|panel| WatchTarget {
                 dir: panel.current_path.clone(),
                 remote: panel.source.remote().cloned(),
+                recursive: panel.branch_view,
             })
             .collect()
     }

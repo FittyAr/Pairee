@@ -28,6 +28,14 @@ The left column lists the saved connections with their protocol, e.g. `backup (S
 | **Key Path** | SFTP only: your private key file. Empty: ssh-agent and the default keys in `~/.ssh` are tried. |
 | **Folder** | The folder opened after connecting (empty: the server's root). For WebDAV and S3 it is the root of the panel (an S3 key prefix). |
 | **S3 options** | S3 only: `endpoint=https://minio.local:9000&region=eu-west-1&path_style=true`. Without an endpoint, AWS is used. |
+| **TLS options** | FTPS and WebDAV (HTTPS): `ca=/path/to/cert.pem` trusts the certificates of that PEM file (a private CA, or the server's own self-signed certificate) besides the system's; `insecure=true` turns certificate checks off (Pairee warns every time it connects: anyone on the network path could read the password). Join several with `&`. |
+
+### Certificates (FTPS, WebDAV over HTTPS)
+Pairee checks the server's certificate against the system's trusted authorities, like a browser. When a server presents a certificate the system does not trust (self-signed, or from a private authority), Pairee shows its **SHA-256 fingerprint** and asks:
+* **Enter** trusts it for that server (host and port) from now on: it is saved as `certs/<host>_<port>.pem` in the configuration folder (delete the file to forget it). Compare the fingerprint with the one the server's administrator gave you first.
+* **Esc** refuses it and the connection fails.
+
+For a private authority used by several servers, put its certificate in a PEM file and add `ca=<file>` to the TLS options instead.
 
 Buttons: **Connect**, **Save** (stores the fields under their name, replacing a connection with the same name), **Delete** and **Cancel**. Connecting does not save.
 

@@ -104,6 +104,7 @@ mod tests {
             locked: true,
             cursor: Some("main.rs".into()),
             connection: None,
+            branch_view: true,
         }
     }
 
@@ -137,6 +138,7 @@ mod tests {
         session.save_to(&path).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("connection = \"web\""));
+        assert!(text.contains("branch_view = true"));
         assert!(!text.contains("password"));
         assert_eq!(SessionFile::load_from(&path), Some(session.clone()));
 

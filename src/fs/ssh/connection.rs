@@ -212,8 +212,17 @@ const HOME_VAR: &str = "USERPROFILE";
 const HOME_VAR: &str = "HOME";
 
 fn known_hosts_path() -> Option<PathBuf> {
+    #[cfg(all(test, pairee_sftp_test))]
+    if let Some(path) = TEST_KNOWN_HOSTS.get() {
+        return Some(path.clone());
+    }
     known_hosts_path_in(std::env::var_os(HOME_VAR))
 }
+
+/// The known_hosts file of the opt-in tests against a real server (it
+/// holds the test container's key, never the user's own file).
+#[cfg(all(test, pairee_sftp_test))]
+pub(crate) static TEST_KNOWN_HOSTS: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 
 /// `<home>/.ssh/known_hosts`, or `None` when the home directory is unknown.
 pub(super) fn known_hosts_path_in(home: Option<std::ffi::OsString>) -> Option<PathBuf> {

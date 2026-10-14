@@ -3,6 +3,7 @@
 //! long download never blocks the listing connection (FTP runs one data
 //! transfer per connection at a time).
 
+use crate::fs::remote::tls::{self, Handshake, TlsTrust};
 use crate::fs::remote::{credentials, invalid};
 use std::io::{self, Read, Write};
 use std::sync::Arc;
@@ -57,6 +58,8 @@ pub struct Config {
     user: String,
     password: String,
     tls: Option<Arc<rustls::ClientConfig>>,
+    /// What `tls` trusts (to explain a refused certificate).
+    trust: Option<TlsTrust>,
 }
 
 impl Config {
@@ -68,18 +71,32 @@ impl Config {
             .to_string();
         let (user, password) =
             credentials(url).unwrap_or_else(|| ("anonymous".into(), "anonymous@".into()));
-        let tls = secure.then(tls_config).transpose()?;
+        let port = url.port().unwrap_or(FTP_PORT);
+        let trust = match secure {
+            true => Some(TlsTrust::for_server(url, &host, port)?),
+            false => None,
+        };
+        let tls = trust.as_ref().map(TlsTrust::rustls_config).transpose()?;
         Ok(Self {
             host,
-            port: url.port().unwrap_or(FTP_PORT),
+            port,
             user,
             password,
             tls,
+            trust,
         })
     }
 
     pub fn host(&self) -> &str {
         &self.host
+    }
+
+    /// `err` of the TLS upgrade, as an untrusted certificate when it is one.
+    fn untrusted(&self, err: io::Error) -> io::Error {
+        match &self.trust {
+            Some(trust) => tls::classify(err, &self.host, self.port, Handshake::FtpAuthTls, trust),
+            None => err,
+        }
     }
 
     /// A new logged-in connection in binary, passive mode.
@@ -95,7 +112,7 @@ impl Config {
         if let Some(tls) = &self.tls {
             conn = conn
                 .into_secure(RustlsConnector::from(Arc::clone(tls)), &self.host)
-                .map_err(io_err)?;
+                .map_err(|e| self.untrusted(io_err(e)))?;
         }
         conn.login(self.user.as_str(), self.password.as_str())
             .map_err(io_err)?;
@@ -105,35 +122,6 @@ impl Config {
         Ok(conn)
     }
 }
-
-/// Certificates checked by the platform verifier (the system's roots), with
-/// the `ring` provider (no process-wide provider needed).
-fn tls_config() -> io::Result<Arc<rustls::ClientConfig>> {
-    use rustls_platform_verifier::BuilderVerifierExt;
-    let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let builder = rustls::ClientConfig::builder_with_provider(provider)
-        .with_safe_default_protocol_versions()
-        .map_err(io::Error::other)?;
-    #[cfg(test)]
-    if let Some(root) = TEST_ROOT.get() {
-        let mut roots = rustls::RootCertStore::empty();
-        roots.add(root.clone()).map_err(io::Error::other)?;
-        return Ok(Arc::new(
-            builder.with_root_certificates(roots).with_no_client_auth(),
-        ));
-    }
-    let config = builder
-        .with_platform_verifier()
-        .map_err(io::Error::other)?
-        .with_no_client_auth();
-    Ok(Arc::new(config))
-}
-
-/// The certificate the FTPS test server signs with, trusted instead of the
-/// system's roots when set (tests only).
-#[cfg(test)]
-pub static TEST_ROOT: std::sync::OnceLock<rustls::pki_types::CertificateDer<'static>> =
-    std::sync::OnceLock::new();
 
 /// A download on a connection of its own.
 pub struct Download {

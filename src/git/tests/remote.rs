@@ -67,7 +67,14 @@ fn test_remote_push_upstream_and_delete_branch() {
     add_remote(&repo, "test-remote", &bare_path).unwrap();
 
     // Push default branch with upstream
-    push(&repo, "test-remote", &default_branch, true, None).unwrap();
+    push(
+        &repo,
+        "test-remote",
+        &default_branch,
+        true,
+        NetHooks::default(),
+    )
+    .unwrap();
 
     let local_head_branch = repo
         .find_branch(&default_branch, git2::BranchType::Local)
@@ -80,7 +87,14 @@ fn test_remote_push_upstream_and_delete_branch() {
 
     // Create a new branch, push it, and then delete it remotely
     create_branch(&repo, "feat-to-delete", "HEAD").unwrap();
-    push(&repo, "test-remote", "feat-to-delete", true, None).unwrap();
+    push(
+        &repo,
+        "test-remote",
+        "feat-to-delete",
+        true,
+        NetHooks::default(),
+    )
+    .unwrap();
 
     // Remote bare repo must have the branch
     assert!(
@@ -90,7 +104,7 @@ fn test_remote_push_upstream_and_delete_branch() {
     );
 
     // Delete remote branch
-    delete_remote_branch(&repo, "test-remote", "feat-to-delete", None).unwrap();
+    delete_remote_branch(&repo, "test-remote", "feat-to-delete", NetHooks::default()).unwrap();
 
     // Verify remote bare repo no longer has the branch
     assert!(
@@ -180,13 +194,12 @@ fn test_cherry_pick() {
     checkout_branch(&repo, &main_branch).unwrap();
     assert!(!dir.path().join("cherry.txt").exists());
 
-    // Cherry-pick commit from feature branch
-    cherry_pick(&repo, &feat_oid.to_string()).unwrap();
+    // Cherry-pick commit from feature branch: committed like the Git CLI
+    let outcome = cherry_pick(&repo, &feat_oid.to_string()).unwrap();
 
-    // The cherry-picked changes should be staged in the index
-    let staged = get_status(&repo);
-    let found = staged.iter().any(|s| s.path == "cherry.txt" && s.is_staged);
-    assert!(found);
+    assert!(matches!(outcome, Outcome::Committed(_)));
+    assert!(dir.path().join("cherry.txt").exists());
+    assert!(get_status(&repo).is_empty());
 }
 
 #[test]
@@ -204,13 +217,15 @@ fn test_revert() {
     stage_file(&repo, "revert.txt").unwrap();
     let v2_oid = commit(&repo, "update to v2", "Test User", "test@example.com").unwrap();
 
-    // Revert v2
-    revert(&repo, &v2_oid.to_string()).unwrap();
+    // Revert v2: committed like the Git CLI
+    let outcome = revert(&repo, &v2_oid.to_string()).unwrap();
 
-    // Index should now have revert changes
-    let status = get_status(&repo);
-    let found = status.iter().any(|s| s.path == "revert.txt" && s.is_staged);
-    assert!(found);
+    assert!(matches!(outcome, Outcome::Committed(_)));
+    assert_eq!(
+        std::fs::read_to_string(&file_path).unwrap().trim_end(),
+        "v1"
+    );
+    assert!(get_status(&repo).is_empty());
 }
 
 #[test]
@@ -317,7 +332,7 @@ fn test_branches_ahead_behind() {
     let _remote_repo = git2::Repository::init_bare(remote_dir.path()).unwrap();
 
     add_remote(&repo, "origin", &bare_path).unwrap();
-    push(&repo, "origin", &default_branch, true, None).unwrap();
+    push(&repo, "origin", &default_branch, true, NetHooks::default()).unwrap();
 
     // Initially ahead = 0, behind = 0
     let branches = get_branches(&repo);
@@ -389,10 +404,10 @@ fn test_push_tags() {
     let remote_repo = git2::Repository::init_bare(remote_dir.path()).unwrap();
 
     add_remote(&repo, "origin", &bare_path).unwrap();
-    push(&repo, "origin", &default_branch, true, None).unwrap();
+    push(&repo, "origin", &default_branch, true, NetHooks::default()).unwrap();
 
     create_tag(&repo, "v1.5.0", "HEAD", None).unwrap();
-    push_tags(&repo, "origin", None).unwrap();
+    push_tags(&repo, "origin", NetHooks::default()).unwrap();
 
     // Verify remote bare repository received the tag
     assert!(remote_repo.find_reference("refs/tags/v1.5.0").is_ok());
@@ -426,7 +441,7 @@ fn test_clone_repo() {
     let clone_target_path = target_dir.path().join("cloned_sub");
     let src_url = dir.path().to_str().unwrap().replace('\\', "/");
 
-    let cloned_repo = clone_repo(&src_url, &clone_target_path, None).unwrap();
+    let cloned_repo = clone_repo(&src_url, &clone_target_path, NetHooks::default()).unwrap();
     assert!(clone_target_path.join("cloned_file.txt").exists());
 
     let content = std::fs::read_to_string(clone_target_path.join("cloned_file.txt")).unwrap();

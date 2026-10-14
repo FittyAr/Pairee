@@ -16,9 +16,11 @@ use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 use std::str::FromStr;
 
-/// Row of the hash algorithm in the options form.
+/// Rows of the hash algorithm and the follow-links checkbox in the
+/// options form.
 const ROW_ALGORITHM: usize = 1;
-const BUTTON_CANCEL: usize = 3;
+const ROW_FOLLOW_LINKS: usize = 2;
+const BUTTON_CANCEL: usize = 4;
 
 fn handle_options(
     state: &mut AppState,
@@ -31,6 +33,7 @@ fn handle_options(
     let field = (prompt.cursor_idx == 0).then_some(&mut prompt.min_size);
     match DUPE_OPTIONS_FORM.handle(&mut prompt.cursor_idx, field, &key) {
         FormKey::Toggle(ROW_ALGORITHM) => prompt.algorithm = prompt.algorithm.next(),
+        FormKey::Toggle(ROW_FOLLOW_LINKS) => prompt.follow_links = !prompt.follow_links,
         FormKey::Other
             if prompt.cursor_idx == ROW_ALGORITHM
                 && matches!(key.code, KeyCode::Left | KeyCode::Right) =>
@@ -57,6 +60,7 @@ fn start(state: &mut AppState) {
     let options = DupeOptions {
         min_size,
         algorithm: prompt.algorithm,
+        follow_links: prompt.follow_links,
         ..DupeOptions::default()
     };
     let roots = prompt.roots.clone();

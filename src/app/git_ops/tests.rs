@@ -103,3 +103,62 @@ async fn cancel_drops_result_and_informs_user() {
         assert!(!super::poll_git_op(&mut st), "stale result ignored");
     }
 }
+
+/// Commits `content` as `name` in the repository at `dir`.
+fn commit_file(dir: &std::path::Path, name: &str, content: &str) {
+    let repo = git2::Repository::open(dir).unwrap();
+    std::fs::write(dir.join(name), content).unwrap();
+    let mut index = repo.index().unwrap();
+    index.add_path(std::path::Path::new(name)).unwrap();
+    index.write().unwrap();
+    let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
+    let sig = git2::Signature::now("T", "t@example.com").unwrap();
+    let parent = repo.head().unwrap().peel_to_commit().unwrap();
+    repo.commit(Some("HEAD"), &sig, &sig, name, &tree, &[&parent])
+        .unwrap();
+}
+
+#[test]
+fn pull_with_conflicts_reports_the_files_instead_of_success() {
+    let (work, bare) = repo_with_origin();
+    let repo = git2::Repository::open(work.path()).unwrap();
+    let branch = repo.head().unwrap().shorthand().unwrap().to_string();
+    let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    let push = |repo: &git2::Repository| {
+        let mut remote = repo.find_remote("origin").unwrap();
+        remote.push(&[refspec.as_str()], None).unwrap();
+    };
+    push(&repo);
+    let other = tempfile::tempdir().unwrap();
+    let url = bare.path().to_string_lossy().replace('\\', "/");
+    let other_repo = git2::Repository::clone(&url, other.path()).unwrap();
+    commit_file(other.path(), "a.txt", "theirs");
+    push(&other_repo);
+    commit_file(work.path(), "a.txt", "ours");
+
+    let mut st = state();
+    st.start_git_op(
+        GitNetOp::Pull {
+            repo_path: work.path().to_path_buf(),
+            branch,
+        },
+        FollowUp::Info,
+    );
+
+    match st.dialogs.top() {
+        Some(PopupType::Error(ErrorMessage(msg))) => {
+            assert_eq!(*msg, t("git_pull_conflicts").replace("{}", "a.txt"))
+        }
+        other => panic!("expected the conflict report, got {other:?}"),
+    }
+    assert_eq!(repo.state(), git2::RepositoryState::Merge);
+}
+
+#[test]
+fn conflict_summary_lists_the_first_files() {
+    let paths: Vec<String> = (1..=7).map(|i| format!("f{i}")).collect();
+    let summary = super::conflict_summary(&paths);
+    assert!(summary.starts_with("f1, f2, f3, f4, f5 "), "{summary}");
+    assert!(summary.ends_with(&t("git_conflicts_more").replace("{}", "2")));
+    assert_eq!(super::conflict_summary(&paths[..1]), "f1");
+}

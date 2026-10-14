@@ -18,7 +18,7 @@ pub async fn refresh_context(lua: &Lua, tx: &mpsc::Sender<PluginRequest>) -> Lua
         .map_err(|e| LuaError::RuntimeError(format!("Failed to receive state snapshot: {e}")))?;
     let app = app_table(lua)?;
     app.set("_current_snapshot", lua.to_value(&snapshot)?)?;
-    super::cx::install(lua, &snapshot)
+    super::cx::install_snapshot(lua, &snapshot)
 }
 
 /// Drops the legacy snapshot again (`pairee.cx` stays as last seen).

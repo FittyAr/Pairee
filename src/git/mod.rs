@@ -6,6 +6,7 @@ pub mod credentials;
 pub mod diff;
 pub mod log;
 pub mod merge;
+pub mod outcome;
 pub mod pull;
 pub mod push;
 pub mod rebase;

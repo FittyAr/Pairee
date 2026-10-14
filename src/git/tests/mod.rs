@@ -5,6 +5,7 @@ use crate::git::commit::*;
 use crate::git::diff::*;
 use crate::git::log::*;
 use crate::git::merge::*;
+use crate::git::outcome::*;
 use crate::git::rebase::*;
 use crate::git::remote::*;
 use crate::git::repo::*;

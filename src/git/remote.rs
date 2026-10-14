@@ -1,3 +1,4 @@
+use crate::credential_prompt::{self, Ask};
 pub use crate::git::pull::pull;
 pub use crate::git::push::{delete_remote_branch, push};
 
@@ -22,11 +23,30 @@ pub struct TransferStats {
 /// Progress observer; returning `false` aborts the transfer (cancellation).
 pub type ProgressObserver<'a> = Option<&'a (dyn Fn(TransferStats) -> bool + 'a)>;
 
+/// What a network operation reports to and asks of whoever started it:
+/// progress (and cancellation) and the passphrase prompt. Each job passes
+/// the asker of the state that started it, like remote connections do.
+#[derive(Clone, Copy)]
+pub struct NetHooks<'a> {
+    pub progress: ProgressObserver<'a>,
+    pub ask: Ask<'a>,
+}
+
+impl Default for NetHooks<'_> {
+    /// No progress, and nobody to ask (every prompt is cancelled).
+    fn default() -> Self {
+        Self {
+            progress: None,
+            ask: &credential_prompt::nobody,
+        }
+    }
+}
+
 /// Remote callbacks with bounded credential negotiation (see
 /// [`crate::git::credentials`]) plus optional progress reporting / cancellation.
-pub fn create_callbacks(observer: ProgressObserver<'_>) -> git2::RemoteCallbacks<'_> {
+pub fn create_callbacks(hooks: NetHooks<'_>) -> git2::RemoteCallbacks<'_> {
     let mut callbacks = git2::RemoteCallbacks::new();
-    if let Some(obs) = observer {
+    if let Some(obs) = hooks.progress {
         callbacks.transfer_progress(move |p| {
             obs(TransferStats {
                 done: p.received_objects(),
@@ -49,7 +69,7 @@ pub fn create_callbacks(observer: ProgressObserver<'_>) -> git2::RemoteCallbacks
             }
         });
     }
-    let mut credentials = crate::git::credentials::CredentialState::with_default_keys();
+    let mut credentials = crate::git::credentials::CredentialState::with_default_keys(hooks.ask);
     callbacks.credentials(move |url, username_from_url, allowed_types| {
         credentials.next_credential(url, username_from_url, allowed_types)
     });
@@ -86,7 +106,7 @@ pub fn resolve_remote_name(
         }
     }
 
-    anyhow::bail!("No git remote configured")
+    anyhow::bail!(crate::config::localization::t("git_error_no_remote"))
 }
 
 /// Lists all configured remotes with their URLs.
@@ -124,11 +144,11 @@ pub fn delete_remote(repo: &git2::Repository, name: &str) -> anyhow::Result<()> 
 pub fn fetch(
     repo: &git2::Repository,
     remote_name: &str,
-    observer: ProgressObserver<'_>,
+    hooks: NetHooks<'_>,
 ) -> anyhow::Result<()> {
     let mut remote = repo.find_remote(remote_name)?;
     let mut opts = git2::FetchOptions::new();
-    opts.remote_callbacks(create_callbacks(observer));
+    opts.remote_callbacks(create_callbacks(hooks));
     remote.fetch(&[] as &[&str], Some(&mut opts), None)?;
     Ok(())
 }

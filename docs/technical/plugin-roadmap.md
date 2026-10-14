@@ -19,7 +19,7 @@
 11. [Appendix B — Pairee Files Affected](#appendix-b--pairee-files-affected)
 12. [Appendix C — Reference Material](#appendix-c--reference-material)
 
-## Status (2026-10-13, Lua API 1.2.0)
+## Status (2026-10-13, Lua API 1.3.0)
 
 | Item | State | Where |
 |---|---|---|
@@ -27,7 +27,7 @@
 | M1 dialogs, quote/json/percent/sleep | Done earlier | `bindings/dialogs.rs`, `utils_ext.rs` |
 | M1 `pairee.clipboard` | Done. Read: trusted outside Secure Mode only; write: everyone, control chars stripped, 1 MiB | `bindings/clipboard.rs` |
 | M1 `uid/gid/user_name/group_name/host_name` | Done (`pairee.utils.*`, `nil` where the platform has none) | `bindings/identity.rs`, `fs/identity.rs` |
-| M2 `Path`, `Url`, `Cha`, `Error`; `File.cha`; `fs.cha` | Done. `File` does not deref to `Cha` (use `file.cha`); `File.url` stays a string; `Url` is string-only (no remote I/O through `pairee.fs`) | `runtime/types/` |
+| M2 `Path`, `Url`, `Cha`, `Error`; `File.cha`; `fs.cha` | Done. `File` derives from `Cha` (its `__index` falls back to the `Cha`); `File.url` stays a string (the remote URL in remote panels); `pairee.fs` reaches remote URLs of connections open in a panel (untrusted: refused, Secure Mode: read-only) | `runtime/types/`, `bindings/fs/remote.rs` |
 | M2 `pairee.image` (G12) | Done: `show` (widget drawn by the Quick View image renderer), `info`, `precache` | `bindings/image.rs` |
 | M2 Composer | Done: lazily built `pairee.image`, `pairee.rt`, `pairee.th` | `runtime/composer.rs` |
 | M2 `add_cached_field` | Not needed: fields are computed from Rust data on access | — |
@@ -37,13 +37,13 @@
 | M3 `Runtime` / `runtime_scope!`, main-thread sync context | Not done: out of this design (see `@sync` above); every plugin method now runs asynchronously instead, and the watchdog pauses while a call waits | `plugin/limits.rs` (`guarded_async`) |
 | M3 async fs / Command / Child | Done earlier | `bindings/fs/`, `bindings/process/` |
 | M4 `Renderable` + widgets | Done: `Style`, `Span`, `Line`, `Text` (+ `parse` ANSI), `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`, `Layout` (declarative children), `Constraint`, `Align`, `Wrap`, `Edge`; data in `app::state::popup::plugin_widget`, ratatui only in `ui::quickview::plugin` | `bindings/ui/` |
-| M4 `ui.Rect` / `Pad` / `Pos` / `Bar` / `Clear` / `Fill`, `Layout:split(rect)` | Not done: the core has no terminal geometry; layouts are split by the UI | — |
+| M4 `ui.Rect` / `Pad` / `Pos` / `Bar` / `Clear` / `Fill`, `Layout:split(rect)` | Done: plain data in `plugin_widget::geometry`; `Layout:split` uses the solver the UI layer installs (`ui::quickview::install_layout_solver`), so the core has no ratatui | `bindings/ui/geometry.rs`, `ui/quickview/plugin/place.rs` |
 | M4 `rt`, `th` | Done (read-only snapshots of the configuration the plugins loaded with; `rt.term.size()` live) | `bindings/{rt,th}.rs` |
 | M4 `km` | Covered by the existing `pairee.keymap` | `bindings/keymap.rs` |
-| M4 `cx` beyond `active` / `left` / `right` (`tabs`, `tasks`, `yanked`) | Not done | — |
+| M4 `cx` beyond `active` / `left` / `right` (`tabs`, `tasks`, `yanked`) | Done (plus `url` on every folder) | `bindings/cx.rs`, `manager/snapshot_build.rs` |
 | M4 `preview_code` / `preview_widget` | Done; `preview_code` numbers the lines and reuses the editor/viewer highlighter (`crate::syntax`, theme syntax colors, user's on/off and size limit) | `bindings/preview.rs` |
 | G11 settings form | Done: `c` / Enter in the Plugin Manager opens a schema-driven form; saved to `[settings.plugin_settings.<name>]`, plugins reloaded | `app/input_popup/plugin_menu/settings.rs`, `ui/popup/plugin_menu/settings.rs` |
-| Acceptance | `tests/plugin_acceptance/roadmap_api` (untrusted plugin over the new surface); fzf / zoxide / code-preview ports still pending | `src/plugin/acceptance.rs` |
+| Acceptance | `tests/plugin_acceptance/roadmap_api` (untrusted plugin over the new surface), `fzf` (Command with piped stdio; the test drives it with `sort`), `zoxide` (pure-Lua frecency over `on_cd` with sender checks and `pairee.state`), `code_preview` (`preview_code` with `Layout:split`, `Rect`, `Pad`, `Bar`, `Clear`, `Fill`, `:area`) | `src/plugin/acceptance.rs` |
 
 ---
 

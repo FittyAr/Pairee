@@ -141,7 +141,7 @@ fn test_reset_and_merge() {
     // Merge branch 'v2-branch' (fast-forward)
     create_branch(&repo, "v2-branch", &second_oid.to_string()).unwrap();
     let analysis = merge(&repo, "v2-branch").unwrap();
-    assert!(analysis.is_fast_forward());
+    assert_eq!(analysis, Outcome::FastForward);
     assert_eq!(
         repo.head().unwrap().peel_to_commit().unwrap().id(),
         second_oid
@@ -247,7 +247,7 @@ fn test_checkout_local_and_remote_branch() {
     // 6. Test merge of a remote branch into default branch
     checkout_branch(&repo, &default_branch).unwrap();
     let merge_analysis = merge(&repo, "origin/feature-remote").unwrap();
-    assert!(merge_analysis.is_fast_forward());
+    assert_eq!(merge_analysis, Outcome::FastForward);
     assert_eq!(
         repo.head().unwrap().peel_to_commit().unwrap().id(),
         remote_oid
@@ -407,7 +407,7 @@ fn test_abort_merge() {
     // Switch back to default and merge feature
     checkout_branch(&repo, &default_branch).unwrap();
     let analysis = merge(&repo, "feature").unwrap();
-    assert!(analysis.is_normal());
+    assert_eq!(analysis, Outcome::Conflicts(vec!["conflict.txt".into()]));
     assert_eq!(repo.state(), git2::RepositoryState::Merge);
 
     // Abort merge

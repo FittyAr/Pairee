@@ -76,6 +76,22 @@ Run them by hand with `cargo xtask lint`. Before submitting code, you must ensur
    cargo +nightly fuzz run archive_zip -- -max_total_time=60
    ```
 
+### SFTP tests against a real SSH server (opt-in)
+
+The other remote backends are tested against in-process servers; SFTP also
+has a suite against a real `sshd`: the Vfs contract and resumed uploads and
+downloads. It is compiled in only with `PAIREE_SFTP_TEST=1`:
+
+```sh
+docker compose -f docker/docker-compose.yml up -d --build   # sshd on 127.0.0.1:2222
+PAIREE_SFTP_TEST=1 cargo test --lib sftp_server
+docker compose -f docker/docker-compose.yml down
+```
+
+It logs in as `pairee` / `pairee` and works in its own folders below `/tmp`
+on the server. `PAIREE_SFTP_HOST`, `PAIREE_SFTP_PORT`, `PAIREE_SFTP_USER`
+and `PAIREE_SFTP_PASSWORD` point it at another server.
+
 ## Developer Guidelines
 
 Our code architecture values modularity and clean decoupling. All modifications must comply with the guidelines defined in [.agents/AGENTS.md](file:///.agents/AGENTS.md):

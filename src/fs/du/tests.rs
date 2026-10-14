@@ -305,3 +305,51 @@ fn windows_directory_symlink_not_followed() {
     assert_eq!(size.dirs, 3);
     assert_eq!(size.files, 4);
 }
+
+/// The local disk, except that reading the entries of `sub` fails after
+/// the first ones (as `read_dir` iteration errors do).
+#[derive(Debug)]
+struct Gappy;
+
+impl Vfs for Gappy {
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::READ_ONLY
+    }
+
+    fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
+        LocalVfs.list(dir)
+    }
+
+    fn list_reporting(&self, dir: &Path) -> io::Result<(Vec<VfsEntry>, Option<io::Error>)> {
+        let entries = LocalVfs.list(dir)?;
+        let gap = dir
+            .ends_with("sub")
+            .then(|| io::Error::other("entry vanished"));
+        Ok((entries, gap))
+    }
+
+    fn stat(&self, path: &Path) -> io::Result<VfsEntry> {
+        LocalVfs.stat(path)
+    }
+}
+
+#[test]
+fn entries_a_listing_left_out_mark_the_totals_partial() {
+    let dir = sample_tree();
+    let tree = scan(&Gappy, dir.path(), true, &NONE);
+    // What could be read is still counted.
+    assert_eq!(tree.size.bytes, 60);
+    assert!(tree.size.partial, "{:?}", tree.size);
+    let sub = tree.children.iter().find(|c| c.name == "sub").unwrap();
+    assert!(sub.size.partial);
+    let empty = tree.children.iter().find(|c| c.name == "empty").unwrap();
+    assert!(!empty.size.partial);
+}
+
+#[test]
+fn local_listings_report_no_gap_on_a_healthy_folder() {
+    let dir = sample_tree();
+    let (entries, gap) = LocalVfs.list_reporting(dir.path()).unwrap();
+    assert_eq!(entries.len(), 3);
+    assert!(gap.is_none());
+}

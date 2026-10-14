@@ -1,6 +1,6 @@
 # Referencia de la API Lua de Plugins de Pairee
 
-Este documento describe la superficie de la API Lua expuesta a los plugins de Pairee. El contrato versionado es **API Lua v1.2.0** (`pairee._lua_api_version`) — ver [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). Arquitectura: [`plugin-system-design-es.md`](../../docs/technical/plugin-system-design-es.md). Guía: [`plugin-dev-guide-es.md`](../../docs/plugin-dev-guide-es.md).
+Este documento describe la superficie de la API Lua expuesta a los plugins de Pairee. El contrato versionado es **API Lua v1.3.0** (`pairee._lua_api_version`) — ver [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). Arquitectura: [`plugin-system-design-es.md`](../../docs/technical/plugin-system-design-es.md). Guía: [`plugin-dev-guide-es.md`](../../docs/plugin-dev-guide-es.md).
 
 ---
 
@@ -15,30 +15,31 @@ Dentro del `main.lua` de un plugin, la tabla `pairee` es el único punto de entr
 | `pairee.confirm({pos, title, body})` | Abre un diálogo de confirmación real (Sí/No) | Implementado (TUI) |
 | `pairee.input({pos, title, value, obscure, realtime, debounce})` | Abre un diálogo de entrada real | Implementado (TUI; streaming realtime más adelante) |
 | `pairee.which({cands, silent})` | Pide al usuario presionar una de varias teclas candidatas | Implementado (TUI) |
-| `pairee.cx` | Contexto vivo del panel (`active.cwd`, `hovered` File, `selected`) | Se rellena dentro de `pairee.sync` |
+| `pairee.cx` | Contexto vivo del panel (`active.cwd` / `url`, `hovered` File, `selected`; `tabs`, `tasks`, `yanked`) | Se rellena dentro de `pairee.sync`; `tabs` / `tasks` / `yanked` / `url` nuevos en 1.3 |
 | `pairee.notify({title, content, level, timeout})` | Muestra una notificación estructurada | Nuevo en M0 |
 | `pairee.file_cache({file, skip})` | Obtiene una ruta de caché estable para un par `(archivo, skip)` | Nuevo en M0 |
 | `pairee.utils.target_os()` | Devuelve `"linux"` / `"macos"` / `"windows"` / ... | Nuevo en M0 |
 | `pairee.utils.target_family()` | Devuelve `"unix"` / `"windows"` / `"wasm"` | Nuevo en M0 |
 | `pairee.utils.time()` | Devuelve el epoch UNIX actual en segundos (float) | Nuevo en M0 |
 | `pairee.utils.hash(str)` | Devuelve un hash estable de 64 bits de `str` como cadena hex | Nuevo en M0 |
-| `pairee.fs.*` | Filesystem (`read`, `write`, `exists`, `stat`/`file`, `list`/`read_dir`, `mkdir`, `remove`, `rename`, `copy`, `spawn`) | Estable + mkdir/remove/rename/copy |
+| `pairee.fs.*` | Filesystem (`read`, `write`, `exists`, `stat`/`file`, `list`/`read_dir`, `mkdir`, `remove`, `rename`, `copy`, `spawn`) | Estable + mkdir/remove/rename/copy; 1.3: URLs remotas (`sftp://`, `ftp://`, `webdav://`, `s3://`, ...) de conexiones abiertas en un panel, para plugins confiables (solo lectura en Secure Mode) |
 | `pairee.Command` | Builder de procesos (`:arg` `:cwd` `:env` `:stdin/out/err` `:spawn` `:output`) | Implementado; Child con pipes |
 | `pairee.ui.*` | Widgets: `Style`, `Span`, `Line`, `Text`, `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`, `Layout`, `Constraint` (constructores encadenables) | Estable (1.2: userdata) |
-| `pairee.Path / Url / Cha / Error` | Valores tipados de ruta, URL, información de archivo y error; `pairee.fs.cha(ruta)` | Nuevo en 1.2 |
-| `pairee.clipboard(texto?)` | Escribir el portapapeles; leerlo (solo plugins de confianza fuera del Modo Seguro) | Nuevo en 1.2 |
+| `pairee.ui.Rect / Pad / Pos / Bar / Clear / Fill`, `widget:area(rect)`, `Layout:split(rect)` | Ubican widgets en posiciones de la vista previa (`job.area` es un `Rect`); `peek` puede devolver una lista de widgets | Nuevo en 1.3 |
+| `pairee.Path / Url / Cha / Error` | Valores tipados de ruta, URL, información de archivo y error; `pairee.fs.cha(ruta)`; un `File` tiene todos los campos de `Cha` (1.3) | Nuevo en 1.2 |
+| `pairee.clipboard(texto?)` | Escribir el portapapeles (varias líneas: Pairee avisa qué plugin las copió); leerlo (solo plugins de confianza fuera del Modo Seguro) | Nuevo en 1.2 |
 | `pairee.state.get / set / all / clear` | Pequeño almacén que se conserva entre llamadas y sesiones | Nuevo en 1.2 |
 | `pairee.image.show / info / precache` | Imágenes en las vistas previas | Nuevo en 1.2 |
 | `pairee.preview_code / preview_widget` | Vista previa de texto resaltado con números de línea; mostrar un widget más tarde | Nuevo en 1.2 |
 | `pairee.rt` / `pairee.th` | Datos y preferencias del entorno; colores del tema como estilos | Nuevo en 1.2 |
 | `pairee.utils.user_name / host_name / uid / gid / group_name` | Quién y dónde ejecuta Pairee (`nil` donde la plataforma no lo tiene) | Nuevo en 1.2 |
-| `pairee.ps.sub / pub / unsub` | Pub/sub local | Estable |
+| `pairee.ps.sub / pub / unsub` | Pub/sub local; los callbacks reciben `(data, meta)` con el remitente fijado por Pairee (`meta.sender`, `meta.trusted`, `meta.from_host`); los plugins no confiables no pueden publicar nombres `on_*` / `pairee.*` | Estable |
 | `pairee.log.*` | Loguea un mensaje en el nivel dado | Estable |
 | `pairee.sync(fn)` | Bridge de snapshot al estado del hilo principal (también `--- @sync <método>`) | Estable |
 | `pairee.settings.*` | Acceso de lectura a los settings resueltos del plugin | Estable |
 | `pairee.t(key, vars)` | Búsqueda de cadenas localizadas con interpolación de variables | Estable |
 | `pairee._secure_mode` | Booleano: `true` cuando Secure Mode global está activo | Estable |
-| `pairee._lua_api_version` | Semver de esta superficie Lua (`1.2.0`) | Estable |
+| `pairee._lua_api_version` | Semver de esta superficie Lua (`1.3.0`) | Estable |
 
 ---
 
@@ -211,7 +212,8 @@ Los plugins corren en un sandbox Lua que:
 
 Cuando Secure Mode está activo (`secure_mode = true`, se alterna con `s` en el Gestor de plugins):
 
-- Los comandos deben estar declarados en el manifiesto y nunca son shells, intérpretes ni herramientas de red; `Command:env` solo fija variables de idioma/terminal/color y `Command:cwd` debe quedar dentro de la jaula.
+- Los comandos deben estar declarados en el manifiesto y nunca son shells, intérpretes, editores ni herramientas de red; `Command:env` solo fija variables de idioma/terminal/color y `Command:cwd` debe quedar dentro de la jaula.
+- Se rechazan los argumentos que hacen que una herramienta declarada ejecute otro programa: `git -c core.sshCommand=…` (y otras claves de configuración que nombran programas, `alias.*`), `--upload-pack`, `--exec`, URLs `ext::`; `tar --to-command` / `--use-compress-program` / `-I`; `fd --exec`; `rg --pre`; `zip -TT`; `fzf --preview` y acciones de `--bind` que ejecutan comandos; `less +…`.
 - Las lecturas de archivos se restringen al workspace activo + los directorios de config y caché del usuario + las carpetas del plugin; las escrituras al workspace, la caché y la carpeta de datos del plugin (la carpeta de configuración de Pairee es de solo lectura).
 
 Consulta la sección `[sandbox]` en `docs/plugin-dev-guide-es.md` para la matriz completa.

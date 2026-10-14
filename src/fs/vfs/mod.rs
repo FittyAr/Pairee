@@ -142,6 +142,14 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
     /// and flagged.
     fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>>;
 
+    /// Like [`Vfs::list`], plus the first error met while reading the
+    /// entries (the listing itself worked but left some entries out).
+    /// Walkers report it so totals are marked incomplete; adapters that
+    /// list in one request never leave entries out.
+    fn list_reporting(&self, dir: &Path) -> io::Result<(Vec<VfsEntry>, Option<io::Error>)> {
+        Ok((self.list(dir)?, None))
+    }
+
     /// Metadata of `path`, without following a final symbolic link.
     fn stat(&self, path: &Path) -> io::Result<VfsEntry>;
 

@@ -15,6 +15,8 @@ pub struct RepoSnapshot {
     pub branches: Vec<crate::git::branches::BranchInfo>,
     pub stashes: Vec<crate::git::stash::StashInfo>,
     pub tags: Vec<crate::git::tags::TagInfo>,
+    /// A merge / cherry-pick / revert / rebase waiting for the user.
+    pub operation: Option<crate::git::outcome::PendingOperation>,
 }
 
 /// Name of the checked-out branch (also for an unborn branch without
@@ -45,6 +47,7 @@ pub fn load(path: &Path, log_limit: usize) -> Option<RepoSnapshot> {
         branches: crate::git::branches::get_branches(&repo),
         stashes: crate::git::stash::list_stashes(&mut repo).unwrap_or_default(),
         tags: crate::git::tags::list_tags(&repo).unwrap_or_default(),
+        operation: crate::git::outcome::PendingOperation::of(&repo),
     })
 }
 

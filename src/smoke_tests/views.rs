@@ -2,7 +2,9 @@
 //! `z`), Compare files and the duplicate finder.
 
 use crate::app::state::PopupType;
-use crate::app::state::popup::{CompareStatus, DuplicatesView, FileCompareView, FolderJump};
+use crate::app::state::popup::{
+    CompareStatus, DupeOptionsPrompt, DuplicatesView, FileCompareView, FolderJump,
+};
 use crate::config::localization::t;
 use crate::test_harness::Harness;
 use std::path::Path;
@@ -98,6 +100,37 @@ fn folder_jump_list_and_z_go_to_frequent_folders() {
 }
 
 #[test]
+fn folder_jump_list_hides_folders_that_are_gone() {
+    let mut h = Harness::new();
+    h.mkdir("work/left/kept");
+    h.mkdir("work/left/doomed");
+    let start = h.left();
+    for name in ["kept", "doomed"] {
+        h.text(&format!("cd {}", start.join(name).display()))
+            .keys("Enter");
+        h.text(&format!("cd {}", start.display())).keys("Enter");
+    }
+    std::fs::remove_dir(start.join("doomed")).unwrap();
+
+    h.keys("@folder_jump");
+
+    let jump = h.state.dialogs.top_as::<FolderJump>().unwrap();
+    assert!(jump.items.contains(&start.join("kept")), "{:?}", jump.items);
+    assert!(
+        !jump.items.contains(&start.join("doomed")),
+        "{:?}",
+        jump.items
+    );
+    assert!(
+        h.state
+            .frecency
+            .ranked("doomed", crate::config::frecency::now())
+            .is_empty(),
+        "forgotten, not only hidden"
+    );
+}
+
+#[test]
 fn compare_files_shows_a_diff_or_hashes() {
     let mut h = Harness::new();
     h.write("work/left/a.txt", "one\ntwo\nthree\n");
@@ -144,6 +177,12 @@ fn duplicate_finder_marks_and_deletes_copies() {
         h.state.dialogs.top(),
         Some(PopupType::DupeOptionsPrompt(_))
     ));
+    // The follow-links checkbox toggles (on and off again).
+    h.keys("Down Down Space");
+    let prompt = h.state.dialogs.top_as::<DupeOptionsPrompt>().unwrap();
+    assert!(prompt.follow_links);
+    h.assert_screen(&format!("[x] {}", t("dupes_follow_links")));
+    h.keys("Space Up Up");
     h.keys("Enter");
     h.settle();
     assert!(h.state.dialogs.top_as::<DuplicatesView>().is_some());

@@ -9,8 +9,6 @@ mod session;
 use super::{REMOTE, Remote, file_name, not_found, remote_path};
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry};
 use crate::lock::LockExt;
-#[cfg(test)]
-pub(in crate::fs::remote) use session::TEST_ROOT;
 use session::{Config, Conn, Download, UploadStream, io_err};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};

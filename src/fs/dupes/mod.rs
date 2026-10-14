@@ -35,6 +35,10 @@ pub struct DupeOptions {
     pub partial_bytes: u64,
     /// Hash of the full pass.
     pub algorithm: HashAlgorithm,
+    /// Follow symbolic links (and junctions) into folders and files; a
+    /// file reached twice (through a link and its own path) counts once,
+    /// and links that loop back are skipped.
+    pub follow_links: bool,
 }
 
 impl Default for DupeOptions {
@@ -43,6 +47,7 @@ impl Default for DupeOptions {
             min_size: 1,
             partial_bytes: 64 * 1024,
             algorithm: HashAlgorithm::Blake3,
+            follow_links: false,
         }
     }
 }

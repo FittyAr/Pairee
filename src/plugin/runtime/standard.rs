@@ -46,7 +46,7 @@ pub fn bind_runtime(
     // 2. Bind submodules
     use super::bindings as b;
     pairee.set("app", b::app::bind(lua, tx.clone(), origin.clone())?)?;
-    pairee.set("emit", b::emit::bind(lua, tx.clone(), origin)?)?;
+    pairee.set("emit", b::emit::bind(lua, tx.clone(), origin.clone())?)?;
     pairee.set("file_cache", b::file_cache::bind(lua, tx.clone())?)?;
     // Dialogs write their entries directly on the central `pairee`
     // table so that the top-level `pairee.confirm` and `pairee.input`
@@ -66,7 +66,7 @@ pub fn bind_runtime(
         b::process::bind(lua, command_policy, Arc::clone(&fs_policy))?,
     )?;
     pairee.set("ui", b::ui::bind(lua)?)?;
-    pairee.set("ps", b::ps::bind(lua, tx.clone())?)?;
+    pairee.set("ps", b::ps::bind(lua, origin)?)?;
     pairee.set("log", b::log::bind(lua)?)?;
     pairee.set("keymap", b::keymap::bind(lua)?)?;
     pairee.set("notify", b::notify_ext::bind(lua, tx.clone())?)?;
@@ -74,7 +74,12 @@ pub fn bind_runtime(
     pairee.set("utils", b::utils_ext::bind(lua)?)?;
     pairee.set(
         "clipboard",
-        b::clipboard::bind(lua, trusted && !options.secure_mode)?,
+        b::clipboard::bind(
+            lua,
+            trusted && !options.secure_mode,
+            options.name.clone(),
+            tx.clone(),
+        )?,
     )?;
     pairee.set("Error", super::types::error::bind(lua)?)?;
     pairee.set("Path", super::types::path::bind(lua)?)?;

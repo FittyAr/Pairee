@@ -47,4 +47,7 @@ pub struct TabSpec {
     /// releases called it `connection`.
     #[serde(default, alias = "ssh_preset", skip_serializing_if = "Option::is_none")]
     pub connection: Option<String>,
+    /// The tab showed its folder as a branch view (every file below it).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub branch_view: bool,
 }

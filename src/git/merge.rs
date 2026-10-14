@@ -1,44 +1,61 @@
+use crate::config::localization::t;
+use crate::git::outcome::{Outcome, commit_or_conflicts, prepared_message};
 use crate::git::worktree::{fast_forward, local_changes_error};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-/// Merges the specified branch into the current HEAD.
+/// Merges the specified branch into the current HEAD, like `git merge`.
 ///
 /// Fast-forwards move HEAD after a safe working-tree update. Normal merges
-/// update the index and working directory and leave the merge in progress
-/// (`MERGE_HEAD`) so the next commit records both parents. Both refuse when
-/// local changes would be overwritten.
-pub fn merge(repo: &git2::Repository, branch_name: &str) -> anyhow::Result<git2::MergeAnalysis> {
+/// update the index and working directory; a clean result is committed at
+/// once with Git's default message, conflicts leave the merge in progress
+/// (`MERGE_HEAD`, conflict markers in the files) for the user to resolve and
+/// commit or abort. Both refuse when local changes would be overwritten.
+pub fn merge(repo: &git2::Repository, branch_name: &str) -> anyhow::Result<Outcome> {
     let branch = repo
         .find_branch(branch_name, git2::BranchType::Local)
-        .or_else(|_| repo.find_branch(branch_name, git2::BranchType::Remote))?;
+        .or_else(|_| repo.find_branch(branch_name, git2::BranchType::Remote))
+        .map_err(|_| anyhow::anyhow!(t("git_error_branch_not_found").replace("{}", branch_name)))?;
     let annotated_commit = repo.reference_to_annotated_commit(branch.get())?;
-
-    let (analysis, _) = repo.merge_analysis(&[&annotated_commit])?;
-
-    if analysis.is_fast_forward() {
-        let msg = format!("merge {}: Fast-forward", branch_name);
-        fast_forward(repo, annotated_commit.id(), &msg)?;
-    } else if analysis.is_normal() {
-        repo.merge(&[&annotated_commit], None, None)
-            .map_err(local_changes_error)?;
-    }
-
-    Ok(analysis)
+    merge_annotated(repo, &annotated_commit, branch_name, None)
 }
 
-/// Aborts an in-progress merge like `git merge --abort`: every path the
-/// merge touched (staged results and conflicts) goes back to HEAD, while
-/// local changes the user had in other files before the merge are kept.
+/// Merges `theirs` (the branch `label`) into HEAD. The merge commit gets
+/// `message`, or the one Git prepared (`MERGE_MSG`, else "Merge branch").
+pub fn merge_annotated(
+    repo: &git2::Repository,
+    theirs: &git2::AnnotatedCommit<'_>,
+    label: &str,
+    message: Option<&str>,
+) -> anyhow::Result<Outcome> {
+    let (analysis, _) = repo.merge_analysis(&[theirs])?;
+    if analysis.is_up_to_date() {
+        Ok(Outcome::UpToDate)
+    } else if analysis.is_fast_forward() || analysis.is_unborn() {
+        fast_forward(repo, theirs.id(), &format!("merge {label}: Fast-forward"))?;
+        Ok(Outcome::FastForward)
+    } else if analysis.is_normal() {
+        repo.merge(&[theirs], None, None)
+            .map_err(local_changes_error)?;
+        let message = message
+            .map(str::to_string)
+            .unwrap_or_else(|| prepared_message(repo, &format!("Merge branch '{label}'")));
+        commit_or_conflicts(repo, &message, None)
+    } else {
+        anyhow::bail!(t("git_error_merge_unsupported"))
+    }
+}
+
+/// Aborts an in-progress merge, cherry-pick or revert like
+/// `git merge --abort`: every path the operation touched (staged results
+/// and conflicts) goes back to HEAD, while local changes the user had in
+/// other files before it are kept.
 pub fn abort_merge(repo: &git2::Repository) -> anyhow::Result<()> {
     let head = repo.head()?.peel_to_commit()?;
     let head_tree = head.tree()?;
     let touched = merge_touched_paths(repo, &head_tree)?;
 
-    let workdir = repo
-        .workdir()
-        .ok_or_else(|| anyhow::anyhow!("No working directory"))?
-        .to_path_buf();
+    let workdir = crate::git::repo::workdir(repo)?.to_path_buf();
     let mut restore = git2::build::CheckoutBuilder::new();
     restore.force().disable_pathspec_match(true);
     let mut any_restore = false;

@@ -5,7 +5,9 @@
 
 mod servers;
 
-pub(crate) use servers::served_folder;
+pub(crate) use servers::{
+    Turn, ftps_server, served_folder, test_cert, trust_test_cert, webdavs_server,
+};
 
 use super::{Scheme, connect, remote_path};
 use crate::fs::vfs::contract::{Fixture, vfs_contract};
@@ -57,7 +59,11 @@ fn ftps_fixture() -> Fixture {
     let server = ftps_server();
     let turn = server.turn();
     let (dir, name) = folder_on(server, Path::new(""));
-    let url = format!("ftps://127.0.0.1:{}/{name}", server.addr.port());
+    let url = format!(
+        "ftps://127.0.0.1:{}/{name}?{}",
+        server.addr.port(),
+        servers::trust_test_cert()
+    );
     Fixture {
         _hold: Some(Box::new(turn)),
         ..fixture(&url, dir)

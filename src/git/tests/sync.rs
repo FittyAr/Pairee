@@ -21,10 +21,17 @@ fn setup_pair() -> Pair {
     write_and_commit(&local, "shared.txt", "shared v1", "initial");
     let (remote_dir, _bare, url) = bare_remote();
     add_remote(&local, "origin", &url).unwrap();
-    push(&local, "origin", &current_branch(&local), true, None).unwrap();
+    push(
+        &local,
+        "origin",
+        &current_branch(&local),
+        true,
+        NetHooks::default(),
+    )
+    .unwrap();
 
     let other_dir = TempDir::new().unwrap();
-    let other = clone_repo(&url, &other_dir.path().join("other"), None).unwrap();
+    let other = clone_repo(&url, &other_dir.path().join("other"), NetHooks::default()).unwrap();
     let mut config = other.config().unwrap();
     config.set_str("user.name", "Other User").unwrap();
     config.set_str("user.email", "other@example.com").unwrap();
@@ -45,7 +52,7 @@ fn other_pushes(pair: &Pair, name: &str, content: &str) -> git2::Oid {
         "origin",
         &current_branch(&pair.other),
         false,
-        None,
+        NetHooks::default(),
     )
     .unwrap();
     oid
@@ -61,7 +68,7 @@ fn test_fetch_updates_remote_tracking_branch() {
     let pushed = other_pushes(&pair, "shared.txt", "shared v2");
     let branch = current_branch(&pair.local);
 
-    fetch(&pair.local, "origin", None).unwrap();
+    fetch(&pair.local, "origin", NetHooks::default()).unwrap();
 
     let tracking = pair
         .local
@@ -79,7 +86,7 @@ fn test_pull_fast_forward_keeps_unrelated_local_changes() {
     write_file(&pair.local, "local.txt", "local edit");
     let branch = current_branch(&pair.local);
 
-    pull(&pair.local, "origin", &branch, None).unwrap();
+    pull(&pair.local, "origin", &branch, NetHooks::default()).unwrap();
 
     assert_eq!(head_oid(&pair.local), pushed);
     assert_eq!(read_file(&pair.local, "shared.txt"), "shared v2");
@@ -95,7 +102,7 @@ fn test_pull_refuses_to_overwrite_local_changes() {
     let before = head_oid(&pair.local);
     let branch = current_branch(&pair.local);
 
-    let err = pull(&pair.local, "origin", &branch, None).unwrap_err();
+    let err = pull(&pair.local, "origin", &branch, NetHooks::default()).unwrap_err();
 
     assert_eq!(err.to_string(), t("git_error_local_changes_overwritten"));
     assert_eq!(read_file(&pair.local, "shared.txt"), "uncommitted work");
@@ -109,7 +116,7 @@ fn test_pull_normal_merge_records_both_parents() {
     let ours = write_and_commit(&pair.local, "ours.txt", "ours", "local work");
     let branch = current_branch(&pair.local);
 
-    pull(&pair.local, "origin", &branch, None).unwrap();
+    pull(&pair.local, "origin", &branch, NetHooks::default()).unwrap();
 
     let head = pair.local.head().unwrap().peel_to_commit().unwrap();
     let parents: Vec<git2::Oid> = head.parent_ids().collect();
@@ -121,13 +128,37 @@ fn test_pull_normal_merge_records_both_parents() {
 }
 
 #[test]
+fn test_pull_with_conflicts_leaves_the_merge_in_progress() {
+    let pair = setup_pair();
+    other_pushes(&pair, "shared.txt", "theirs\n");
+    write_and_commit(&pair.local, "shared.txt", "ours\n", "local work");
+    let branch = current_branch(&pair.local);
+
+    let outcome = pull(&pair.local, "origin", &branch, NetHooks::default()).unwrap();
+
+    assert_eq!(outcome, Outcome::Conflicts(vec!["shared.txt".into()]));
+    assert_eq!(pair.local.state(), git2::RepositoryState::Merge);
+    let marked = read_file(&pair.local, "shared.txt");
+    assert!(
+        marked.contains("<<<<<<<") && marked.contains("theirs"),
+        "{marked}"
+    );
+    let status = get_status(&pair.local);
+    assert!(status.iter().any(|e| e.kind == StatusKind::Conflicted));
+
+    abort_merge(&pair.local).unwrap();
+    assert_eq!(read_file(&pair.local, "shared.txt").trim_end(), "ours");
+    assert_eq!(pair.local.state(), git2::RepositoryState::Clean);
+}
+
+#[test]
 fn test_pull_uses_configured_upstream() {
     let pair = setup_pair();
     create_branch(&pair.other, "published", "HEAD").unwrap();
     checkout_branch(&pair.other, "published").unwrap();
     let pushed = other_pushes(&pair, "shared.txt", "published");
 
-    fetch(&pair.local, "origin", None).unwrap();
+    fetch(&pair.local, "origin", NetHooks::default()).unwrap();
     create_branch(&pair.local, "topic", "HEAD").unwrap();
     checkout_branch(&pair.local, "topic").unwrap();
     pair.local
@@ -137,7 +168,7 @@ fn test_pull_uses_configured_upstream() {
         .unwrap();
 
     // There is no origin/topic: only the configured upstream can satisfy this.
-    pull(&pair.local, "origin", "topic", None).unwrap();
+    pull(&pair.local, "origin", "topic", NetHooks::default()).unwrap();
 
     assert_eq!(head_oid(&pair.local), pushed);
     assert_eq!(read_file(&pair.local, "shared.txt"), "published");
@@ -150,7 +181,7 @@ fn test_push_non_fast_forward_is_an_error() {
     write_and_commit(&pair.local, "ours.txt", "ours", "diverged");
     let branch = current_branch(&pair.local);
 
-    assert!(push(&pair.local, "origin", &branch, false, None).is_err());
+    assert!(push(&pair.local, "origin", &branch, false, NetHooks::default()).is_err());
 }
 
 #[test]
@@ -161,7 +192,7 @@ fn test_push_rejected_reference_is_reported() {
     // reports that only through the per-reference status, not as an error.
     std::fs::write(pair.remote_dir.path().join("refs/heads/locked.lock"), "").unwrap();
 
-    let err = push(&pair.local, "origin", "locked", false, None).unwrap_err();
+    let err = push(&pair.local, "origin", "locked", false, NetHooks::default()).unwrap_err();
 
     let expected_prefix = t("git_error_push_rejected").replace("{}", "");
     assert!(err.to_string().starts_with(&expected_prefix), "{err}");

@@ -22,6 +22,14 @@ fn main() {
     let profile = env::var("PROFILE").unwrap_or_else(|_| "unknown".to_string());
     println!("cargo:rustc-env=PAIREE_BUILD_PROFILE={}", profile);
 
+    // Opt-in tests against a real SSH server (docker/docker-compose.yml):
+    // `PAIREE_SFTP_TEST=1 cargo test sftp_server` compiles them in.
+    println!("cargo::rustc-check-cfg=cfg(pairee_sftp_test)");
+    println!("cargo:rerun-if-env-changed=PAIREE_SFTP_TEST");
+    if env::var("PAIREE_SFTP_TEST").is_ok_and(|v| v == "1") {
+        println!("cargo:rustc-cfg=pairee_sftp_test");
+    }
+
     // Re-run build script if HEAD changes
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs/heads");

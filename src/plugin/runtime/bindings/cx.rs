@@ -1,155 +1,114 @@
 //! Live-ish application context (`pairee.cx`) built from the latest snapshot.
+//!
+//! * `cx.active` / `cx.left` / `cx.right`: `cwd` (string) and `url` (`Url`,
+//!   remote for a remote panel); `cx.active` also has `hovered`,
+//!   `selected` and `current` (`cwd`, `url`, `hovered`).
+//! * `cx.tabs`: the tabs of the active side, each `{url, name, locked}`,
+//!   plus `idx` (1-based index of the shown tab).
+//! * `cx.tasks`: transfer jobs `{id, kind, status, sources, destination,
+//!   files_total, files_done, bytes_total, bytes_done}`.
+//! * `cx.yanked`: the file clipboard as a list of `Url`s, plus `is_cut`.
 
-use crate::plugin::manager::snapshot::AppStateSnapshot;
-use crate::plugin::runtime::types::LuaFile;
+use crate::plugin::manager::snapshot::{AppStateSnapshot, TaskSnapshot};
+use crate::plugin::runtime::types::{LuaFile, LuaUrl};
 use mlua::{Lua, Table, Value};
 
 /// Empty `pairee.cx` so plugins can read the table before the first sync.
 pub fn bind_empty(lua: &Lua, pairee: &Table) -> mlua::Result<()> {
-    let cx = lua.create_table()?;
-    let active = lua.create_table()?;
-    active.set("cwd", "")?;
-    active.set("hovered", Value::Nil)?;
-    active.set("selected", lua.create_table()?)?;
-    let current = lua.create_table()?;
-    current.set("cwd", "")?;
-    current.set("hovered", Value::Nil)?;
-    active.set("current", current)?;
-    cx.set("active", active)?;
-
-    let left = lua.create_table()?;
-    left.set("cwd", "")?;
-    cx.set("left", left)?;
-
-    let right = lua.create_table()?;
-    right.set("cwd", "")?;
-    cx.set("right", right)?;
-
-    pairee.set("cx", cx)?;
-    Ok(())
+    install(lua, pairee, &AppStateSnapshot::default())
 }
 
 /// Refresh `pairee.cx` from a main-thread snapshot (called inside `pairee.sync`).
-pub fn install(lua: &Lua, snapshot: &AppStateSnapshot) -> mlua::Result<()> {
-    let globals = lua.globals();
-    let pairee: Table = globals.get("pairee")?;
-    let cx = lua.create_table()?;
+pub fn install_snapshot(lua: &Lua, snapshot: &AppStateSnapshot) -> mlua::Result<()> {
+    let pairee: Table = lua.globals().get("pairee")?;
+    install(lua, &pairee, snapshot)
+}
 
-    let active_cwd = if snapshot.active_panel == "right" {
-        snapshot.right_cwd.as_str()
+fn install(lua: &Lua, pairee: &Table, snapshot: &AppStateSnapshot) -> mlua::Result<()> {
+    let cx = lua.create_table()?;
+    let right_active = snapshot.active_panel == "right";
+    let (active_cwd, active_url) = if right_active {
+        (&snapshot.right_cwd, &snapshot.right_url)
     } else {
-        snapshot.left_cwd.as_str()
+        (&snapshot.left_cwd, &snapshot.left_url)
     };
 
     let hovered = match &snapshot.hovered_file {
         Some(entry) => Value::UserData(lua.create_userdata(LuaFile::from_snapshot(entry))?),
         None => Value::Nil,
     };
-
     let selected = lua.create_table()?;
     for (i, entry) in snapshot.selected_files.iter().enumerate() {
         selected.set(i + 1, LuaFile::from_snapshot(entry))?;
     }
 
-    let current = lua.create_table()?;
-    current.set("cwd", active_cwd)?;
+    let current = folder(lua, active_cwd, active_url)?;
     current.set("hovered", hovered.clone())?;
-
-    let active = lua.create_table()?;
-    active.set("cwd", active_cwd)?;
+    let active = folder(lua, active_cwd, active_url)?;
     active.set("hovered", hovered)?;
     active.set("selected", selected)?;
     active.set("current", current)?;
     cx.set("active", active)?;
+    cx.set("left", folder(lua, &snapshot.left_cwd, &snapshot.left_url)?)?;
+    cx.set(
+        "right",
+        folder(lua, &snapshot.right_cwd, &snapshot.right_url)?,
+    )?;
+    cx.set("tabs", tabs(lua, snapshot)?)?;
+    cx.set("tasks", tasks(lua, &snapshot.tasks)?)?;
+    cx.set("yanked", yanked(lua, snapshot)?)?;
+    pairee.set("cx", cx)
+}
 
-    let left = lua.create_table()?;
-    left.set("cwd", snapshot.left_cwd.as_str())?;
-    cx.set("left", left)?;
+/// `{cwd, url}` of a panel; `url` falls back to the path.
+fn folder(lua: &Lua, cwd: &str, url: &str) -> mlua::Result<Table> {
+    let table = lua.create_table()?;
+    table.set("cwd", cwd)?;
+    let url = if url.is_empty() { cwd } else { url };
+    table.set("url", LuaUrl::parse(url))?;
+    Ok(table)
+}
 
-    let right = lua.create_table()?;
-    right.set("cwd", snapshot.right_cwd.as_str())?;
-    cx.set("right", right)?;
+fn tabs(lua: &Lua, snapshot: &AppStateSnapshot) -> mlua::Result<Table> {
+    let list = lua.create_table()?;
+    for (i, tab) in snapshot.tabs.iter().enumerate() {
+        let entry = lua.create_table()?;
+        entry.set("url", LuaUrl::parse(&tab.url))?;
+        entry.set("name", tab.name.clone())?;
+        entry.set("locked", tab.locked)?;
+        list.set(i + 1, entry)?;
+    }
+    list.set("idx", snapshot.active_tab + 1)?;
+    Ok(list)
+}
 
-    pairee.set("cx", cx)?;
-    Ok(())
+fn tasks(lua: &Lua, tasks: &[TaskSnapshot]) -> mlua::Result<Table> {
+    let list = lua.create_table()?;
+    for (i, task) in tasks.iter().enumerate() {
+        let entry = lua.create_table()?;
+        entry.set("id", task.id.as_str())?;
+        entry.set("kind", task.kind.as_str())?;
+        entry.set("status", task.status.as_str())?;
+        entry.set("sources", task.sources)?;
+        entry.set("destination", task.destination.as_str())?;
+        entry.set("files_total", task.files_total)?;
+        entry.set("files_done", task.files_done)?;
+        entry.set("bytes_total", task.bytes_total)?;
+        entry.set("bytes_done", task.bytes_done)?;
+        list.set(i + 1, entry)?;
+    }
+    Ok(list)
+}
+
+fn yanked(lua: &Lua, snapshot: &AppStateSnapshot) -> mlua::Result<Table> {
+    let list = lua.create_table()?;
+    let clip = snapshot.yanked.clone().unwrap_or_default();
+    for (i, url) in clip.urls.iter().enumerate() {
+        list.set(i + 1, LuaUrl::parse(url))?;
+    }
+    list.set("is_cut", clip.cut)?;
+    Ok(list)
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::plugin::manager::snapshot::FileEntrySnapshot;
-    use mlua::Lua;
-
-    fn sample_snapshot() -> AppStateSnapshot {
-        AppStateSnapshot {
-            active_panel: "left".into(),
-            left_cwd: "/left".into(),
-            right_cwd: "/right".into(),
-            hovered_file: Some(FileEntrySnapshot {
-                name: "a.txt".into(),
-                url: "/left/a.txt".into(),
-                path: "/left/a.txt".into(),
-                size: 4,
-                is_dir: false,
-                is_symlink: false,
-                mime: "text/plain".into(),
-                mtime: None,
-                is_hidden: false,
-                is_exec: false,
-            }),
-            selected_files: vec![FileEntrySnapshot {
-                name: "b.txt".into(),
-                url: "/left/b.txt".into(),
-                path: "/left/b.txt".into(),
-                size: 2,
-                is_dir: false,
-                is_symlink: false,
-                mime: "text/plain".into(),
-                mtime: None,
-                is_hidden: false,
-                is_exec: false,
-            }],
-        }
-    }
-
-    #[test]
-    fn install_exposes_cwd_and_file_userdata() {
-        let lua = Lua::new();
-        let pairee = lua.create_table().unwrap();
-        lua.globals().set("pairee", pairee).unwrap();
-        install(&lua, &sample_snapshot()).unwrap();
-
-        let cwd: String = lua.load("return pairee.cx.active.cwd").eval().unwrap();
-        let name: String = lua
-            .load("return pairee.cx.active.hovered.name")
-            .eval()
-            .unwrap();
-        let selected_n: i64 = lua
-            .load("return #pairee.cx.active.selected")
-            .eval()
-            .unwrap();
-        let nested: String = lua
-            .load("return pairee.cx.active.current.hovered.path")
-            .eval()
-            .unwrap();
-        let right: String = lua.load("return pairee.cx.right.cwd").eval().unwrap();
-
-        assert_eq!(cwd, "/left");
-        assert_eq!(name, "a.txt");
-        assert_eq!(selected_n, 1);
-        assert_eq!(nested, "/left/a.txt");
-        assert_eq!(right, "/right");
-    }
-
-    #[test]
-    fn bind_empty_has_safe_defaults() {
-        let lua = Lua::new();
-        let pairee = lua.create_table().unwrap();
-        bind_empty(&lua, &pairee).unwrap();
-        lua.globals().set("pairee", pairee).unwrap();
-        let cwd: String = lua.load("return pairee.cx.active.cwd").eval().unwrap();
-        let hovered: mlua::Value = lua.load("return pairee.cx.active.hovered").eval().unwrap();
-        assert_eq!(cwd, "");
-        assert!(hovered.is_nil());
-    }
-}
+mod tests;

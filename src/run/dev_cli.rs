@@ -13,8 +13,8 @@ pub async fn developer_command(cmd: &str, rest: &[String]) -> Result<()> {
     match cmd {
         "init" => match rest.first() {
             Some(name) => {
-                let desc = prompt_line("Enter plugin description:")?;
-                let author = prompt_line("Enter plugin author:")?;
+                let desc = prompt_line(&t("plugin_dev_prompt_description"))?;
+                let author = prompt_line(&t("plugin_dev_prompt_author"))?;
                 println!("{}", developer_tool::init(name, &desc, &author)?);
             }
             None => print!("{}", help::missing_argument(Topic::Developer, "init")),
@@ -51,11 +51,7 @@ fn ask_license() -> String {
     if !std::io::stdin().is_terminal() {
         return String::new();
     }
-    prompt_line(
-        "LICENSE file detected, but no license name specified in manifest.toml.\n\
-         Please enter the license name (e.g. MIT, GPL-3.0, Apache-2.0):",
-    )
-    .unwrap_or_default()
+    prompt_line(&t("plugin_dev_prompt_license")).unwrap_or_default()
 }
 
 /// Interactive submit wizard: package, commit locally, then open a PR when
@@ -79,7 +75,7 @@ async fn submit() -> Result<()> {
     // 2. Commit locally.
     let commit_msg = prompt_line(&t("plugin_enter_commit_desc"))?;
     if commit_msg.is_empty() {
-        anyhow::bail!("Commit message cannot be empty.");
+        anyhow::bail!(t("plugin_dev_commit_empty"));
     }
     developer_tool::commit_registry_changes_with_progress(&commit_msg, None)?;
     println!("{}", t("plugin_dev_local_staged"));
@@ -94,7 +90,7 @@ async fn submit() -> Result<()> {
         println!("{}", t("plugin_dev_submit_sending"));
         match developer_tool::run_automatic_submit(&token, &commit_msg, &plugin_name).await {
             Ok(success_msg) => println!("{success_msg}"),
-            Err(e) => anyhow::bail!("Automatic submission failed: {:?}", e),
+            Err(e) => anyhow::bail!(t("plugin_dev_submit_failed").replace("{}", &format!("{e:#}"))),
         }
     }
     Ok(())

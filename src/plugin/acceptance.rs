@@ -159,6 +159,98 @@ mod tests {
         assert_eq!(commands[1].keys_for("norton"), Some("Ctrl+Alt+j"));
     }
 
+    #[tokio::test(flavor = "multi_thread")]
+    async fn fzf_port_pipes_candidates_through_a_picker() {
+        let (lua, dir) = load_plugin("fzf", true);
+        let module = eval_module(&lua, &dir);
+        let pick: Function = module.get("pick").unwrap();
+        let lines = lua.create_sequence_from(["b", "c", "a"]).unwrap();
+        // `sort` reads lines on stdin and prints them, like a picker.
+        let (picked, success): (Vec<String>, bool) =
+            pick.call_async(("sort", lines)).await.unwrap();
+        assert!(success);
+        assert_eq!(picked, ["a", "b", "c"]);
+        let target: Function = module.get("target").unwrap();
+        let folder: String = target.call(("/srv/www/index.html", false)).unwrap();
+        assert!(folder.ends_with("www"), "{folder}");
+        let args: Function = module.get("args").unwrap();
+        let fzf_args: Vec<String> = args.call("fzf").unwrap();
+        assert_eq!(fzf_args[0], "--multi");
+    }
+
+    #[test]
+    fn zoxide_port_ranks_host_visits_and_ignores_fake_ones() {
+        let (lua, dir) = load_plugin("zoxide", false);
+        let module = eval_module(&lua, &dir);
+        lua.load("pairee.state.clear()").exec().unwrap();
+        module
+            .get::<Function>("setup")
+            .unwrap()
+            .call::<()>(())
+            .unwrap();
+        lua.load(
+            r#"local on_cd = pairee.ps._callbacks.on_cd[1]
+               local host = { from_host = true }
+               on_cd({ path = "/work/projects" }, host)
+               on_cd({ path = "/work/projects" }, host)
+               on_cd({ path = "/old/projects-2019" }, host)
+               -- Another plugin pretending to be Pairee does not count.
+               for _ = 1, 5 do
+                   on_cd({ path = "/evil/projects" }, { from_host = false, sender = "evil" })
+               end"#,
+        )
+        .exec()
+        .unwrap();
+        let query: Function = module.get("query").unwrap();
+        let best: Option<String> = query.call((vec!["PROJ"], "/elsewhere")).unwrap();
+        assert_eq!(best.as_deref(), Some("/work/projects"));
+        let other: Option<String> = query.call((vec!["proj"], "/work/projects")).unwrap();
+        assert_eq!(other.as_deref(), Some("/old/projects-2019"));
+        let none: Option<String> = query.call((vec!["evil"], "/")).unwrap();
+        assert_eq!(none, None);
+        lua.load("pairee.state.clear()").exec().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn code_preview_port_places_its_widgets() {
+        use crate::app::state::popup::plugin_widget::Renderable;
+        crate::ui::quickview::install_layout_solver();
+        let (lua, dir) = load_plugin("code_preview", false);
+        let module = eval_module(&lua, &dir);
+        let key = lua.create_registry_value(module).unwrap();
+        let source = std::fs::read_to_string(dir.join("main.lua")).unwrap();
+        let (tx, _rx) = mpsc::channel::<PluginRequest>(8);
+        let worker = crate::plugin::worker::Worker::new(
+            "code_preview".into(),
+            lua,
+            key,
+            crate::plugin::annotations::Annotations::parse(&source),
+            tx,
+        );
+        let files = tempfile::tempdir().unwrap();
+        let file = files.path().join("main.rs");
+        std::fs::write(&file, "fn main() {\n    println!(\"hi\");\n}\n").unwrap();
+        let job = crate::plugin::registry::PreviewJob {
+            file_path: file,
+            area_width: 40,
+            area_height: 10,
+            skip: 0,
+        };
+
+        let widget = worker.peek(job).await.expect("a preview");
+
+        let Renderable::Stack(children) = widget else {
+            panic!("{widget:?}")
+        };
+        assert_eq!(children.len(), 5);
+        let Renderable::Placed(code_area, ref code) = children[4] else {
+            panic!("{:?}", children[4])
+        };
+        assert_eq!((code_area.x, code_area.y, code_area.h), (1, 2, 8));
+        assert!(matches!(**code, Renderable::Paragraph(_)));
+        assert!(matches!(children[3], Renderable::Placed(rule, _) if rule.y == 1));
+    }
+
     #[test]
     fn acceptance_tree_has_manifests() {
         for name in [
@@ -168,6 +260,9 @@ mod tests {
             "command_echo",
             "keymap_command",
             "roadmap_api",
+            "fzf",
+            "zoxide",
+            "code_preview",
         ] {
             let dir = acceptance_root().join(name);
             assert!(dir.join("manifest.toml").is_file(), "{name} manifest");

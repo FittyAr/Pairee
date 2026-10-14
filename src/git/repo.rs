@@ -6,6 +6,12 @@ pub fn find_repo(path: &Path) -> Option<git2::Repository> {
     git2::Repository::discover(path).ok()
 }
 
+/// The working directory, or a localized error for a bare repository.
+pub fn workdir(repo: &git2::Repository) -> anyhow::Result<&Path> {
+    repo.workdir()
+        .ok_or_else(|| anyhow::anyhow!(crate::config::localization::t("git_error_no_workdir")))
+}
+
 /// Returns the path to the root of the repository's working directory.
 pub fn get_workdir(repo: &git2::Repository) -> Option<std::path::PathBuf> {
     repo.workdir().map(|p| p.to_path_buf())
@@ -21,10 +27,10 @@ pub fn init_repo(path: &Path) -> anyhow::Result<git2::Repository> {
 pub fn clone_repo(
     url: &str,
     path: &Path,
-    observer: crate::git::remote::ProgressObserver<'_>,
+    hooks: crate::git::remote::NetHooks<'_>,
 ) -> anyhow::Result<git2::Repository> {
     let mut fo = git2::FetchOptions::new();
-    fo.remote_callbacks(crate::git::remote::create_callbacks(observer));
+    fo.remote_callbacks(crate::git::remote::create_callbacks(hooks));
 
     let mut builder = git2::build::RepoBuilder::new();
     builder.fetch_options(fo);
@@ -35,9 +41,7 @@ pub fn clone_repo(
 
 /// Appends a pattern or file path to the repository's `.gitignore` file.
 pub fn add_to_gitignore(repo: &git2::Repository, pattern: &str) -> anyhow::Result<()> {
-    let workdir = repo
-        .workdir()
-        .ok_or_else(|| anyhow::anyhow!("No working directory"))?;
+    let workdir = workdir(repo)?;
     let gitignore_path = workdir.join(".gitignore");
     use std::io::Write;
     let mut file = std::fs::OpenOptions::new()

@@ -1,4 +1,10 @@
-use anyhow::{Context, Result, anyhow};
+use crate::config::localization::t;
+use anyhow::{Result, anyhow};
+
+/// A localized error `key` (with `{}` replaced by `detail`).
+fn failed(key: &str, detail: impl std::fmt::Display) -> anyhow::Error {
+    anyhow!(t(key).replace("{}", &detail.to_string()))
+}
 
 /// Rebase the current branch onto `onto_branch_name`.
 pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<()> {
@@ -6,7 +12,7 @@ pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<
     let onto_branch = repo
         .find_branch(onto_branch_name, git2::BranchType::Local)
         .or_else(|_| repo.find_branch(onto_branch_name, git2::BranchType::Remote))
-        .with_context(|| format!("Branch '{}' not found", onto_branch_name))?;
+        .map_err(|_| failed("git_error_branch_not_found", onto_branch_name))?;
 
     let onto_ref = onto_branch.get();
     let onto_annotated = repo.reference_to_annotated_commit(onto_ref)?;
@@ -14,25 +20,20 @@ pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<
     let mut rebase_opts = git2::RebaseOptions::new();
     let mut rebase = repo
         .rebase(None, Some(&onto_annotated), None, Some(&mut rebase_opts))
-        .context("Failed to initialize rebase")?;
+        .map_err(|e| failed("git_error_rebase_start", e))?;
 
     let sig = crate::git::signature::default_signature(repo)?;
 
     while let Some(op_res) = rebase.next() {
-        let _op = match op_res {
-            Ok(op) => op,
-            Err(e) => {
-                let _ = rebase.abort();
-                return Err(anyhow!("Rebase step failed: {}", e));
-            }
-        };
+        if let Err(e) = op_res {
+            let _ = rebase.abort();
+            return Err(failed("git_error_rebase_step", e));
+        }
 
         let index = repo.index()?;
         if index.has_conflicts() {
             let _ = rebase.abort();
-            return Err(anyhow!(
-                "Conflicts detected during rebase; operation aborted"
-            ));
+            return Err(anyhow!(t("git_error_rebase_conflicts")));
         }
 
         match rebase.commit(None, &sig, None) {
@@ -42,11 +43,13 @@ pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<
             Err(e) if e.code() == git2::ErrorCode::Applied => {}
             Err(e) => {
                 let _ = rebase.abort();
-                return Err(anyhow!("Failed to commit rebase step: {}", e));
+                return Err(failed("git_error_rebase_step", e));
             }
         }
     }
 
-    rebase.finish(None).context("Failed to finish rebase")?;
+    rebase
+        .finish(None)
+        .map_err(|e| failed("git_error_rebase_finish", e))?;
     Ok(())
 }

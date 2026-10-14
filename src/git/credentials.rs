@@ -7,7 +7,7 @@
 //! (see [`crate::credential_prompt`]); a cancelled prompt skips the key.
 
 use crate::config::localization::t;
-use crate::credential_prompt::{self, CredentialRequest};
+use crate::credential_prompt::{self, Ask, CredentialRequest};
 use std::path::{Path, PathBuf};
 
 /// Hard cap on credential callback invocations for one transfer.
@@ -16,22 +16,23 @@ const MAX_CREDENTIAL_ATTEMPTS: usize = 8;
 const DEFAULT_SSH_USER: &str = "git";
 
 /// Asks the user for a secret (`None`: cancelled or nobody to ask).
-type Prompt = Box<dyn FnMut(CredentialRequest) -> Option<String> + Send>;
+type Prompt<'a> = Box<dyn FnMut(CredentialRequest) -> Option<String> + 'a>;
 
 /// What has already been offered to the remote during one transfer.
-pub struct CredentialState {
+pub struct CredentialState<'a> {
     attempts: usize,
     agent_tried: bool,
     key_paths: Vec<PathBuf>,
     next_key: usize,
     helper_tried: bool,
     default_tried: bool,
-    prompt: Prompt,
+    prompt: Prompt<'a>,
 }
 
-impl CredentialState {
-    /// A fresh negotiation that will probe `key_paths` after the ssh-agent.
-    pub fn new(key_paths: Vec<PathBuf>) -> Self {
+impl<'a> CredentialState<'a> {
+    /// A fresh negotiation that will probe `key_paths` after the ssh-agent,
+    /// asking passphrases through `ask` (the starting state's prompt).
+    pub fn new(key_paths: Vec<PathBuf>, ask: Ask<'a>) -> Self {
         Self {
             attempts: 0,
             agent_tried: false,
@@ -39,7 +40,7 @@ impl CredentialState {
             next_key: 0,
             helper_tried: false,
             default_tried: false,
-            prompt: Box::new(credential_prompt::ask),
+            prompt: Box::new(ask),
         }
     }
 
@@ -47,15 +48,15 @@ impl CredentialState {
     #[cfg(test)]
     pub fn with_prompt(
         mut self,
-        prompt: impl FnMut(CredentialRequest) -> Option<String> + Send + 'static,
+        prompt: impl FnMut(CredentialRequest) -> Option<String> + 'a,
     ) -> Self {
         self.prompt = Box::new(prompt);
         self
     }
 
     /// A negotiation using the user's default keys in `~/.ssh`.
-    pub fn with_default_keys() -> Self {
-        Self::new(credential_prompt::key::default_key_paths())
+    pub fn with_default_keys(ask: Ask<'a>) -> Self {
+        Self::new(credential_prompt::key::default_key_paths(), ask)
     }
 
     /// Returns the next credential to offer, or an error once every method

@@ -5,6 +5,8 @@
 //! user) lives outside the mutex so the UI can show it without locking.
 
 mod connection;
+#[cfg(all(test, pairee_sftp_test))]
+pub(crate) mod server_tests;
 mod sftp_ops;
 #[cfg(test)]
 mod tests;

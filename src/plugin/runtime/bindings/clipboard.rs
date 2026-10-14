@@ -12,7 +12,10 @@
 //! * **Writing** is allowed to every plugin, but the text is capped at
 //!   [`MAX_CLIPBOARD_BYTES`] and control characters other than tab and line
 //!   feed (escape sequences, carriage returns, NUL) are removed, so a plugin
-//!   cannot plant terminal escape sequences for the user to paste.
+//!   cannot plant terminal escape sequences for the user to paste. Text of
+//!   more than one line (a command could hide on the next line) makes
+//!   Pairee tell the user which plugin copied how many lines, before they
+//!   paste it anywhere.
 
 use crate::plugin::runtime::types::LuaError;
 use mlua::{Lua, MultiValue, Value};
@@ -46,16 +49,33 @@ fn sanitize(text: &str) -> String {
         .collect()
 }
 
+/// Called with the number of lines a write put on the clipboard, when it
+/// is more than one.
+type MultilineNotice = Arc<dyn Fn(usize) + Send + Sync>;
+
 /// Binds `pairee.clipboard` on the OS clipboard; `can_read` is
-/// `trusted && !secure_mode`.
-pub fn bind(lua: &Lua, can_read: bool) -> mlua::Result<mlua::Function> {
-    bind_with(lua, can_read, Arc::new(SystemClipboard))
+/// `trusted && !secure_mode`. Multi-line writes are reported to the main
+/// loop as written by `plugin`.
+pub fn bind(
+    lua: &Lua,
+    can_read: bool,
+    plugin: String,
+    tx: tokio::sync::mpsc::Sender<crate::plugin::manager::PluginRequest>,
+) -> mlua::Result<mlua::Function> {
+    let notice: MultilineNotice = Arc::new(move |lines| {
+        let _ = tx.try_send(crate::plugin::manager::PluginRequest::ClipboardWritten {
+            plugin: plugin.clone(),
+            lines,
+        });
+    });
+    bind_with(lua, can_read, Arc::new(SystemClipboard), notice)
 }
 
 fn bind_with(
     lua: &Lua,
     can_read: bool,
     backend: Arc<dyn ClipboardBackend>,
+    notice: MultilineNotice,
 ) -> mlua::Result<mlua::Function> {
     lua.create_function(
         move |lua, text: Option<mlua::LuaString>| -> mlua::Result<MultiValue> {
@@ -64,7 +84,12 @@ fn bind_with(
                 Some(text) => {
                     let result = write(&text.to_string_lossy(), backend.as_ref());
                     match result {
-                        Ok(()) => LuaError::pair(lua, Ok::<_, LuaError>(true)),
+                        Ok(lines) => {
+                            if lines > 1 {
+                                notice(lines);
+                            }
+                            LuaError::pair(lua, Ok::<_, LuaError>(true))
+                        }
                         Err(err) => Ok(MultiValue::from_vec(vec![
                             Value::Boolean(false),
                             Value::UserData(lua.create_userdata(err)?),
@@ -89,7 +114,8 @@ fn read(can_read: bool, backend: &dyn ClipboardBackend) -> Result<String, LuaErr
     backend.get().map_err(LuaError::custom)
 }
 
-fn write(text: &str, backend: &dyn ClipboardBackend) -> Result<(), LuaError> {
+/// Puts `text` (sanitized) on the clipboard; returns its number of lines.
+fn write(text: &str, backend: &dyn ClipboardBackend) -> Result<usize, LuaError> {
     if text.len() > MAX_CLIPBOARD_BYTES {
         return Err(LuaError {
             kind: Some("InvalidInput".into()),
@@ -97,7 +123,9 @@ fn write(text: &str, backend: &dyn ClipboardBackend) -> Result<(), LuaError> {
             message: format!("pairee.clipboard: text larger than {MAX_CLIPBOARD_BYTES} bytes"),
         });
     }
-    backend.set(&sanitize(text)).map_err(LuaError::custom)
+    let clean = sanitize(text);
+    backend.set(&clean).map_err(LuaError::custom)?;
+    Ok(clean.trim_end_matches('\n').lines().count())
 }
 
 #[cfg(test)]
@@ -118,11 +146,26 @@ mod tests {
         }
     }
 
-    fn lua_with(can_read: bool, fake: Arc<Fake>) -> Lua {
+    fn lua_noticed(can_read: bool, fake: Arc<Fake>, notices: Arc<Mutex<Vec<usize>>>) -> Lua {
         let lua = Lua::new();
-        let f = bind_with(&lua, can_read, fake).unwrap();
+        let notice: MultilineNotice = Arc::new(move |n| notices.lock().unwrap().push(n));
+        let f = bind_with(&lua, can_read, fake, notice).unwrap();
         lua.globals().set("clipboard", f).unwrap();
         lua
+    }
+
+    fn lua_with(can_read: bool, fake: Arc<Fake>) -> Lua {
+        lua_noticed(can_read, fake, Arc::default())
+    }
+
+    #[test]
+    fn multi_line_writes_are_reported() {
+        let notices = Arc::new(Mutex::new(Vec::new()));
+        let lua = lua_noticed(false, Arc::default(), Arc::clone(&notices));
+        lua.load("clipboard('one line\\n') clipboard('rm -rf ~\\necho done\\nexit\\n')")
+            .exec()
+            .unwrap();
+        assert_eq!(*notices.lock().unwrap(), [3]);
     }
 
     #[test]

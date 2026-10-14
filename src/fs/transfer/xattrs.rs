@@ -3,10 +3,11 @@
 //! * "Copy attributes" copies the extended attributes (`user.*`, macOS
 //!   `com.apple.*` such as Finder info and quarantine, `security.*` where
 //!   the process may set them), except the ACLs.
-//! * "Copy access control list" copies the POSIX ACLs, which Linux stores
-//!   as the `system.posix_acl_access` / `system.posix_acl_default`
-//!   attributes. macOS keeps ACLs outside the attribute namespace; they are
-//!   not copied there.
+//! * "Copy access control list" copies the ACLs: on Linux the POSIX ACLs,
+//!   stored as the `system.posix_acl_access` / `system.posix_acl_default`
+//!   attributes; on macOS the extended (NFSv4-style) ACL, kept outside the
+//!   attribute namespace and copied with `acl_get_file` / `acl_set_file`
+//!   of libSystem.
 //!
 //! Both are best effort: a file system without attributes, or one the
 //! process may not set, leaves the copy without them (the data is intact).
@@ -39,9 +40,54 @@ pub fn copy_extended_attributes(src: &Path, dst: &Path) {
     copy_matching(src, dst, |name| !is_acl(name));
 }
 
-/// The POSIX ACLs of `src` (access, and default for folders).
+/// The ACLs of `src`: the POSIX ACLs (access, and default for folders) on
+/// Linux and the other systems that keep them as attributes, the extended
+/// ACL on macOS.
 pub fn copy_posix_acl(src: &Path, dst: &Path) {
+    #[cfg(target_os = "macos")]
+    macos_acl::copy(src, dst);
+    #[cfg(not(target_os = "macos"))]
     copy_matching(src, dst, is_acl);
+}
+
+/// The macOS extended ACL through libSystem (`man 3 acl_get_file`).
+#[cfg(target_os = "macos")]
+mod macos_acl {
+    use std::ffi::{CString, c_char, c_int, c_void};
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::Path;
+
+    /// `acl_type_t ACL_TYPE_EXTENDED` of `<sys/acl.h>`.
+    const ACL_TYPE_EXTENDED: c_int = 0x0000_0100;
+
+    unsafe extern "C" {
+        fn acl_get_file(path: *const c_char, kind: c_int) -> *mut c_void;
+        fn acl_set_file(path: *const c_char, kind: c_int, acl: *mut c_void) -> c_int;
+        fn acl_free(obj: *mut c_void) -> c_int;
+    }
+
+    fn c_path(path: &Path) -> Option<CString> {
+        CString::new(path.as_os_str().as_bytes()).ok()
+    }
+
+    /// Best effort: no ACL on `src`, or one `dst` cannot take, leaves
+    /// `dst` as it is.
+    pub fn copy(src: &Path, dst: &Path) {
+        let (Some(src), Some(dst)) = (c_path(src), c_path(dst)) else {
+            return;
+        };
+        // SAFETY: both paths are NUL-terminated C strings that outlive the
+        // calls; the ACL returned by `acl_get_file` is only used while it
+        // is alive and freed once with `acl_free`.
+        unsafe {
+            let acl = acl_get_file(src.as_ptr(), ACL_TYPE_EXTENDED);
+            if acl.is_null() {
+                return;
+            }
+            let _ = acl_set_file(dst.as_ptr(), ACL_TYPE_EXTENDED, acl);
+            acl_free(acl);
+        }
+    }
 }
 
 #[cfg(test)]

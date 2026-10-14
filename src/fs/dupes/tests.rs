@@ -109,3 +109,37 @@ fn hard_links_and_symlinks_are_not_duplicates() {
     let report = find_duplicates(&LocalVfs, &[root.to_path_buf()], &options(), &NONE);
     assert!(report.groups.is_empty(), "{:?}", report.groups);
 }
+
+/// With links followed, files below a linked folder are searched, the
+/// linked copy of a file is not its own duplicate and a link looping back
+/// to an ancestor does not repeat the search.
+#[test]
+fn followed_links_reach_more_files_once_and_survive_loops() {
+    let dir = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let root = dir.path().join("root");
+    let a = write(&root, "a.bin", &big(1));
+    write(elsewhere.path(), "far/b.bin", &big(1));
+    let linked =
+        crate::fs::walk::tests::symlink_dir(&elsewhere.path().join("far"), &root.join("far"));
+    let looped = crate::fs::walk::tests::symlink_dir(&root, &root.join("loop"));
+    if !(linked && looped) {
+        return; // Windows without the right to create links.
+    }
+    let skip = find_duplicates(&LocalVfs, std::slice::from_ref(&root), &options(), &NONE);
+    assert!(
+        skip.groups.is_empty(),
+        "links not followed: {:?}",
+        skip.groups
+    );
+
+    let follow = DupeOptions {
+        follow_links: true,
+        ..options()
+    };
+    let report = find_duplicates(&LocalVfs, std::slice::from_ref(&root), &follow, &NONE);
+    assert_eq!(report.groups.len(), 1, "{:?}", report.groups);
+    let files = &report.groups[0].files;
+    assert_eq!(files.len(), 2, "each file once: {files:?}");
+    assert!(files.contains(&a));
+}

@@ -48,7 +48,7 @@ Muestra todos los archivos modificados, preparados, desfasados y en conflicto en
     - Dentro del diálogo: **`Ctrl+A`** alterna **Amend** (`--amend`) para modificar el commit anterior.
   - **`d`**: Abre el visor Git Diff para inspeccionar diferencias en el archivo seleccionado.
   - **`s`**: Guarda los cambios en la pila de stash (solicita mensaje; **`Ctrl+U`** incluye archivos untracked).
-  - **`X`**: Aborta una fusión en progreso si existen conflictos.
+  - **`X`**: Aborta la fusión, cherry-pick o reversión en curso (con confirmación): los archivos que modificó vuelven a HEAD y sus otros cambios locales se conservan.
   - **`f` / `l` / `u`**: Fetch, Pull o Push de sincronización remota.
   - **`Esc`**: Cierra el panel de Git.
 
@@ -113,6 +113,17 @@ Muestra todas las etiquetas del repositorio (tanto ligeras como anotadas).
   - **`u`**: Empuja (push) todas las etiquetas al repositorio remoto.
   - **`Esc`**: Cierra el panel de Git.
 
+### 2.6 Fusiones, cherry-picks, reversiones y conflictos
+Como en la línea de comandos de Git, una fusión (`m`), un pull (`l`), un cherry-pick (`c`) o una reversión (`r`) cuyo resultado es limpio se confirma (commit) en el acto: las fusiones con el mensaje predeterminado de Git ("Merge branch ..."), los cherry-picks con el mensaje y el autor originales, las reversiones con "Revert ...".
+
+Cuando los cambios entran en conflicto, la operación se detiene a mitad de camino en lugar de rechazarse, igual que `git merge` / `git pull`:
+* los archivos en conflicto reciben marcas de conflicto (`<<<<<<<`, `=======`, `>>>>>>>`) y se listan en un mensaje y en la pestaña Estado con `!`;
+* el título del panel muestra **FUSIONANDO** (o **CHERRY-PICK EN CURSO**, **REVIRTIENDO**) y la cantidad de conflictos pendientes;
+* edite cada archivo y prepárelo con **`Espacio`** para marcarlo como resuelto; cuando no quede ninguno, **`c`** confirma el resultado (una fusión registra ambos padres);
+* **`X`** en cambio aborta y devuelve el repositorio a como estaba.
+
+Los cambios locales que la operación sobrescribiría siguen haciendo que falle antes de cambiar nada.
+
 ---
 
 ## 3. Operaciones Remotas y Autenticación
@@ -120,7 +131,7 @@ Muestra todas las etiquetas del repositorio (tanto ligeras como anotadas).
 ### 3.1 Sincronización Remota
 Desde cualquier pestaña del panel:
 * **`f`**: Fetch de cambios desde el remoto upstream.
-* **`l`**: Pull de cambios (fetch + merge / fast-forward) desde la rama upstream.
+* **`l`**: Pull de cambios (fetch + merge / fast-forward) desde la rama upstream; los conflictos dejan la fusión en curso (ver 2.6).
 * **`u`**: Push de commits locales al remoto (configura `--set-upstream` automáticamente si es necesario).
 
 ### 3.2 Diálogo de Gestión de Remotos (`R`)

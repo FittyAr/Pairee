@@ -190,7 +190,9 @@ fn dragging_to_a_panel_edge_scrolls_its_view_not_its_cursor() {
         "the cursor stays"
     );
     // Holding still there keeps scrolling with the timer.
-    std::thread::sleep(std::time::Duration::from_millis(120));
+    h.state
+        .mouse
+        .advance_clock(std::time::Duration::from_millis(120));
     h.send(crate::terminal::Event::Tick);
     assert_eq!(*shown(&mut h).iter().min().unwrap(), 2);
     // After the drop the view follows the cursor again.

@@ -11,10 +11,11 @@
 //! no table form builds one. The result must stay within the
 //! `Renderable` size limits.
 
+use super::geometry::{ClearWidget, PlacedWidget};
 use super::text::{line_arg, span_arg, text_arg};
 use crate::app::state::popup::plugin_widget::{
-    PluginImage, Renderable, WGauge, WLayout, WLine, WList, WParagraph, WRow, WSpan, WStyle,
-    WTable, WText,
+    PluginImage, Renderable, WBar, WFill, WGauge, WLayout, WLine, WList, WParagraph, WRow, WSpan,
+    WStyle, WTable, WText,
 };
 use mlua::{Table, Value};
 
@@ -41,6 +42,18 @@ fn from_userdata(ud: &mlua::AnyUserData) -> mlua::Result<Renderable> {
     }
     if let Ok(i) = ud.borrow::<PluginImage>() {
         return Ok(Renderable::Image(i.clone()));
+    }
+    if let Ok(placed) = ud.borrow::<PlacedWidget>() {
+        return Ok(placed.0.clone());
+    }
+    if ud.borrow::<ClearWidget>().is_ok() {
+        return Ok(Renderable::Clear);
+    }
+    if let Ok(bar) = ud.borrow::<WBar>() {
+        return Ok(Renderable::Bar(bar.clone()));
+    }
+    if let Ok(fill) = ud.borrow::<WFill>() {
+        return Ok(Renderable::Fill(fill.clone()));
     }
     let is_text = ud.borrow::<WText>().is_ok()
         || ud.borrow::<WLine>().is_ok()
@@ -147,6 +160,12 @@ pub fn renderable_arg(value: &Value) -> mlua::Result<Renderable> {
     let widget = match value {
         Value::UserData(ud) => from_userdata(ud)?,
         Value::Table(table) if table.contains_key("type")? => from_legacy_table(table)?,
+        Value::Table(table) if is_widget_list(table)? => Renderable::Stack(
+            table
+                .sequence_values::<Value>()
+                .map(|w| renderable_arg(&w?))
+                .collect::<mlua::Result<_>>()?,
+        ),
         Value::Table(_) => Renderable::text(WText::lines(vec![line_arg(value)?])),
         Value::String(_) => Renderable::text(text_arg(value)?),
         other => {
@@ -160,6 +179,26 @@ pub fn renderable_arg(value: &Value) -> mlua::Result<Renderable> {
         return Err(error("ui widget too large to show"));
     }
     Ok(widget)
+}
+
+/// A list whose first item is a widget (not text): widgets drawn one over
+/// the other. A list of spans stays a line.
+fn is_widget_list(table: &Table) -> mlua::Result<bool> {
+    Ok(match table.get::<Value>(1)? {
+        Value::UserData(ud) => {
+            ud.borrow::<WText>().is_err()
+                && ud.borrow::<WLine>().is_err()
+                && ud.borrow::<WSpan>().is_err()
+        }
+        Value::Table(t) => t.contains_key("type")? && !is_text_type(&t)?,
+        _ => false,
+    })
+}
+
+/// A 1.0 `{type = "Span" | "Line"}` table (text, not a widget).
+fn is_text_type(table: &Table) -> mlua::Result<bool> {
+    let kind: Option<String> = table.get("type")?;
+    Ok(matches!(kind.as_deref(), Some("Span" | "Line")))
 }
 
 /// What `peek` returned: `nil` keeps the built-in preview.

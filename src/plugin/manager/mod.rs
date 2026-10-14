@@ -25,6 +25,7 @@ pub mod emit_policy;
 pub mod lifecycle;
 pub mod request;
 pub mod snapshot;
+pub mod snapshot_build;
 pub mod toggles;
 
 pub use lifecycle::PluginManager;

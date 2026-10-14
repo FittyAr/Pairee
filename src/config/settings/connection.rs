@@ -131,6 +131,17 @@ impl Connection {
             .or_else(|| self.kind.default_port())
     }
 
+    /// `true` when the options turn certificate checks off (FTPS and
+    /// WebDAV over HTTPS: `insecure=true`).
+    pub fn insecure_tls(&self) -> bool {
+        matches!(self.kind, RemoteKind::Ftps | RemoteKind::WebDavs)
+            && self
+                .options
+                .trim_start_matches('?')
+                .split('&')
+                .any(|pair| matches!(pair, "insecure=true" | "insecure=1" | "insecure=yes"))
+    }
+
     /// `true` when this connection reaches the server `kind://user@host:port`.
     pub fn matches(&self, kind: RemoteKind, host: &str, port: Option<u16>, user: &str) -> bool {
         self.kind == kind

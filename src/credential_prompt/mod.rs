@@ -3,21 +3,22 @@
 //! without a stored password) asks the user for a secret and waits for the
 //! answer, while the UI thread keeps running.
 //!
-//! The job calls [`ask`]: the request travels over a channel to the UI,
-//! which shows a prompt dialog (see `app::credentials`) and sends the
-//! answer back; Esc, closing the dialog or quitting answers `None` and the
-//! job gives up. Nothing here knows about the UI: the app installs an
-//! [`Asker`] at startup ([`install`]); without one (tests, subcommands)
-//! every request is answered `None` at once.
+//! The job calls [`Asker::ask`] on the asker of the state that started it:
+//! the request travels over a channel to the UI, which shows a prompt
+//! dialog (see `app::credential_requests`) and sends the answer back; Esc,
+//! closing the dialog or quitting answers `None` and the job gives up.
+//! Nothing here knows about the UI, and there is no process-wide asker:
+//! jobs without one (tests, subcommands) use [`nobody`], which answers
+//! `None` at once.
 //!
 //! Asking from the UI thread itself would wait forever for a dialog that
 //! can never be painted, so such requests are refused (`None`).
 
 pub mod key;
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, SyncSender, channel as std_channel, sync_channel};
-use std::sync::{Arc, RwLock};
 use std::thread::ThreadId;
 
 /// What kind of secret is asked for (it decides the prompt's wording).
@@ -27,6 +28,9 @@ pub enum SecretKind {
     Password,
     /// The passphrase of an encrypted private key file.
     Passphrase,
+    /// Whether to trust a server certificate the system does not (TLS);
+    /// any answer trusts it, `None` refuses.
+    Certificate,
 }
 
 /// A request for one secret.
@@ -45,6 +49,15 @@ impl CredentialRequest {
         }
     }
 
+    /// Asks whether to trust the certificate of `server` (`host:port`)
+    /// with SHA-256 `fingerprint`.
+    pub fn certificate(server: &str, fingerprint: &str) -> Self {
+        Self {
+            kind: SecretKind::Certificate,
+            subject: format!("{server}\n{fingerprint}"),
+        }
+    }
+
     pub fn passphrase(key: &std::path::Path) -> Self {
         Self {
             kind: SecretKind::Passphrase,
@@ -54,8 +67,7 @@ impl CredentialRequest {
 }
 
 /// How a login asks the user for a secret (`None`: cancelled or nobody to
-/// ask). Connections get it from whoever started them; [`ask`] is the
-/// process-wide one.
+/// ask). Connections and Git network jobs get it from whoever started them.
 pub type Ask<'a> = &'a (dyn Fn(CredentialRequest) -> Option<String> + Sync);
 
 /// A request waiting for the user, with the way back to the job.
@@ -136,17 +148,9 @@ pub fn channel(wake: fn()) -> (Asker, Inbox) {
     (asker, Inbox { rx })
 }
 
-static ASKER: RwLock<Option<Asker>> = RwLock::new(None);
-
-/// Makes `asker` answer the requests of every background job.
-pub fn install(asker: Asker) {
-    *ASKER.write().unwrap_or_else(|e| e.into_inner()) = Some(asker);
-}
-
-/// Asks the user through the installed [`Asker`] (`None` without one).
-pub fn ask(request: CredentialRequest) -> Option<String> {
-    let asker = ASKER.read().unwrap_or_else(|e| e.into_inner()).clone();
-    asker?.ask(request)
+/// The answer when nobody can be asked: always cancelled.
+pub fn nobody(_request: CredentialRequest) -> Option<String> {
+    None
 }
 
 #[cfg(test)]

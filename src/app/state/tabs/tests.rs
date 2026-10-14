@@ -89,6 +89,7 @@ fn spec_round_trips_through_toml() {
     panel.sort_field = SortField::Size;
     panel.sort_reverse = true;
     panel.filter_mask = Some("*.rs".into());
+    panel.branch_view = true;
     let mut tab = Tab::new(panel);
     tab.name = Some("work".into());
     tab.lock_here();
@@ -100,6 +101,7 @@ fn spec_round_trips_through_toml() {
     let restored = Tab::from_spec(&back);
     assert_ne!(restored.id, tab.id);
     assert_eq!(restored.spec(), spec);
+    assert!(restored.panel.branch_view, "the branch view is restored");
 }
 
 #[test]

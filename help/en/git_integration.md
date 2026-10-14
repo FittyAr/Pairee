@@ -48,7 +48,7 @@ Displays all changed, staged, unstaged, and conflicted files in your working dir
     - Inside commit dialog: **`Ctrl+A`** toggles **Amend** (`--amend`) to revise the previous commit.
   - **`d`**: Opens the Git Diff viewer to inspect changes in the selected file.
   - **`s`**: Saves current changes to the stash stack (prompts for optional message, **`Ctrl+U`** toggles untracked files).
-  - **`X`**: Aborts an in-progress merge if merge conflicts exist.
+  - **`X`**: Aborts the merge, cherry-pick or revert in progress (with confirmation): the files it changed go back to HEAD, your other local changes stay.
   - **`f` / `l` / `u`**: Fetch, Pull, or Push remote synchronization.
   - **`Esc`**: Closes the Git dashboard.
 
@@ -113,6 +113,17 @@ Lists all repository tags (both lightweight and annotated).
   - **`u`**: Pushes all repository tags to the remote repository.
   - **`Esc`**: Closes the Git dashboard.
 
+### 2.6 Merges, cherry-picks, reverts and conflicts
+Like the Git command line, a merge (`m`), pull (`l`), cherry-pick (`c`) or revert (`r`) whose result is clean is committed at once: merges with Git's default message ("Merge branch ..."), cherry-picks with the original message and author, reverts with "Revert ...".
+
+When the changes conflict, the operation stops half-way instead of being refused, exactly as `git merge` / `git pull` do:
+* the conflicted files get conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) and are listed in a message and in the Status tab with `!`;
+* the panel title shows **MERGING** (or **CHERRY-PICKING**, **REVERTING**) and the number of conflicts left;
+* edit each file, then stage it with **`Space`** to mark it resolved; once none is left, **`c`** commits the result (a merge records both parents);
+* **`X`** aborts instead and brings the repository back to where it was.
+
+Local changes that the operation would overwrite still make it fail before anything changes.
+
 ---
 
 ## 3. Remote Operations & Authentication
@@ -120,7 +131,7 @@ Lists all repository tags (both lightweight and annotated).
 ### 3.1 Remote Synchronization
 From any dashboard tab:
 * **`f`**: Fetch updates from the upstream remote.
-* **`l`**: Pull changes (fetch + merge/fast-forward) from the upstream remote branch.
+* **`l`**: Pull changes (fetch + merge/fast-forward) from the upstream remote branch; conflicts leave the merge in progress (see 2.6).
 * **`u`**: Push local branch commits to the remote branch (automatically sets `--set-upstream` when needed).
 
 ### 3.2 Multi-Remote Management Dialog (`R`)

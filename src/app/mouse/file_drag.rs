@@ -102,7 +102,7 @@ pub fn follow(state: &mut AppState, at: (u16, u16), modifiers: KeyModifiers) -> 
     drag.at = Some(at);
     drag.modifiers = modifiers;
     state.mouse.file_drag = Some(drag);
-    autoscroll(state, Instant::now());
+    autoscroll(state, state.mouse.now());
     true
 }
 

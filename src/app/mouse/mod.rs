@@ -33,9 +33,27 @@ pub struct MouseState {
     dialog: dialog_drag::DialogPlacement,
     /// Files pressed (and maybe being dragged) out of a panel.
     file_drag: Option<file_drag::FileDrag>,
+    /// The time gestures are measured with (double clicks, autoscroll).
+    clock: gesture::MouseClock,
 }
 
 impl MouseState {
+    /// The current time of the gesture clock.
+    pub fn now(&self) -> Instant {
+        self.clock.now()
+    }
+
+    /// Measures gestures with a clock the caller moves (tests), starting
+    /// at `start`, instead of the wall clock.
+    pub fn use_manual_clock(&mut self, start: Instant) {
+        self.clock = gesture::MouseClock::Manual(start);
+    }
+
+    /// Moves a manual clock forward (no effect on the wall clock).
+    pub fn advance_clock(&mut self, by: Duration) {
+        self.clock.advance(by);
+    }
+
     /// The keyboard took over: a menu shown by pointing stays open.
     pub fn keyboard_used(&mut self) {
         self.menu_revealed = false;
@@ -118,7 +136,7 @@ pub async fn handle(
             state
                 .mouse
                 .clicks
-                .press(button, mouse.column, mouse.row, Instant::now(), interval);
+                .press(button, mouse.column, mouse.row, state.mouse.now(), interval);
         let click = Click {
             button,
             count,

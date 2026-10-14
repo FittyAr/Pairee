@@ -71,9 +71,14 @@ impl LuaCommand {
 
     /// The program to execute (absolute in Secure Mode) or a violation.
     pub fn check_allowed(&self) -> mlua::Result<PathBuf> {
-        self.policy
+        let program = self
+            .policy
             .authorize(&self.program)
-            .map_err(mlua::Error::RuntimeError)
+            .map_err(mlua::Error::RuntimeError)?;
+        self.policy
+            .authorize_args(&self.program, &self.args)
+            .map_err(mlua::Error::RuntimeError)?;
+        Ok(program)
     }
 
     fn tokio_cmd(&self, program: &Path) -> tokio::process::Command {

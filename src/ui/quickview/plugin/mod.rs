@@ -5,6 +5,9 @@
 //! or table.
 
 mod convert;
+mod place;
+
+pub use place::install as install_layout_solver;
 
 use crate::app::state::popup::plugin_widget::{
     PluginImage, Renderable, WGauge, WLayout, WList, WParagraph, WTable, WWrap,
@@ -15,7 +18,7 @@ use crate::ui::scrollbar::{self, ScrollTarget, ScrollTargetId, ScrollView};
 use crate::ui::scrollbar::{ScrollbarSurface, ScrollbarUiState};
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Margin, Rect},
+    layout::{Constraint, Rect},
     style::{Modifier, Style},
     widgets::{Block, Gauge, List, ListItem, Paragraph, Row, Table, Wrap},
 };
@@ -72,6 +75,15 @@ fn draw(f: &mut Frame, area: Rect, widget: &Renderable, cx: Paint, scroll: usize
         Renderable::Gauge(g) => draw_gauge(f, area, g, cx),
         Renderable::Layout(l) => draw_layout(f, area, l, cx),
         Renderable::Image(image) => draw_image(f, area, image, cx, scroll),
+        Renderable::Placed(rect, child) => draw(f, place::placed(area, *rect), child, cx, 0),
+        Renderable::Stack(children) => {
+            for child in children {
+                draw(f, area, child, cx, 0);
+            }
+        }
+        Renderable::Bar(bar) => place::draw_bar(f, area, bar),
+        Renderable::Clear => place::draw_clear(f, area),
+        Renderable::Fill(fill) => place::draw_fill(f, area, fill),
     }
 }
 
@@ -147,23 +159,13 @@ fn draw_gauge(f: &mut Frame, area: Rect, g: &WGauge, cx: Paint) {
 }
 
 fn draw_layout(f: &mut Frame, area: Rect, l: &WLayout, cx: Paint) {
-    let area = area.inner(Margin::new(l.margin, l.margin));
-    let count = l.children.len();
-    let constraints: Vec<Constraint> = (0..count)
-        .map(|i| {
-            l.constraints
-                .get(i)
-                .map_or(Constraint::Fill(1), convert::constraint)
-        })
-        .collect();
-    let direction = match l.direction {
-        crate::app::state::popup::plugin_widget::WDirection::Horizontal => Direction::Horizontal,
-        crate::app::state::popup::plugin_widget::WDirection::Vertical => Direction::Vertical,
-    };
-    let areas = Layout::default()
-        .direction(direction)
-        .constraints(constraints)
-        .split(area);
+    let areas = place::split_areas(
+        area,
+        l.direction,
+        l.margin,
+        &l.constraints,
+        l.children.len(),
+    );
     for (child, child_area) in l.children.iter().zip(areas.iter()) {
         draw(f, *child_area, child, cx, 0);
     }

@@ -24,7 +24,7 @@ impl DialogView for DupeOptionsPrompt {
         let inner = kit::dialog_frame(
             f,
             cx.area,
-            (64, 12),
+            (64, 13),
             t("dupes_title"),
             kit::fg(theme.popup_border),
             theme,
@@ -33,6 +33,7 @@ impl DialogView for DupeOptionsPrompt {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(2),
+                Constraint::Length(1),
                 Constraint::Length(1),
                 Constraint::Length(1),
                 Constraint::Length(2),
@@ -57,9 +58,11 @@ impl DialogView for DupeOptionsPrompt {
         );
         let algorithm = t("dupes_algorithm").replace("{}", self.algorithm.as_str());
         kit::form_option(f, rows[2], &algorithm, 1, form, styles);
+        let follow = kit::checkbox_row(self.follow_links, &t("dupes_follow_links"));
+        kit::form_option(f, rows[3], &follow, 2, form, styles);
         kit::form_buttons(
             f,
-            rows[4],
+            rows[5],
             &[t("dupes_start_bracket"), t("btn_cancel_bracket")],
             form,
             styles,

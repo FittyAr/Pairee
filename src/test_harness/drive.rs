@@ -13,6 +13,11 @@ use std::time::{Duration, Instant};
 const WAIT_TIMEOUT: Duration = Duration::from_secs(60);
 /// Pause between two drains of the background channels.
 const POLL_INTERVAL: Duration = Duration::from_millis(5);
+/// Gesture-clock time between two separate gestures: longer than any
+/// double-click interval, so a click never joins the previous one.
+const GESTURE_GAP: Duration = Duration::from_secs(60);
+/// Gesture-clock time between the two clicks of a double click.
+const DOUBLE_CLICK_GAP: Duration = Duration::from_millis(1);
 
 impl Harness {
     /// Sends a key script (see `keys::parse`), settling after each key.
@@ -49,6 +54,17 @@ impl Harness {
         row: u16,
         modifiers: KeyModifiers,
     ) -> &mut Self {
+        if matches!(kind, MouseEventKind::Down(_)) {
+            // A press is a new gesture unless `double_click` joins it to
+            // the previous one: the gesture clock decides, not the time
+            // the machine took.
+            let gap = if std::mem::take(&mut self.join_next_press) {
+                DOUBLE_CLICK_GAP
+            } else {
+                GESTURE_GAP
+            };
+            self.state.mouse.advance_clock(gap);
+        }
         self.render();
         self.send(Event::Mouse(MouseEvent {
             kind,
@@ -76,9 +92,12 @@ impl Harness {
         self.press(MouseButton::Left, column, row, KeyModifiers::NONE)
     }
 
-    /// Two quick left clicks on one cell.
+    /// Two quick left clicks on one cell (1 ms apart on the gesture clock,
+    /// however long the first click's work took).
     pub fn double_click(&mut self, column: u16, row: u16) -> &mut Self {
-        self.click(column, row).click(column, row)
+        self.click(column, row);
+        self.join_next_press = true;
+        self.click(column, row)
     }
 
     pub fn right_click(&mut self, column: u16, row: u16) -> &mut Self {
@@ -233,6 +252,34 @@ impl Harness {
         });
     }
 
+    /// Lets keys and clicks go through while transfer jobs run (by default
+    /// every input waits for them): for driving the transfer bar or panel
+    /// of a job that is still going. [`Self::wait_for_transfers`] waits
+    /// explicitly.
+    pub fn without_waiting_for_transfers(&mut self) -> &mut Self {
+        self.wait_for_transfers = false;
+        self
+    }
+
+    /// Waits until no transfer job is running any more.
+    pub fn wait_for_transfers(&mut self) -> &mut Self {
+        self.wait_until("the transfers to end", |h| !h.transfers_running());
+        self
+    }
+
+    /// A transfer job is queued or running (one waiting for a conflict
+    /// answer is idle until a key arrives).
+    fn transfers_running(&self) -> bool {
+        self.state.transfer.as_ref().is_some_and(|t| {
+            t.active_conflict_info.is_none()
+                && t.engine
+                    .queue
+                    .get_all()
+                    .iter()
+                    .any(|job| !job.is_terminal())
+        })
+    }
+
     /// True while a background job the harness knows about is running.
     fn busy(&self) -> bool {
         let state = &self.state;
@@ -243,15 +290,7 @@ impl Harness {
         .into_iter()
         .flat_map(|side| state.panels.tabs(side).tabs())
         .any(|tab| tab.panel.listing.is_running() || tab.panel.dir_sizes.is_running());
-        // A job waiting for a conflict answer is idle until a key arrives.
-        let transfer = state.transfer.as_ref().is_some_and(|t| {
-            t.active_conflict_info.is_none()
-                && t.engine
-                    .queue
-                    .get_all()
-                    .iter()
-                    .any(|job| !job.is_terminal())
-        });
+        let transfer = self.wait_for_transfers && self.transfers_running();
         listing
             || transfer
             || state.git_op.is_running()

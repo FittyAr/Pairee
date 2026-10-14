@@ -1,0 +1,6 @@
+[plugin]
+name = "acceptance-zoxide"
+version = "1.0.0"
+description = "CI acceptance: zoxide-like jumps (ps.sub sender metadata, pairee.state, emit cd)"
+author = "Pairee"
+default_language = "en"

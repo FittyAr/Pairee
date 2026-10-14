@@ -11,13 +11,66 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppStateSnapshot {
     pub active_panel: String,
     pub left_cwd: String,
     pub right_cwd: String,
     pub hovered_file: Option<FileEntrySnapshot>,
     pub selected_files: Vec<FileEntrySnapshot>,
+    /// Folder of each side as a URL (`sftp://user@host:22/dir` for a
+    /// remote panel, the plain path otherwise).
+    #[serde(default)]
+    pub left_url: String,
+    #[serde(default)]
+    pub right_url: String,
+    /// Tabs of the active side, and which one is shown (0-based).
+    #[serde(default)]
+    pub tabs: Vec<TabSnapshot>,
+    #[serde(default)]
+    pub active_tab: usize,
+    /// Jobs of the transfer engine (copies, moves, deletes, ...).
+    #[serde(default)]
+    pub tasks: Vec<TaskSnapshot>,
+    /// Pairee's file clipboard (yank / cut).
+    #[serde(default)]
+    pub yanked: Option<YankedSnapshot>,
+}
+
+/// One folder tab (`cx.tabs[i]`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TabSnapshot {
+    /// The tab's folder as a URL (see [`AppStateSnapshot::left_url`]).
+    pub url: String,
+    /// Title the user gave it, if any.
+    pub name: Option<String>,
+    pub locked: bool,
+}
+
+/// One transfer job (`cx.tasks[i]`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TaskSnapshot {
+    pub id: String,
+    /// `copy`, `move`, `delete`, `wipe`, `compress`, `extract`, ...
+    pub kind: String,
+    /// `queued`, `scanning`, `transferring`, `verifying`, `paused`,
+    /// `completed`, `failed`, `cancelled`.
+    pub status: String,
+    pub sources: usize,
+    pub destination: String,
+    pub files_total: usize,
+    pub files_done: usize,
+    pub bytes_total: u64,
+    pub bytes_done: u64,
+}
+
+/// The file clipboard (`cx.yanked`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct YankedSnapshot {
+    /// Cut (moved on paste) rather than copied.
+    pub cut: bool,
+    /// The items as URLs.
+    pub urls: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

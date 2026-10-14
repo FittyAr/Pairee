@@ -74,6 +74,11 @@ pub struct Harness {
     backend: ManuallyDrop<TerminalBackend>,
     screen: Terminal<TestBackend>,
     keymap: String,
+    /// The next mouse press completes a double click (see `double_click`).
+    join_next_press: bool,
+    /// Every key waits for running transfer jobs (see
+    /// [`Harness::without_waiting_for_transfers`]).
+    wait_for_transfers: bool,
     // Field order matters: the redirect is restored before the sandbox goes.
     _redirect: test_root::Redirect,
     sandbox: TempDir,
@@ -128,6 +133,9 @@ impl Harness {
         crate::app::app::prepare_first_frame(&mut state, &mut ctx);
         // Editor copy / paste must not replace the user's clipboard.
         state.editor_clipboard = crate::app::editor::EditorClipboard::internal_only();
+        // Gestures (double clicks, drag autoscroll) are timed by the clock
+        // the input methods move, never by how long the machine took.
+        state.mouse.use_manual_clock(std::time::Instant::now());
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()
@@ -141,6 +149,8 @@ impl Harness {
             backend: ManuallyDrop::new(TerminalBackend::headless().expect("headless backend")),
             screen: Terminal::new(TestBackend::new(width, height)).expect("test terminal"),
             keymap: options.keymap,
+            join_next_press: false,
+            wait_for_transfers: true,
             _redirect: redirect,
             sandbox,
         };

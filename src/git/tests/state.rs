@@ -16,21 +16,59 @@ fn repo_with_feature() -> (TempDir, git2::Repository, String, git2::Oid) {
     (dir, repo, main, feature)
 }
 
+/// `main` and `feature` both change `conflict.txt` after a common base.
+fn repo_with_conflict() -> (TempDir, git2::Repository) {
+    let (dir, repo) = setup_temp_repo();
+    write_and_commit(&repo, "conflict.txt", "base\n", "base");
+    let main = current_branch(&repo);
+    create_branch(&repo, "feature", "HEAD").unwrap();
+    checkout_branch(&repo, "feature").unwrap();
+    write_and_commit(&repo, "conflict.txt", "feature\n", "feature");
+    checkout_branch(&repo, &main).unwrap();
+    write_and_commit(&repo, "conflict.txt", "main\n", "main");
+    (dir, repo)
+}
+
 #[test]
-fn test_merge_without_conflicts_then_commit_records_both_parents() {
+fn test_clean_merge_is_committed_with_both_parents() {
     let (_dir, repo, _main, feature) = repo_with_feature();
     let ours = write_and_commit(&repo, "main.txt", "main", "main work");
 
-    let analysis = merge(&repo, "feature").unwrap();
-    assert!(analysis.is_normal());
-    assert_eq!(repo.state(), git2::RepositoryState::Merge);
-
-    let merge_oid = commit(&repo, "Merge feature", "", "").unwrap();
+    let Outcome::Committed(merge_oid) = merge(&repo, "feature").unwrap() else {
+        panic!("a clean merge is committed");
+    };
 
     let merged = repo.find_commit(merge_oid).unwrap();
     assert_eq!(merged.parent_ids().collect::<Vec<_>>(), vec![ours, feature]);
+    assert_eq!(merged.summary().unwrap(), Some("Merge branch 'feature'"));
+    assert_eq!(repo.head().unwrap().target(), Some(merge_oid));
     assert_eq!(repo.state(), git2::RepositoryState::Clean);
     assert!(!repo.path().join("MERGE_HEAD").exists());
+    assert!(get_status(&repo).is_empty());
+}
+
+#[test]
+fn test_conflicted_merge_stays_in_progress_until_resolved_and_committed() {
+    let (_dir, repo) = repo_with_conflict();
+
+    let outcome = merge(&repo, "feature").unwrap();
+
+    assert_eq!(outcome, Outcome::Conflicts(vec!["conflict.txt".into()]));
+    assert_eq!(PendingOperation::of(&repo), Some(PendingOperation::Merge));
+    let marked = read_file(&repo, "conflict.txt");
+    assert!(
+        marked.contains("<<<<<<<") && marked.contains(">>>>>>>"),
+        "{marked}"
+    );
+
+    // Resolve, mark resolved (stage) and commit: both parents recorded.
+    write_file(&repo, "conflict.txt", "resolved\n");
+    stage_file(&repo, "conflict.txt").unwrap();
+    assert!(conflicted_paths(&repo).unwrap().is_empty());
+    let oid = commit(&repo, "Merge feature", "", "").unwrap();
+
+    assert_eq!(repo.find_commit(oid).unwrap().parent_count(), 2);
+    assert_eq!(PendingOperation::of(&repo), None);
 }
 
 #[test]
@@ -47,29 +85,65 @@ fn test_fast_forward_merge_refuses_to_overwrite_local_changes() {
 }
 
 #[test]
-fn test_cherry_pick_commit_cleans_state() {
+fn test_clean_cherry_pick_is_committed_with_the_original_message_and_author() {
     let (_dir, repo, _main, feature) = repo_with_feature();
-    cherry_pick(&repo, &feature.to_string()).unwrap();
-    assert_eq!(repo.state(), git2::RepositoryState::CherryPick);
 
-    let oid = commit(&repo, "picked", "", "").unwrap();
+    let Outcome::Committed(oid) = cherry_pick(&repo, &feature.to_string()).unwrap() else {
+        panic!("a clean cherry-pick is committed");
+    };
 
-    assert_eq!(repo.find_commit(oid).unwrap().parent_count(), 1);
+    let picked = repo.find_commit(oid).unwrap();
+    let original = repo.find_commit(feature).unwrap();
+    assert_eq!(picked.parent_count(), 1);
+    assert_eq!(picked.message(), original.message());
+    assert_eq!(picked.author().email(), original.author().email());
     assert_eq!(repo.state(), git2::RepositoryState::Clean);
+    assert_eq!(read_file(&repo, "feature.txt"), "feature");
 }
 
 #[test]
-fn test_revert_commit_cleans_state() {
+fn test_conflicted_cherry_pick_waits_and_can_be_aborted() {
+    let (_dir, repo) = repo_with_conflict();
+    let feature = repo
+        .find_branch("feature", git2::BranchType::Local)
+        .unwrap()
+        .get()
+        .target()
+        .unwrap();
+    let before = repo.head().unwrap().target();
+
+    let outcome = cherry_pick(&repo, &feature.to_string()).unwrap();
+
+    assert_eq!(outcome, Outcome::Conflicts(vec!["conflict.txt".into()]));
+    assert_eq!(
+        PendingOperation::of(&repo),
+        Some(PendingOperation::CherryPick)
+    );
+    abort_merge(&repo).unwrap();
+    assert_eq!(repo.state(), git2::RepositoryState::Clean);
+    assert_eq!(read_file(&repo, "conflict.txt").trim_end(), "main");
+    assert_eq!(repo.head().unwrap().target(), before);
+}
+
+#[test]
+fn test_clean_revert_is_committed() {
     let (_dir, repo) = setup_temp_repo();
     write_and_commit(&repo, "file.txt", "v1", "v1");
     let v2 = write_and_commit(&repo, "file.txt", "v2", "v2");
-    revert(&repo, &v2.to_string()).unwrap();
-    assert_eq!(repo.state(), git2::RepositoryState::Revert);
 
-    commit(&repo, "Revert v2", "", "").unwrap();
+    let Outcome::Committed(oid) = revert(&repo, &v2.to_string()).unwrap() else {
+        panic!("a clean revert is committed");
+    };
 
     assert_eq!(repo.state(), git2::RepositoryState::Clean);
     assert_eq!(read_file(&repo, "file.txt"), "v1");
+    let message = repo
+        .find_commit(oid)
+        .unwrap()
+        .message()
+        .unwrap()
+        .to_string();
+    assert!(message.starts_with("Revert \"v2\""), "{message}");
 }
 
 #[test]

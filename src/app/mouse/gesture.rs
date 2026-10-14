@@ -3,6 +3,32 @@
 use crossterm::event::MouseButton;
 use std::time::{Duration, Instant};
 
+/// Where gesture times come from: the wall clock, or a clock the test
+/// harness moves explicitly, so double clicks do not depend on how long
+/// the machine took between two events.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum MouseClock {
+    #[default]
+    Real,
+    Manual(Instant),
+}
+
+impl MouseClock {
+    pub fn now(self) -> Instant {
+        match self {
+            Self::Real => Instant::now(),
+            Self::Manual(at) => at,
+        }
+    }
+
+    /// Moves a manual clock forward.
+    pub fn advance(&mut self, by: Duration) {
+        if let Self::Manual(at) = self {
+            *at += by;
+        }
+    }
+}
+
 /// Most clicks counted in a row (a triple click); the next press starts over.
 const MAX_CLICKS: u8 = 3;
 

@@ -42,6 +42,7 @@ fn open_dupe_options(state: &mut AppState) -> bool {
         roots,
         min_size: TextField::new(defaults.min_size.to_string().as_str()),
         algorithm: defaults.algorithm,
+        follow_links: defaults.follow_links,
         cursor_idx: 0,
     });
     true

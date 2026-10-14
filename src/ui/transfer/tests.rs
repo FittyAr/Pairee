@@ -1,6 +1,7 @@
 //! The transfer bar, panel and conflict dialog, painted from the queue.
-//! Jobs are put in the queue directly (no worker runs them), so these
-//! tests only paint: the harness waits for running jobs on every key.
+//! Jobs are put in the queue directly (no worker runs them): tests that
+//! press keys or click while such a job "runs" tell the harness not to
+//! wait for transfers.
 
 use crate::app::state::{TransferTab, TransferViewMode};
 use crate::config::localization::t;
@@ -83,6 +84,75 @@ fn the_minimized_bar_shows_the_running_job_while_it_runs() {
         .update_job(id, |j| j.status = TransferJobStatus::Completed);
     assert!(!bar_hit(&mut h));
     assert!(!h.screen_text().contains("3/10"));
+}
+
+#[test]
+fn the_minimized_bar_expands_on_click_and_minimizes_again_while_a_job_runs() {
+    let mut h = Harness::new();
+    h.without_waiting_for_transfers();
+    let job = running(&h, 3, 10);
+    queue(&mut h, vec![job], TransferViewMode::Minimized);
+    let (x, y) = h.hit_cell(|t| *t == HitTarget::Action(Action::ToggleTransferPanel));
+
+    h.click(x, y);
+
+    let ts = h.state.transfer.as_ref().unwrap();
+    assert_eq!(ts.view_mode, TransferViewMode::Expanded);
+    assert!(matches!(
+        h.state.dialogs.top(),
+        Some(crate::app::state::PopupType::TransferPanel(_))
+    ));
+    // Esc puts the panel back into the bar; the job keeps running.
+    h.keys("Esc");
+    assert_eq!(
+        h.state.transfer.as_ref().unwrap().view_mode,
+        TransferViewMode::Minimized
+    );
+    assert!(h.state.dialogs.top().is_none());
+    assert!(bar_hit(&mut h), "the bar is back");
+    // The toggle key opens and closes it as well.
+    h.trigger("toggle_transfer_panel");
+    assert_eq!(
+        h.state.transfer.as_ref().unwrap().view_mode,
+        TransferViewMode::Expanded
+    );
+    h.trigger("toggle_transfer_panel");
+    assert_eq!(
+        h.state.transfer.as_ref().unwrap().view_mode,
+        TransferViewMode::Minimized
+    );
+}
+
+#[test]
+fn the_panels_keep_working_under_the_minimized_bar() {
+    let mut h = Harness::new();
+    h.write("work/left/a.txt", "a");
+    h.write("work/left/b.txt", "b");
+    h.reread();
+    h.without_waiting_for_transfers();
+    let job = running(&h, 1, 4);
+    queue(&mut h, vec![job], TransferViewMode::Minimized);
+    let before = h.state.get_active_panel().cursor_index;
+
+    h.keys("Down");
+
+    assert_eq!(h.state.get_active_panel().cursor_index, before + 1);
+    assert!(h.screen_text().contains("1/4"), "the bar stays shown");
+}
+
+#[test]
+fn waiting_for_transfers_ends_once_the_jobs_are_done() {
+    let mut h = Harness::new();
+    h.without_waiting_for_transfers();
+    let job = running(&h, 1, 1);
+    let id = job.id;
+    queue(&mut h, vec![job], TransferViewMode::Minimized);
+    let ts = h.state.transfer.as_ref().unwrap();
+    ts.engine
+        .queue
+        .update_job(id, |j| j.status = TransferJobStatus::Completed);
+    h.wait_for_transfers();
+    assert!(!bar_hit(&mut h));
 }
 
 #[test]

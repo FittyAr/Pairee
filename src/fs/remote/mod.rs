@@ -14,6 +14,9 @@
 //! | `ftps://…` | FTP with explicit TLS (`AUTH TLS`) |
 //! | `webdav://`, `dav://`, `http://` | WebDAV over HTTP |
 //! | `webdavs://`, `davs://`, `https://` | WebDAV over HTTPS |
+//!
+//! FTPS and HTTPS trust the system's roots plus the options `ca=<pem>`
+//! and `insecure=true` and the certificates the user pinned (see [`tls`]).
 //! | `s3://key:secret@bucket/prefix?endpoint=…&region=…&path_style=true` | S3 and compatible stores |
 //!
 //! Every call performs network I/O: like SFTP, run them from background
@@ -24,6 +27,7 @@ mod ftp;
 mod http;
 mod open;
 mod s3;
+pub mod tls;
 mod webdav;
 mod xml;
 

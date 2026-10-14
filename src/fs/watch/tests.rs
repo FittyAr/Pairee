@@ -134,6 +134,7 @@ fn poller_reports_new_files() {
     let plan = MonitorPlan {
         prefer_poll: true,
         poll_interval: Duration::from_millis(20),
+        recursive: false,
     };
     let monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
     expect_change(&rx, dir.path());
@@ -147,6 +148,7 @@ fn watcher_reports_new_files() {
     let plan = MonitorPlan {
         prefer_poll: false,
         poll_interval: Duration::from_secs(3600),
+        recursive: false,
     };
     let _monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
     expect_change(&rx, dir.path());
@@ -161,6 +163,7 @@ fn burst_of_real_events_is_coalesced() {
     let plan = MonitorPlan {
         prefer_poll: false,
         poll_interval: Duration::from_secs(3600),
+        recursive: false,
     };
     let _monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
     expect_change(&rx, dir.path());
@@ -204,6 +207,7 @@ fn change_right_before_arming_is_reported() {
         let plan = MonitorPlan {
             prefer_poll,
             poll_interval: Duration::from_secs(3600),
+            recursive: false,
         };
         let _monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
         let change = rx.recv_timeout(Duration::from_secs(10)).expect("reported");
@@ -221,6 +225,7 @@ fn quiet_folder_is_not_reported_when_armed() {
     let plan = MonitorPlan {
         prefer_poll: true,
         poll_interval: Duration::from_secs(3600),
+        recursive: false,
     };
     let _monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
     assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
@@ -245,10 +250,45 @@ fn a_vfs_folder_is_polled_through_the_port() {
     let (tx, rx) = channel();
     let sink = ChangeSink::new(tx, || {}).with_origin(WatchOrigin::Remote(1));
     let vfs = std::sync::Arc::new(crate::fs::vfs::LocalVfs);
-    let _monitor = DirMonitor::start_polling(dir.path().to_path_buf(), vfs, ms(50), sink);
+    let _monitor = DirMonitor::start_polling(dir.path().to_path_buf(), vfs, ms(50), false, sink);
     std::thread::sleep(ms(150));
     std::fs::write(dir.path().join("new"), b"x").unwrap();
     let got = rx.recv_timeout(Duration::from_secs(5)).expect("a change");
     assert_eq!(got.dir, dir.path());
     assert_eq!(got.origin, WatchOrigin::Remote(1));
+}
+
+/// A branch view watches the whole tree: a file added two levels down is
+/// a change of the folder (natively watched, or polled over the port).
+#[test]
+fn recursive_monitors_see_changes_in_subfolders() {
+    for prefer_poll in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("a/b")).unwrap();
+        let (tx, rx) = channel();
+        let sink = ChangeSink::new(tx, || {});
+        let plan = MonitorPlan {
+            prefer_poll,
+            poll_interval: ms(50),
+            recursive: true,
+        };
+        let _monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
+        std::thread::sleep(ms(300));
+        while rx.try_recv().is_ok() {}
+        std::fs::write(dir.path().join("a/b/deep.txt"), b"x").unwrap();
+        let got = rx
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap_or_else(|_| panic!("no change seen (poll: {prefer_poll})"));
+        assert_eq!(got.dir, dir.path());
+    }
+}
+
+#[test]
+fn tree_signatures_change_below_the_top_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("a/b")).unwrap();
+    let vfs = crate::fs::vfs::LocalVfs;
+    let before = DirSignature::read_tree(&vfs, dir.path());
+    std::fs::write(dir.path().join("a/b/new.txt"), b"x").unwrap();
+    assert_ne!(DirSignature::read_tree(&vfs, dir.path()), before);
 }

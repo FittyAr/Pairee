@@ -57,9 +57,6 @@ async fn run_app() -> Result<()> {
     // 3-4. Context and state, with the panels of the restored session
     let context = app::AppContext::new(config);
     let mut state = initial_state(&context.config.settings, &launch.paths);
-    // Background jobs (Git fetch / pull / push) ask for passphrases through
-    // this state's prompts.
-    crate::credential_prompt::install(state.credential_requests.asker());
 
     // 5. Launch background update check (if enabled)
     if context.config.settings.auto_update_check {
@@ -70,6 +67,8 @@ async fn run_app() -> Result<()> {
     }
 
     // 5.5. Initialize and load plugins
+    // `Layout:split(rect)` in plugins splits like the quick view draws.
+    crate::ui::quickview::install_layout_solver();
     plugin::PluginManager::init();
     if context.config.settings.plugins_enabled {
         plugin::PluginManager::load_all_plugins(&context.config).await;

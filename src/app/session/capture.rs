@@ -44,6 +44,7 @@ fn tab_spec(tab: &Tab, saved: &[Connection]) -> TabSpec {
         spec.source = SourceKind::Local;
         spec.path = super::restore::home_dir();
         spec.cursor = None;
+        spec.branch_view = false;
     }
     spec
 }

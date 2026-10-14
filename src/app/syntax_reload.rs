@@ -51,6 +51,7 @@ impl SyntaxWatch {
         let plan = MonitorPlan {
             prefer_poll: false,
             poll_interval: POLL_INTERVAL,
+            recursive: false,
         };
         let sink = ChangeSink::new(self.tx.clone(), crate::app::jobs::wake_event_loop);
         self.monitor = Some(DirMonitor::start(dir.to_path_buf(), plan, sink));

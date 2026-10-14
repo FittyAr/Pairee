@@ -8,7 +8,8 @@
 //! argument may also be given as a plain color string (foreground).
 
 use crate::app::state::popup::plugin_widget::{
-    WBorder, WGauge, WLine, WList, WParagraph, WRow, WSpan, WStyle, WTable, WText, modifier,
+    WBar, WBorder, WFill, WGauge, WLine, WList, WParagraph, WRow, WSpan, WStyle, WTable, WText,
+    modifier,
 };
 use mlua::{AnyUserData, UserData, UserDataMethods, Value};
 
@@ -27,7 +28,7 @@ macro_rules! styled {
     )*};
 }
 styled!(
-    WSpan, WLine, WText, WParagraph, WList, WRow, WTable, WGauge, WBorder
+    WSpan, WLine, WText, WParagraph, WList, WRow, WTable, WGauge, WBorder, WBar, WFill
 );
 
 impl Styled for WStyle {

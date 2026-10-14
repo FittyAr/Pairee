@@ -1,8 +1,10 @@
 //! Previewer calls: `peek`, `preload` and `seek`.
 //!
 //! Each gets a `job` table: `file` (a `File` userdata of the previewed
-//! file, with `mime`, size and times), `area` (`x`, `y`, `w`, `h`, and the
-//! older `width` / `height`), `skip` (lines scrolled) and, for `seek`,
+//! file, with `mime`, size and times), `area` (a `ui.Rect` at `0, 0` of
+//! the preview size, with the older `width` / `height` fields too; the
+//! rectangle to split and place widgets in), `skip` (lines scrolled) and,
+//! for `seek`,
 //! `units` (lines to scroll, negative is up).
 //!
 //! * `peek(job)` returns the widget to show (or `nil` to leave the
@@ -66,13 +68,12 @@ fn job_table(
     file: LuaFile,
     units: Option<i64>,
 ) -> mlua::Result<Table> {
-    let area = lua.create_table()?;
-    area.set("x", 0)?;
-    area.set("y", 0)?;
-    area.set("w", job.area_width)?;
-    area.set("h", job.area_height)?;
-    area.set("width", job.area_width)?;
-    area.set("height", job.area_height)?;
+    let area = crate::app::state::popup::plugin_widget::WRect {
+        x: 0,
+        y: 0,
+        w: job.area_width,
+        h: job.area_height,
+    };
     let table = lua.create_table()?;
     table.set("file", file)?;
     table.set("area", area)?;
@@ -121,7 +122,7 @@ impl Worker {
         result
     }
 
-    pub(super) async fn peek(&self, job: PreviewJob) -> Option<Renderable> {
+    pub(crate) async fn peek(&self, job: PreviewJob) -> Option<Renderable> {
         let result = async {
             let Some(values) = self.preview_call("peek", &job, None).await? else {
                 return Ok(None);

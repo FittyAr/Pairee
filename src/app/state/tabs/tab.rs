@@ -72,6 +72,7 @@ impl Tab {
         panel.show_long_names = spec.show_long_names;
         panel.filter_mask = spec.filter_mask.clone();
         panel.pending_focus = spec.cursor.clone();
+        panel.branch_view = spec.branch_view;
         let mut tab = Self::new(panel);
         tab.name = spec.name.clone();
         if spec.locked {
@@ -114,6 +115,7 @@ impl Tab {
             locked: self.lock.is_some(),
             cursor,
             connection,
+            branch_view: panel.branch_view,
         }
     }
 
