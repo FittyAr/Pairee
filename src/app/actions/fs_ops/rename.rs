@@ -82,6 +82,16 @@ pub fn commit(
         super::multi_rename::run_steps(state, vec![step], Some(remote));
         return;
     }
+    // `rename` silently replaces an existing file: refuse instead (a
+    // change of letter case on Windows names the same file and is fine).
+    if is_taken(&src_path, &target) {
+        state.dialogs.replace(PopupType::error(format!(
+            "{} {}",
+            t("error_rename_error"),
+            t("prompt_rename_collision")
+        )));
+        return;
+    }
     match std::fs::rename(&src_path, &target) {
         Ok(_) => {
             state.journal.record(FsCommand::Rename {
@@ -117,9 +127,34 @@ pub fn commit(
     }
 }
 
+/// Whether `target` exists as another object than `src`.
+fn is_taken(src: &std::path::Path, target: &std::path::Path) -> bool {
+    use crate::fs::file_id::file_identity;
+    if std::fs::symlink_metadata(target).is_err() {
+        return false;
+    }
+    match (file_identity(src, false), file_identity(target, false)) {
+        (Ok(a), Ok(b)) => a != b,
+        _ => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::extension_len;
+    use super::{extension_len, is_taken};
+
+    #[test]
+    fn an_existing_target_is_taken_unless_it_is_the_same_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("a.txt");
+        let b = dir.path().join("b.txt");
+        std::fs::write(&a, "a").unwrap();
+        assert!(!is_taken(&a, &b));
+        std::fs::write(&b, "b").unwrap();
+        assert!(is_taken(&a, &b));
+        #[cfg(windows)]
+        assert!(!is_taken(&a, &dir.path().join("A.TXT")), "letter case only");
+    }
 
     #[test]
     fn extension_is_what_follows_the_last_dot() {
