@@ -124,7 +124,7 @@ async fn plugin_docs() -> Vec<(String, PathBuf)> {
         }
         let mut help_path = help_dir.join(format!("{}.md", get_active_language_code()));
         if !help_path.exists() {
-            let default_lang = p.manifest.default_language.as_deref().unwrap_or("en");
+            let default_lang = p.manifest.default_language();
             help_path = help_dir.join(format!("{}.md", default_lang));
         }
         if help_path.exists() && help_path.is_file() {

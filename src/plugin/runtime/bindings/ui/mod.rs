@@ -10,6 +10,7 @@
 //!   position-only widgets `Bar`, `Clear`, `Fill`;
 //! * constants: `Align`, `Wrap`, `Edge`, `Border.*`, `Layout.*`.
 
+mod budget;
 pub mod convert;
 mod geometry;
 mod layout;
@@ -19,6 +20,7 @@ mod widgets;
 
 pub use convert::to_renderable;
 pub use geometry::add_area_method;
+pub use widgets::paragraph;
 
 use crate::app::state::popup::plugin_widget::WStyle;
 use mlua::{Lua, Table};

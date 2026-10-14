@@ -6,9 +6,9 @@
 //! :children({...})`). `:split(rect)` returns the rectangles instead, split
 //! by the solver the UI draws with, to place widgets with `:area(rect)`.
 
-use super::convert::renderable_arg;
+use super::convert::renderables_arg;
 use crate::app::state::popup::plugin_widget::{WConstraint, WDirection, WLayout, WRect};
-use mlua::{AnyUserData, Lua, Table, UserData, UserDataMethods, Value};
+use mlua::{AnyUserData, Lua, Table, UserData, UserDataMethods};
 
 impl UserData for WConstraint {}
 
@@ -39,10 +39,7 @@ impl UserData for WLayout {
         });
         super::geometry::add_area_method(methods);
         methods.add_function("children", |_, (ud, list): (AnyUserData, Table)| {
-            let children = list
-                .sequence_values::<Value>()
-                .map(|child| renderable_arg(&child?))
-                .collect::<mlua::Result<Vec<_>>>()?;
+            let children = renderables_arg(&list)?;
             ud.borrow_mut::<WLayout>()?.children = children;
             Ok(ud)
         });
@@ -51,6 +48,7 @@ impl UserData for WLayout {
 
 /// A list of `ui.Constraint` values.
 pub fn constraint_list(list: &Table) -> mlua::Result<Vec<WConstraint>> {
+    super::budget::constraint_count(list.raw_len())?;
     list.sequence_values::<AnyUserData>()
         .map(|c| Ok(*c?.borrow::<WConstraint>()?))
         .collect()

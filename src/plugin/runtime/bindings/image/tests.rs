@@ -96,6 +96,16 @@ fn untrusted_plugins_show_only_the_previewed_file_or_their_own() {
     assert!(ok);
     let (w, h) = image::image_dimensions(&thumb).unwrap();
     assert_eq!((w, h), (10, 5));
+
+    // Bounds larger than the source never enlarge it.
+    let ok: bool = lua
+        .load(
+            r#"return image.precache(own, thumb, { max_width = 4294967295, max_height = 60000 })"#,
+        )
+        .eval()
+        .unwrap();
+    assert!(ok);
+    assert_eq!(image::image_dimensions(&thumb).unwrap(), (40, 20));
 }
 
 #[test]

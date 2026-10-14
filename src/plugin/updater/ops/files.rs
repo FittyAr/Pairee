@@ -17,6 +17,18 @@ pub struct VerifiedFile {
     pub bytes: Vec<u8>,
 }
 
+impl VerifiedFile {
+    /// `bytes` already trusted (the signed manifest) as `rel_path`.
+    pub fn new(plugin_dir: &Path, rel_path: &str, bytes: Vec<u8>) -> Result<Self> {
+        Ok(Self {
+            rel_path: rel_path.to_string(),
+            sha256: crate::update::downloader::sha256_hex(&bytes),
+            dest: safe_join(plugin_dir, rel_path)?,
+            bytes,
+        })
+    }
+}
+
 /// Downloads and verifies every `[files]` entry of the signed manifest
 /// before anything is written, so a tampered or oversized plugin never
 /// reaches the disk and no partial install is left.
@@ -75,14 +87,16 @@ pub fn write_all(files: Vec<VerifiedFile>) -> Result<HashMap<String, String>> {
 /// Removes the files the previous version had (`old`) that the new one
 /// (`new`) no longer lists, then any folder they leave empty. Only paths
 /// recorded in the lockfile are touched, through the same `safe_join`
-/// check as installs.
+/// check as installs. A path the new version lists in another case is
+/// kept: on a case-insensitive file system it is the file just written.
 pub fn remove_stale(
     plugin_dir: &Path,
     old: &HashMap<String, String>,
     new: &HashMap<String, String>,
     report: &mut Report,
 ) {
-    for rel_path in old.keys().filter(|rel| !new.contains_key(*rel)) {
+    let dropped = |rel: &&String| !new.keys().any(|n| n.eq_ignore_ascii_case(rel));
+    for rel_path in old.keys().filter(dropped) {
         let Ok(path) = safe_join(plugin_dir, rel_path) else {
             continue;
         };
@@ -141,6 +155,32 @@ mod tests {
             "unknown files are kept"
         );
         assert_eq!(report.lines.len(), 1);
+    }
+
+    #[test]
+    fn a_file_renamed_only_in_case_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("util.lua"), "new").unwrap();
+        let mut report = Report::default();
+        remove_stale(
+            dir.path(),
+            &map(&["Util.lua"]),
+            &map(&["util.lua"]),
+            &mut report,
+        );
+        assert!(dir.path().join("util.lua").exists());
+    }
+
+    #[test]
+    fn the_signed_manifest_is_written_with_its_own_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let file =
+            VerifiedFile::new(dir.path(), "manifest.toml", b"name = \"x\"".to_vec()).unwrap();
+        assert_eq!(
+            file.sha256,
+            crate::update::downloader::sha256_hex(b"name = \"x\"")
+        );
+        assert!(VerifiedFile::new(dir.path(), "../m.toml", Vec::new()).is_err());
     }
 
     #[test]

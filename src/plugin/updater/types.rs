@@ -19,15 +19,25 @@ pub struct RegistryIndex {
 }
 
 impl RegistryIndex {
-    /// The registry version of `name` when it differs from `installed`.
+    /// The registry version of `name` when it is newer than `installed`.
     ///
-    /// The registry only lists the latest release, so any difference
-    /// (including a lower version) is offered as an update.
+    /// A lower version is never offered automatically: an older, validly
+    /// signed index replayed from the registry history must not roll
+    /// plugins back (`pairee plugin update <name>` still converges on the
+    /// listed version on request). Versions that are not semver are offered
+    /// when they differ.
     pub fn update_for(&self, name: &str, installed: &str) -> Option<&str> {
+        let newer = |latest: &str| match (
+            semver::Version::parse(latest),
+            semver::Version::parse(installed),
+        ) {
+            (Ok(latest), Ok(installed)) => latest > installed,
+            _ => latest != installed,
+        };
         self.plugins
             .get(name)
             .map(|p| p.version.as_str())
-            .filter(|latest| *latest != installed)
+            .filter(|latest| newer(latest))
     }
 }
 

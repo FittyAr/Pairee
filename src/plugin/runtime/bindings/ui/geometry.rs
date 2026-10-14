@@ -94,7 +94,7 @@ impl UserData for WBar {
         add_style_methods(methods);
         add_area_method(methods);
         methods.add_function("symbol", |_, (ud, symbol): (AnyUserData, String)| {
-            ud.borrow_mut::<WBar>()?.symbol = Some(symbol);
+            ud.borrow_mut::<WBar>()?.symbol = Some(super::budget::symbol_arg(symbol)?);
             Ok(ud)
         });
     }
@@ -170,7 +170,7 @@ pub fn bind(lua: &Lua, ui: &Table) -> mlua::Result<()> {
         "Fill",
         lua.create_function(|_, symbol: Option<String>| {
             Ok(WFill {
-                symbol: symbol.unwrap_or_else(|| " ".into()),
+                symbol: super::budget::symbol_arg(symbol.unwrap_or_else(|| " ".into()))?,
                 style: WStyle::default(),
             })
         })?,

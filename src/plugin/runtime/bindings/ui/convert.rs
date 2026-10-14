@@ -11,6 +11,7 @@
 //! no table form builds one. The result must stay within the
 //! `Renderable` size limits.
 
+use super::budget::{Budget, nested};
 use super::geometry::{ClearWidget, PlacedWidget};
 use super::text::{line_arg, span_arg, text_arg};
 use crate::app::state::popup::plugin_widget::{
@@ -67,21 +68,22 @@ fn from_userdata(ud: &mlua::AnyUserData) -> mlua::Result<Renderable> {
 /// A 1.0 widget table (`{type = "...", ...}`).
 fn from_legacy_table(table: &Table) -> mlua::Result<Renderable> {
     let kind: Option<String> = table.get("type")?;
-    let strings = |key: &str| -> mlua::Result<Vec<WText>> {
-        Ok(table
-            .get::<Option<Vec<String>>>(key)?
-            .unwrap_or_default()
-            .iter()
-            .map(|s| WText::raw(s))
-            .collect())
+    let mut budget = Budget::default();
+    let mut text = |s: String| -> mlua::Result<WText> {
+        let text = WText::raw(&s);
+        budget.text(&text)?;
+        Ok(text)
+    };
+    let mut strings = |key: &str| -> mlua::Result<Vec<WText>> {
+        let Some(list) = table.get::<Option<Table>>(key)? else {
+            return Ok(Vec::new());
+        };
+        list.sequence_values::<String>().map(|s| text(s?)).collect()
     };
     match kind.as_deref() {
         Some("Paragraph") => Ok(Renderable::text(text_arg(&table.get("text")?)?)),
         Some("Gauge") => Ok(Renderable::Gauge(WGauge {
-            ratio: table
-                .get::<Option<f64>>("ratio")?
-                .unwrap_or(0.0)
-                .clamp(0.0, 1.0),
+            ratio: super::widgets::clamp_ratio(table.get::<Option<f64>>("ratio")?.unwrap_or(0.0)),
             label: table.get::<Option<String>>("label")?.map(|l| WSpan {
                 content: l,
                 ..WSpan::default()
@@ -96,21 +98,23 @@ fn from_legacy_table(table: &Table) -> mlua::Result<Renderable> {
             style: WStyle::default(),
         })),
         Some("Table") => {
-            let rows: Vec<Vec<String>> = table.get::<Option<_>>("rows")?.unwrap_or_default();
+            let row = |cells| WRow {
+                cells,
+                height: 1,
+                style: WStyle::default(),
+            };
+            let header = row(strings("headers")?);
+            let rows: Vec<Table> = table.get::<Option<_>>("rows")?.unwrap_or_default();
+            let rows = rows
+                .iter()
+                .map(|cells| {
+                    let cells = cells.sequence_values::<String>().map(|c| text(c?));
+                    Ok(row(cells.collect::<mlua::Result<_>>()?))
+                })
+                .collect::<mlua::Result<_>>()?;
             Ok(Renderable::Table(WTable {
-                header: Some(WRow {
-                    cells: strings("headers")?,
-                    height: 1,
-                    style: WStyle::default(),
-                }),
-                rows: rows
-                    .iter()
-                    .map(|cells| WRow {
-                        cells: cells.iter().map(|c| WText::raw(c)).collect(),
-                        height: 1,
-                        style: WStyle::default(),
-                    })
-                    .collect(),
+                header: Some(header),
+                rows,
                 widths: Vec::new(),
                 spacing: 1,
                 block: None,
@@ -118,11 +122,11 @@ fn from_legacy_table(table: &Table) -> mlua::Result<Renderable> {
             }))
         }
         Some("Span") => Ok(Renderable::text(WText::lines(vec![WLine {
-            spans: vec![legacy_span(table)?],
+            spans: vec![legacy_span(&Value::Table(table.clone()))?],
             ..WLine::default()
         }]))),
         Some("Line") => {
-            let spans: Vec<Table> = table.get::<Option<_>>("spans")?.unwrap_or_default();
+            let spans: Vec<Value> = table.get::<Option<_>>("spans")?.unwrap_or_default();
             let spans = spans
                 .iter()
                 .map(legacy_span)
@@ -138,12 +142,13 @@ fn from_legacy_table(table: &Table) -> mlua::Result<Renderable> {
     }
 }
 
-/// `{type = "Span", text = ..., style = "<color>"}`, or any span value.
-fn legacy_span(table: &Table) -> mlua::Result<WSpan> {
-    let text: Option<String> = table.get("text")?;
-    let Some(content) = text else {
-        return span_arg(&Value::Table(table.clone()));
+/// `{type = "Span", text = ..., style = "<color>"}`, or any span value
+/// (a string or a `ui.Span`).
+fn legacy_span(value: &Value) -> mlua::Result<WSpan> {
+    let Value::Table(table) = value else {
+        return span_arg(value);
     };
+    let content: String = table.get::<Option<String>>("text")?.unwrap_or_default();
     let color: Option<String> = table.get("style")?;
     Ok(WSpan {
         content,
@@ -157,15 +162,34 @@ fn legacy_span(table: &Table) -> mlua::Result<WSpan> {
 
 /// `value` as a widget; `nil` is an error.
 pub fn renderable_arg(value: &Value) -> mlua::Result<Renderable> {
+    renderable_at(value, 0)
+}
+
+/// Every item of `list` as a widget (`Layout:children`).
+pub fn renderables_arg(list: &Table) -> mlua::Result<Vec<Renderable>> {
+    renderables_at(list, 0)
+}
+
+fn renderables_at(list: &Table, depth: usize) -> mlua::Result<Vec<Renderable>> {
+    let depth = nested(depth)?;
+    let mut budget = Budget::default();
+    list.sequence_values::<Value>()
+        .map(|item| {
+            let widget = renderable_at(&item?, depth)?;
+            budget.widget(&widget)?;
+            Ok(widget)
+        })
+        .collect()
+}
+
+/// [`renderable_arg`] for a value `depth` lists deep.
+fn renderable_at(value: &Value, depth: usize) -> mlua::Result<Renderable> {
     let widget = match value {
         Value::UserData(ud) => from_userdata(ud)?,
         Value::Table(table) if table.contains_key("type")? => from_legacy_table(table)?,
-        Value::Table(table) if is_widget_list(table)? => Renderable::Stack(
-            table
-                .sequence_values::<Value>()
-                .map(|w| renderable_arg(&w?))
-                .collect::<mlua::Result<_>>()?,
-        ),
+        Value::Table(table) if is_widget_list(table)? => {
+            Renderable::Stack(renderables_at(table, depth)?)
+        }
         Value::Table(_) => Renderable::text(WText::lines(vec![line_arg(value)?])),
         Value::String(_) => Renderable::text(text_arg(value)?),
         other => {
@@ -282,5 +306,48 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn hostile_values_fail_instead_of_exhausting_the_host() {
+        let lua = lua();
+        for code in [
+            // Tables that contain themselves.
+            "local t = {} t[1] = t return ui.Line(t)",
+            "local t = { ui.Clear() } t[2] = t return t",
+            // One table / userdata listed again and again.
+            r#"local t = {"x"} for i = 1, 40 do t = {t, t} end return ui.Line(t)"#,
+            "local s = ui.Text(string.rep('x', 1024 * 1024)) local a = {}              for i = 1, 64 do a[i] = s end return ui.List(a)",
+            "local p = ui.Paragraph(string.rep('x', 1024 * 1024)) local a = {}              for i = 1, 64 do a[i] = p end return ui.Layout():children(a)",
+            r#"local s = string.rep('x', 1024 * 1024) local a = {} for i = 1, 64 do a[i] = s end
+               return { type = "List", items = a }"#,
+            // A symbol drawn in every cell.
+            "return ui.Fill(string.rep('x', 1024))",
+            "return ui.Bar():symbol(string.rep('x', 1024))",
+        ] {
+            assert!(convert(&lua, code).is_err(), "{code}");
+        }
+    }
+
+    #[test]
+    fn legacy_values_convert_safely() {
+        let lua = lua();
+        let gauge = convert(&lua, r#"return { type = "Gauge", ratio = 0/0 }"#)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(gauge, Renderable::Gauge(ref g) if g.ratio == 0.0));
+        let line = convert(
+            &lua,
+            r#"return { type = "Line", spans = { ui.Span("a"), "b", { text = "c" } } }"#,
+        )
+        .unwrap()
+        .unwrap();
+        let Renderable::Paragraph(p) = line else {
+            panic!()
+        };
+        let WTextBody::Lines(lines) = p.text.body else {
+            panic!()
+        };
+        assert_eq!(lines[0].spans.len(), 3);
     }
 }

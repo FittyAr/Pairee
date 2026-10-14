@@ -58,7 +58,7 @@ fn is_executable_file(path: &Path) -> bool {
 
 /// Test helper: an executable `stem` in `dir` (`.exe` on Windows, mode 755 elsewhere).
 #[cfg(test)]
-pub(super) fn make_tool(dir: &Path, stem: &str) -> PathBuf {
+pub(crate) fn make_tool(dir: &Path, stem: &str) -> PathBuf {
     #[cfg(windows)]
     {
         let p = dir.join(format!("{stem}.exe"));

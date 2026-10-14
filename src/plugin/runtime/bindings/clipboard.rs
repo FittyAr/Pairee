@@ -103,13 +103,9 @@ fn bind_with(
 
 fn read(can_read: bool, backend: &dyn ClipboardBackend) -> Result<String, LuaError> {
     if !can_read {
-        return Err(LuaError {
-            kind: Some("PermissionDenied".into()),
-            code: None,
-            message:
-                "pairee.clipboard: reading the clipboard needs a trusted plugin outside Secure Mode"
-                    .into(),
-        });
+        return Err(LuaError::denied(
+            "pairee.clipboard: reading the clipboard needs a trusted plugin outside Secure Mode",
+        ));
     }
     backend.get().map_err(LuaError::custom)
 }

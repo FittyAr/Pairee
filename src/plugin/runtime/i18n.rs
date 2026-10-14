@@ -22,15 +22,13 @@ pub fn bind(
     plugin_dir: &Path,
     manifest: Option<&PluginManifest>,
 ) -> mlua::Result<mlua::Function> {
-    let default_lang = manifest
-        .and_then(|m| m.default_language.clone())
-        .unwrap_or_else(|| "en".to_string());
+    let default_lang = manifest.map_or("en", PluginManifest::default_language);
     let lang_dir = plugin_dir.join("lang");
     let active = read_dictionary(
         &lang_dir,
         &crate::config::localization::get_active_language_code(),
     );
-    let fallback = read_dictionary(&lang_dir, &default_lang);
+    let fallback = read_dictionary(&lang_dir, default_lang);
 
     lua.create_function(move |_, (key, vars): (String, Option<mlua::Table>)| {
         let text =

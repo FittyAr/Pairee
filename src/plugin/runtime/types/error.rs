@@ -27,6 +27,15 @@ impl LuaError {
         }
     }
 
+    /// A `PermissionDenied` error (a sandbox refusal).
+    pub fn denied(message: impl Into<String>) -> Self {
+        Self {
+            kind: Some("PermissionDenied".into()),
+            code: None,
+            message: message.into(),
+        }
+    }
+
     /// The kind, OS code and text of an I/O error.
     pub fn from_io(err: &std::io::Error) -> Self {
         Self {
@@ -41,6 +50,15 @@ impl LuaError {
         match result {
             Ok(value) => (value, Value::Nil).into_lua_multi(lua),
             Err(err) => (Value::Nil, err).into_lua_multi(lua),
+        }
+    }
+
+    /// `ok, nil` or `false, err`: the result of an operation that reports
+    /// success as a boolean.
+    pub fn status(lua: &Lua, result: Result<bool, Self>) -> mlua::Result<MultiValue> {
+        match result {
+            Ok(ok) => (ok, Value::Nil).into_lua_multi(lua),
+            Err(err) => (false, err).into_lua_multi(lua),
         }
     }
 }

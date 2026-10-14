@@ -95,13 +95,7 @@ fn check_key(key: &str) -> Result<(), LuaError> {
 
 /// `true, nil` or `false, Error`.
 fn outcome(lua: &Lua, result: Result<(), LuaError>) -> mlua::Result<MultiValue> {
-    Ok(match result {
-        Ok(()) => MultiValue::from_vec(vec![Value::Boolean(true), Value::Nil]),
-        Err(err) => MultiValue::from_vec(vec![
-            Value::Boolean(false),
-            Value::UserData(lua.create_userdata(err)?),
-        ]),
-    })
+    LuaError::status(lua, result.map(|()| true))
 }
 
 fn lock(store: &Mutex<Store>) -> mlua::Result<std::sync::MutexGuard<'_, Store>> {

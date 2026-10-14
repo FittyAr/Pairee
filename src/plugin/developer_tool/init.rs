@@ -3,6 +3,20 @@ use crate::app::state::DevProgress;
 use crate::config::localization::t;
 use tokio::sync::mpsc::UnboundedSender;
 
+/// `text` escaped for the inside of a TOML basic string (`"..."`).
+fn toml_escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            c if c.is_control() => out.push_str(&format!("\\u{:04X}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 fn replace_placeholders(
     target_path: &std::path::Path,
     manifest_name: &str,
@@ -13,10 +27,11 @@ fn replace_placeholders(
     let manifest_path = target_path.join("manifest.toml");
     if manifest_path.exists() {
         let content = std::fs::read_to_string(&manifest_path)?;
+        // The placeholders sit inside TOML basic strings.
         let content = content
             .replace("PLUGIN_NAME", manifest_name)
-            .replace("PLUGIN_DESCRIPTION", description)
-            .replace("PLUGIN_AUTHOR", author);
+            .replace("PLUGIN_DESCRIPTION", &toml_escape(description))
+            .replace("PLUGIN_AUTHOR", &toml_escape(author));
         std::fs::write(&manifest_path, content)?;
     }
 
@@ -177,7 +192,14 @@ pub fn init_in(
         .unwrap_or(&folder_name)
         .to_string();
 
+    // The name becomes the folder and the manifest name: a plain
+    // identifier, so it cannot point outside `target_parent`.
+    super::check_identifier(&manifest_name)?;
     let path = target_parent.join(&folder_name);
+    // Never write over (or, for the remote template, delete) existing work.
+    if std::fs::read_dir(&path).is_ok_and(|mut entries| entries.next().is_some()) {
+        anyhow::bail!(t("plugin_dev_err_target_not_empty").replace("{}", &path.to_string_lossy()));
+    }
     std::fs::create_dir_all(&path)?;
 
     progress_status(&progress, t("plugin_dev_progress_creating_dir"));
@@ -210,6 +232,37 @@ pub fn init_with_progress_in(
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn init_refuses_bad_names_and_existing_projects() {
+        let dir = tempdir().unwrap();
+        for bad in ["../evil", "a/b", "", "C:x", "with space"] {
+            assert!(init_in(bad, "d", "a", None, dir.path()).is_err(), "{bad}");
+        }
+        let existing = dir.path().join("mine.pairee");
+        std::fs::create_dir(&existing).unwrap();
+        std::fs::write(existing.join("main.lua"), "work").unwrap();
+        assert!(init_in("mine", "d", "a", None, dir.path()).is_err());
+        assert_eq!(
+            std::fs::read_to_string(existing.join("main.lua")).unwrap(),
+            "work"
+        );
+    }
+
+    #[test]
+    fn placeholders_are_escaped_for_toml() {
+        let dir = tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("manifest.toml"),
+            "name = \"PLUGIN_NAME\"\nversion = \"1\"\ndescription = \"PLUGIN_DESCRIPTION\"\nauthor = \"PLUGIN_AUTHOR\"\n",
+        )
+        .unwrap();
+        replace_placeholders(dir.path(), "demo", "say \"hi\" \\ bye\n", "Jane \"J\" Doe").unwrap();
+        let manifest =
+            crate::plugin::loader::PluginManifest::read_from_dir(dir.path()).expect("valid TOML");
+        assert_eq!(manifest.description.as_deref(), Some("say \"hi\" \\ bye\n"));
+        assert_eq!(manifest.author.as_deref(), Some("Jane \"J\" Doe"));
+    }
 
     #[test]
     fn test_remote_template_clone() {

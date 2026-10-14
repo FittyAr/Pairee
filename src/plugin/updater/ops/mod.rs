@@ -7,6 +7,7 @@ pub mod manage;
 pub mod query;
 
 pub use install::install;
+pub use install_guard::is_identifier;
 #[cfg(test)]
 pub(crate) use install_guard::validate_identifier;
 pub use manage::{pin, remove, update, verify};

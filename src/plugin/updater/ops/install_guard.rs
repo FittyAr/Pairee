@@ -7,15 +7,20 @@ use std::path::{Component, Path, PathBuf};
 /// Registry identifiers (plugin name, author) must match `[A-Za-z0-9_-]+`.
 /// They are interpolated into URLs and local directory names.
 pub fn validate_identifier(kind: &str, value: &str) -> anyhow::Result<()> {
-    let ok = !value.is_empty()
-        && value
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
-    if ok {
+    if is_identifier(value) {
         Ok(())
     } else {
         anyhow::bail!("Invalid plugin {kind} '{value}': only [A-Za-z0-9_-] is allowed")
     }
+}
+
+/// A non-empty `[A-Za-z0-9_-]` name: safe as a single path component
+/// (plugin and author names, `require` segments, language codes).
+pub fn is_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
 /// Join a manifest `[files]` key onto `base`, rejecting anything that could

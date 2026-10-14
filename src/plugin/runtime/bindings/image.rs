@@ -26,7 +26,7 @@ use crate::plugin::runtime::types::LuaError;
 use crate::plugin::runtime::types::path::path_arg;
 use crate::plugin::worker::PreviewTarget;
 use image::{ImageDecoder, ImageReader, Limits};
-use mlua::{Lua, MultiValue, Table, UserData, Value};
+use mlua::{Lua, Table, UserData, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -41,14 +41,6 @@ const MAX_ALLOC: u64 = 256 * 1024 * 1024;
 impl UserData for PluginImage {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         super::ui::add_area_method(methods);
-    }
-}
-
-fn denied(message: String) -> LuaError {
-    LuaError {
-        kind: Some("PermissionDenied".into()),
-        code: None,
-        message,
     }
 }
 
@@ -67,7 +59,7 @@ pub(crate) fn showable(
     policy
         .check(&path.to_string_lossy(), Access::Read)
         .map(|target| target.path().to_path_buf())
-        .map_err(denied)
+        .map_err(LuaError::denied)
 }
 
 /// A reader for `path` with format detection and decode limits, after the
@@ -125,24 +117,15 @@ fn info(lua: &Lua, path: &Path) -> Result<Table, LuaError> {
 
 fn precache(src: &Path, dst: &Target, (max_w, max_h): (u32, u32)) -> Result<bool, LuaError> {
     let image = reader(src)?.decode().map_err(image_error)?;
-    let thumb = image.thumbnail(max_w.max(1), max_h.max(1));
+    // `thumbnail` also enlarges: never past the source or the cap.
+    let side = |bound: u32, source: u32| bound.min(PRECACHE_MAX_SIDE).min(source).max(1);
+    let thumb = image.thumbnail(side(max_w, image.width()), side(max_h, image.height()));
     let mut png = std::io::Cursor::new(Vec::new());
     thumb
         .write_to(&mut png, image::ImageFormat::Png)
         .map_err(image_error)?;
     dst.write(png.into_inner())?;
     Ok(true)
-}
-
-/// `false, Error` / `true, nil` for `precache`.
-fn outcome(lua: &Lua, result: Result<bool, LuaError>) -> mlua::Result<MultiValue> {
-    match result {
-        Ok(done) => LuaError::pair(lua, Ok::<_, LuaError>(done)),
-        Err(err) => Ok(MultiValue::from_vec(vec![
-            Value::Boolean(false),
-            Value::UserData(lua.create_userdata(err)?),
-        ])),
-    }
 }
 
 /// Builds `pairee.image` for a plugin with `policy`.
@@ -181,10 +164,10 @@ pub fn bind(lua: &Lua, policy: Arc<FsPolicy>) -> mlua::Result<Table> {
                     let dst = path_arg(&dst).map_err(|e| LuaError::custom(e.to_string()))?;
                     let dst = policy
                         .check(&dst.to_string_lossy(), Access::Write)
-                        .map_err(denied)?;
+                        .map_err(LuaError::denied)?;
                     super::fs::blocking(|| precache(&src, &dst, bounds))
                 });
-                outcome(lua, result)
+                LuaError::status(lua, result)
             },
         )?,
     )?;

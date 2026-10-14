@@ -22,25 +22,28 @@ pub fn is_reserved(event: &str) -> bool {
 /// Broadcasts a host hook event (e.g. "on_cd", "on_hover", "on_key") to all
 /// loaded plugins.
 pub async fn emit_event(event_name: &str, data: serde_json::Value) {
-    broadcast(event_name, data, None).await;
+    broadcast(event_name, &data.to_string(), None).await;
 }
 
-/// Broadcasts `pairee.ps.pub(event_name, data)` of the plugin `sender`.
-pub async fn publish(sender: PluginOrigin, event_name: &str, data: serde_json::Value) {
+/// Broadcasts `pairee.ps.pub(event_name, data)` of the plugin `sender`
+/// (`data` is the JSON text of the payload).
+pub async fn publish(sender: PluginOrigin, event_name: &str, data: &str) {
     broadcast(event_name, data, Some(sender)).await;
 }
 
-async fn broadcast(event_name: &str, data: serde_json::Value, sender: Option<PluginOrigin>) {
-    let data_str = data.to_string();
+/// Queues the event for every loaded plugin without waiting: a plugin
+/// whose queue is full (busy or stuck) misses it, so a flood of events
+/// never piles up tasks or copies of the payload in the host.
+async fn broadcast(event_name: &str, data: &str, sender: Option<PluginOrigin>) {
     for plugin in get_loaded_plugins().await {
         // The Lua side checks whether the plugin has callbacks for the event.
-        let name = plugin.manifest.name.clone();
-        let ev = event_name.to_string();
-        let d = data_str.clone();
-        let sender = sender.clone();
-        tokio::spawn(async move {
-            emit_hook_event(&name, &ev, d, sender).await;
-        });
+        emit_hook_event(
+            &plugin.manifest.name,
+            event_name,
+            data.to_string(),
+            sender.clone(),
+        )
+        .await;
     }
 }
 
