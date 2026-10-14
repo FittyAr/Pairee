@@ -83,8 +83,20 @@ pub fn title_cells(area: Rect) -> Vec<Rect> {
 }
 
 pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppState) {
+    let menu_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Min(20),
+            Constraint::Length(if state.is_root { 8 } else { 0 }),
+            Constraint::Length(12),
+        ])
+        .split(area);
+    // Titles cut by the ROOT badge or the clock are not clickable there.
     for (i, cell) in title_cells(area).into_iter().enumerate() {
-        crate::ui::hit::register(cell, crate::ui::hit::HitTarget::MenuTitle(i));
+        let cell = cell.intersection(menu_chunks[0]);
+        if !cell.is_empty() {
+            crate::ui::hit::register(cell, crate::ui::hit::HitTarget::MenuTitle(i));
+        }
     }
     let theme = &context.theme();
 
@@ -113,15 +125,6 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
         let hotkey_spans = crate::ui::hotkey::render_hotkey_spans(title, style, hotkey_style);
         spans.extend(hotkey_spans);
     }
-
-    let menu_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Min(20),
-            Constraint::Length(if state.is_root { 8 } else { 0 }),
-            Constraint::Length(12),
-        ])
-        .split(area);
 
     let line = Line::from(spans);
     let paragraph = Paragraph::new(line).style(Style::default().bg(Color::DarkGray));

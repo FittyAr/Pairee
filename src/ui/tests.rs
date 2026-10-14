@@ -332,6 +332,38 @@ fn help_keeps_a_far_document_in_view() {
         .draw(|f| draw_ui(f, &context, &state))
         .expect("draw help");
     assert!(buffer_joined(&terminal).contains("doc59"));
+    // The key hint has a row of its own, under the panes' bottom borders.
+    let buf = terminal.backend().buffer();
+    let hint = crate::config::localization::t("help_hint");
+    let hint = hint.trim();
+    let row = (0..30u16)
+        .find(|&y| {
+            let line: String = (0..100u16).map(|x| buf[(x, y)].symbol()).collect();
+            line.contains(hint)
+        })
+        .expect("hint shown");
+    let above: String = (0..100u16).map(|x| buf[(x, row - 1)].symbol()).collect();
+    assert!(above.contains('└'), "pane borders above the hint: {above:?}");
+}
+
+#[test]
+fn menu_titles_under_the_clock_are_not_clickable() {
+    use crate::ui::hit::HitTarget;
+    let (mut context, mut state) = test_app();
+    context.config.settings.interface_always_show_menu_bar = true;
+    state.is_root = true;
+    let mut terminal = Terminal::new(TestBackend::new(30, 10)).expect("test terminal");
+    terminal.draw(|f| draw_ui(f, &context, &state)).expect("draw");
+    // 20 columns of titles; the ROOT badge and the clock take the rest.
+    let titles = state.hits.collect(|t| match t {
+        HitTarget::MenuTitle(_) => Some(()),
+        _ => None,
+    });
+    assert!(!titles.is_empty());
+    for x in 20..30 {
+        let hit = state.hits.at(x, 0).map(|h| h.target);
+        assert!(!matches!(hit, Some(HitTarget::MenuTitle(_))), "column {x}");
+    }
 }
 
 /// Entry rows the left panel registered in the last frame.
