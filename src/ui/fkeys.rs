@@ -211,7 +211,7 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         let last_col = columns[11];
         // Build the badge text (fits in the 9-char fkey cell)
         let badge = Span::styled(
-            " ▲ UPDATE ",
+            t("fkey_update_badge"),
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Yellow)

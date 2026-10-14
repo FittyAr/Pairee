@@ -5,6 +5,7 @@ pub use controls::render_controls;
 
 use super::centered_rect_fixed;
 use crate::app::state::popup::UpdateAvailable;
+use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
@@ -55,7 +56,9 @@ fn render(
     let method = crate::update::detect::detect_install_method();
     let size_str = download_size_suffix(info, &method);
 
-    let title = format!(" 🎉 New version available: v{}{} ", info.version, size_str);
+    let title = t("update_popup_title")
+        .replacen("{}", &info.version, 1)
+        .replacen("{}", &size_str, 1);
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(border_style)
@@ -138,7 +141,7 @@ fn render_version_lines(
     let accent = Color::Cyan;
     let muted = Style::default().fg(Color::DarkGray);
     let ver_line = Line::from(vec![
-        Span::styled("Current: ", muted),
+        Span::styled(t("update_current"), muted),
         Span::styled(format!("v{}", env!("CARGO_PKG_VERSION")), muted),
         Span::raw("  →  "),
         Span::styled(
@@ -150,7 +153,7 @@ fn render_version_lines(
         Span::raw(")"),
     ]);
     let url_line = Line::from(vec![
-        Span::styled("Release info: ", muted),
+        Span::styled(t("update_release_info"), muted),
         Span::styled(info.html_url.as_str(), Style::default().fg(accent)),
     ]);
     for (line, area) in [(ver_line, layout[0]), (url_line, layout[1])] {
@@ -226,7 +229,7 @@ fn render_hint(f: &mut Frame, area: Rect, size: Rect, method: &InstallMethod) {
             ])
         }
         None => Line::from(Span::styled(
-            " ←/→ select  Enter confirm  Esc close",
+            t("update_hint"),
             Style::default().fg(Color::DarkGray),
         )),
     };
