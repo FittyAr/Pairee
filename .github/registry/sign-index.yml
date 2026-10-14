@@ -1,0 +1,103 @@
+# TEMPLATE for the `plugin-registry` branch: it is NOT a workflow of this
+# branch. Copy it to `.github/workflows/sign-index.yml` on `plugin-registry`
+# (see docs/technical/plugin-registry-spec.md, "How the registry is
+# signed").
+#
+# Signs the registry after every push that changes it, and whenever it is
+# started by hand or by the weekly refresh on master (GitHub only runs
+# `schedule` triggers from the default branch): `index.toml` and
+# `blocklist.toml` get a trusted comment with a serial and a timestamp,
+# which Pairee requires to refuse replayed (older serial) and frozen (older
+# than `registry_max_age_days`, 30 days by default) indexes; every plugin
+# `manifest.toml` is signed by path. The signing tool is `cargo xtask
+# sign-registry` from master, with the release key (repository secrets
+# `MINISIGN_SECRET_KEY` and, if the key has one, `MINISIGN_PASSWORD`, as in
+# release.yml); each signature is checked against the key embedded in
+# Pairee before anything is committed.
+#
+# Everything pushed to `plugin-registry` gets signed: the branch must only
+# take reviewed pull requests.
+name: Sign registry
+
+on:
+  push:
+    branches:
+      - plugin-registry
+    paths:
+      - 'registry/**/*.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One signing run at a time, so serials never collide; none is cancelled.
+concurrency:
+  group: sign-registry
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  sign:
+    name: Sign index, blocklist and manifests
+    runs-on: ubuntu-latest
+    # Optional: required reviewers on this environment gate every run
+    # (including the weekly refresh).
+    # environment: registry-signing
+    permissions:
+      contents: write
+    steps:
+      # The newest tip of the branch, not the pushed commit: a run that
+      # waited for another one signs what is there now.
+      - name: Checkout plugin-registry
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: plugin-registry
+          path: registry-branch
+
+      - name: Checkout Pairee (signing tool and pinned key)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+          path: pairee
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
+        with:
+          toolchain: stable
+
+      - name: Install minisign
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq minisign
+
+      - name: Sign
+        working-directory: pairee
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$MINISIGN_SECRET_KEY" ]; then
+            echo "::error::Repository secret MINISIGN_SECRET_KEY is not set; refusing to leave the registry unsigned."
+            exit 1
+          fi
+          cargo xtask sign-registry "$GITHUB_WORKSPACE/registry-branch/registry"
+
+      # GITHUB_TOKEN pushes never start workflows, so this does not loop.
+      - name: Commit signatures
+        working-directory: registry-branch
+        run: |
+          set -euo pipefail
+          # A pathspec `*` also matches `/`: every signature in registry/.
+          git add -A -- 'registry/*.minisig'
+          if git diff --cached --quiet; then
+            echo "Signatures unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "registry: sign index, blocklist and manifests [skip ci]"
+          git push origin HEAD:plugin-registry
