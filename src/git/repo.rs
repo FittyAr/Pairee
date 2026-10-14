@@ -12,11 +12,6 @@ pub fn workdir(repo: &git2::Repository) -> anyhow::Result<&Path> {
         .ok_or_else(|| anyhow::anyhow!(crate::config::localization::t("git_error_no_workdir")))
 }
 
-/// Returns the path to the root of the repository's working directory.
-pub fn get_workdir(repo: &git2::Repository) -> Option<std::path::PathBuf> {
-    repo.workdir().map(|p| p.to_path_buf())
-}
-
 /// Initializes a new empty Git repository at the specified path.
 pub fn init_repo(path: &Path) -> anyhow::Result<git2::Repository> {
     let repo = git2::Repository::init(path)?;
@@ -39,15 +34,24 @@ pub fn clone_repo(
     Ok(repo)
 }
 
-/// Appends a pattern or file path to the repository's `.gitignore` file.
+/// Appends a pattern or file path to the repository's `.gitignore` file,
+/// on a line of its own even when the file does not end with a newline.
 pub fn add_to_gitignore(repo: &git2::Repository, pattern: &str) -> anyhow::Result<()> {
     let workdir = workdir(repo)?;
     let gitignore_path = workdir.join(".gitignore");
-    use std::io::Write;
+    use std::io::{Read, Seek, SeekFrom, Write};
     let mut file = std::fs::OpenOptions::new()
         .create(true)
+        .read(true)
         .append(true)
         .open(&gitignore_path)?;
-    writeln!(file, "{}", pattern)?;
+    let mut last = [0u8; 1];
+    let needs_newline = file.seek(SeekFrom::End(0))? > 0 && {
+        file.seek(SeekFrom::End(-1))?;
+        file.read_exact(&mut last)?;
+        last[0] != b'\n'
+    };
+    let separator = if needs_newline { "\n" } else { "" };
+    writeln!(file, "{separator}{pattern}")?;
     Ok(())
 }

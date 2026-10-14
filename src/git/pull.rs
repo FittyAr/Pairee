@@ -31,9 +31,7 @@ pub fn pull(
 /// `(remote to fetch, upstream reference)` for `branch_name`.
 fn upstream_of(repo: &git2::Repository, remote_name: &str, branch_name: &str) -> (String, String) {
     let local_ref = format!("refs/heads/{branch_name}");
-    let configured = |buf: Result<git2::Buf, git2::Error>| {
-        buf.ok().and_then(|b| b.as_str().ok().map(str::to_string))
-    };
+    use crate::git::remote::config_value as configured;
     match (
         configured(repo.branch_upstream_remote(&local_ref)),
         configured(repo.branch_upstream_name(&local_ref)),

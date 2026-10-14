@@ -47,11 +47,11 @@ fn read_user_preset(
     }
 }
 
+/// Folders a package installs presets into, next to the binary. Never the
+/// current directory: a `keymaps/` folder in whatever folder Pairee starts
+/// from (a cloned repository) could remap keys.
 fn shipped_keymap_candidates(name: &str) -> Vec<PathBuf> {
     let mut out = Vec::new();
-    if let Ok(cwd) = std::env::current_dir() {
-        out.push(cwd.join("keymaps").join(format!("{name}.toml")));
-    }
     if let Ok(exe) = std::env::current_exe()
         && let Some(dir) = exe.parent()
     {

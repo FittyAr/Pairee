@@ -47,17 +47,23 @@ pub fn compare_files(
 ) -> io::Result<FileComparison> {
     let old_size = old.vfs.metadata(old.path)?.size;
     let new_size = new.vfs.metadata(new.path)?.size;
-    if old_size.max(new_size) > MAX_TEXT_BYTES {
-        return Ok(FileComparison::Binary(BinaryComparison {
+    let by_hash = || -> io::Result<FileComparison> {
+        Ok(FileComparison::Binary(BinaryComparison {
             identical: false,
             sizes: (old_size, new_size),
             hashes: (hash_file(old, cancelled)?, hash_file(new, cancelled)?),
             algorithm: HASH,
         })
-        .settle());
+        .settle())
+    };
+    if old_size.max(new_size) > MAX_TEXT_BYTES {
+        return by_hash();
     }
-    let old_bytes = read_all(old)?;
-    let new_bytes = read_all(new)?;
+    // A file that grew past the limit since its size was read is compared
+    // whole by hash, never diffed truncated.
+    let (Some(old_bytes), Some(new_bytes)) = (read_all(old)?, read_all(new)?) else {
+        return by_hash();
+    };
     match (as_text(&old_bytes), as_text(&new_bytes)) {
         (Some(a), Some(b)) => Ok(FileComparison::Text(super::text::diff_texts(&a, &b))),
         _ => Ok(FileComparison::Binary(BinaryComparison {
@@ -91,17 +97,37 @@ fn hash_file(side: FileSide, cancelled: &dyn Fn() -> bool) -> io::Result<String>
     hash_reader(&mut reader, HASH, cancelled)
 }
 
-fn read_all(side: FileSide) -> io::Result<Vec<u8>> {
+/// The whole file, or `None` when it is larger than [`MAX_TEXT_BYTES`].
+fn read_all(side: FileSide) -> io::Result<Option<Vec<u8>>> {
     let mut data = Vec::new();
     side.vfs
         .open_read(side.path)?
         .take(MAX_TEXT_BYTES + 1)
         .read_to_end(&mut data)?;
-    Ok(data)
+    Ok((data.len() as u64 <= MAX_TEXT_BYTES).then_some(data))
 }
 
 /// `data` decoded as the viewer would (byte-order marks, UTF-16 and legacy
 /// code pages detected); `None` for binary data.
 fn as_text(data: &[u8]) -> Option<String> {
     decode_prefix(data, true, EncodingPolicy::Detect)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_past_the_limit_is_not_read_truncated() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("big.txt");
+        std::fs::write(&path, vec![b'a'; MAX_TEXT_BYTES as usize + 1]).unwrap();
+        let side = FileSide {
+            vfs: &crate::fs::vfs::LocalVfs,
+            path: &path,
+        };
+        assert!(read_all(side).unwrap().is_none());
+        std::fs::write(&path, b"small").unwrap();
+        assert_eq!(read_all(side).unwrap().as_deref(), Some(&b"small"[..]));
+    }
 }

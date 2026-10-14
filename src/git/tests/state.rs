@@ -205,8 +205,100 @@ fn test_stash_pop_restores_and_drops() {
     stash_save(&mut repo, Some("wip"), false).unwrap();
     assert_eq!(read_file(&repo, "file.txt"), "committed");
 
-    stash_pop(&mut repo, 0).unwrap();
+    let oid = stash_oid(&mut repo, 0);
+    stash_pop(&mut repo, &oid).unwrap();
 
     assert_eq!(read_file(&repo, "file.txt"), "work in progress");
     assert!(list_stashes(&mut repo).unwrap().is_empty());
+}
+
+#[test]
+fn test_merge_like_operations_refuse_staged_changes_and_keep_them() {
+    let (_dir, repo, _main, feature) = repo_with_feature();
+    write_and_commit(&repo, "main.txt", "main", "main work");
+    write_file(&repo, "staged.txt", "staged work");
+    stage_file(&repo, "staged.txt").unwrap();
+    let before = repo.head().unwrap().target();
+
+    for err in [
+        merge(&repo, "feature").unwrap_err(),
+        cherry_pick(&repo, &feature.to_string()).unwrap_err(),
+        revert(&repo, &before.unwrap().to_string()).unwrap_err(),
+    ] {
+        assert_eq!(err.to_string(), t("git_error_staged_changes"));
+    }
+    assert_eq!(repo.head().unwrap().target(), before);
+    assert_eq!(repo.state(), git2::RepositoryState::Clean);
+    assert_eq!(read_file(&repo, "staged.txt"), "staged work");
+    assert!(
+        get_status(&repo)
+            .iter()
+            .any(|s| s.path == "staged.txt" && s.is_staged)
+    );
+}
+
+#[test]
+fn test_no_new_operation_while_one_is_pending() {
+    let (_dir, repo) = repo_with_conflict();
+    let feature = repo
+        .find_branch("feature", git2::BranchType::Local)
+        .unwrap()
+        .get()
+        .target()
+        .unwrap();
+    assert!(matches!(
+        merge(&repo, "feature").unwrap(),
+        Outcome::Conflicts(_)
+    ));
+    write_file(&repo, "conflict.txt", "resolved\n");
+    stage_file(&repo, "conflict.txt").unwrap();
+
+    let err = cherry_pick(&repo, &feature.to_string()).unwrap_err();
+    assert_eq!(err.to_string(), t("git_error_operation_pending"));
+    assert!(commit_amend(&repo, "amend", "", "").is_err());
+    assert_eq!(PendingOperation::of(&repo), Some(PendingOperation::Merge));
+}
+
+#[test]
+fn test_stash_pop_with_conflicts_keeps_the_stash() {
+    let (_dir, mut repo) = setup_temp_repo();
+    write_and_commit(&repo, "file.txt", "base\n", "base");
+    write_file(&repo, "file.txt", "stashed\n");
+    stage_file(&repo, "file.txt").unwrap();
+    stash_save(&mut repo, Some("wip"), false).unwrap();
+    write_and_commit(&repo, "file.txt", "committed later\n", "later");
+    let oid = stash_oid(&mut repo, 0);
+
+    let result = stash_pop(&mut repo, &oid);
+
+    if repo.index().unwrap().has_conflicts() {
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("file.txt"), "{err}");
+    } else {
+        // libgit2 refused to apply over the conflicting change.
+        assert!(result.is_err());
+    }
+    assert_eq!(list_stashes(&mut repo).unwrap().len(), 1, "stash kept");
+}
+
+#[test]
+fn test_stash_drop_follows_the_commit_id_not_a_stale_index() {
+    let (_dir, mut repo) = setup_temp_repo();
+    write_and_commit(&repo, "file.txt", "base", "base");
+    write_file(&repo, "file.txt", "first");
+    stash_save(&mut repo, Some("first"), false).unwrap();
+    let first = stash_oid(&mut repo, 0);
+    // Another stash shifts `first` to stash@{1}.
+    write_file(&repo, "file.txt", "second");
+    stash_save(&mut repo, Some("second"), false).unwrap();
+
+    stash_drop(&mut repo, &first).unwrap();
+
+    let left = list_stashes(&mut repo).unwrap();
+    assert_eq!(left.len(), 1);
+    assert!(left[0].message.contains("second"), "{}", left[0].message);
+    assert_eq!(
+        stash_drop(&mut repo, &first).unwrap_err().to_string(),
+        t("git_error_stash_gone")
+    );
 }

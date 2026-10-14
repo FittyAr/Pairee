@@ -72,13 +72,13 @@ impl SyntaxCache {
         self.window = None;
     }
 
-    /// Where parsing must start to highlight from line `start`, and the
-    /// state there.
-    fn origin(&self, start: usize) -> (usize, LineState) {
+    /// Where parsing must start to highlight from line `start`, the state
+    /// there, and whether that state is exact (not a restart's guess).
+    fn origin(&self, start: usize) -> (usize, LineState, bool) {
         match self.checkpoints.range(..=start).next_back() {
-            Some((&line, state)) if start - line <= MAX_EXACT_GAP => (line, state.clone()),
-            _ if start <= MAX_EXACT_GAP => (0, LineState::default()),
-            _ => (start - RESYNC_LOOKBACK, LineState::default()),
+            Some((&line, state)) if start - line <= MAX_EXACT_GAP => (line, state.clone(), true),
+            _ if start <= MAX_EXACT_GAP => (0, LineState::default(), true),
+            _ => (start - RESYNC_LOOKBACK, LineState::default(), false),
         }
     }
 
@@ -109,11 +109,13 @@ impl SyntaxCache {
             root,
             registry: &self.registry,
         };
-        let (origin, mut state) = self.origin(range.start);
+        let (origin, mut state, exact) = self.origin(range.start);
         let mut out = Vec::with_capacity(range.len());
         for (i, line) in fetch(origin..range.end).iter().enumerate() {
             let y = origin + i;
-            if y > origin && y % CHECKPOINT_EVERY == 0 {
+            // States parsed from a restart's guess are never remembered: a
+            // later exact pass could not replace them.
+            if exact && y > origin && y % CHECKPOINT_EVERY == 0 {
                 self.checkpoints.entry(y).or_insert_with(|| state.clone());
             }
             let tokens = state.advance(grammars, line.as_ref());
@@ -219,5 +221,25 @@ mod tests {
         assert_eq!(tokens.len(), 10, "clipped at the end of the document");
         assert_eq!(fetched.get(), RESYNC_LOOKBACK + 10);
         assert_eq!(tokens[9][0].kind, SyntaxKind::Keyword);
+    }
+
+    #[test]
+    fn a_restart_guess_is_not_kept_as_a_checkpoint() {
+        // A block comment opened at the top spans the whole document.
+        let mut lines = vec!["/* open".to_string()];
+        lines.extend(doc(10_000));
+        let mut cache = rust();
+        let fetched = Cell::new(0);
+        // End first (a restart outside the comment), then from the top.
+        run(&mut cache, &lines, 9_990..10_000, &fetched);
+        assert!(cache.checkpoints.is_empty());
+        for start in (0..9_990).step_by(2_000) {
+            run(&mut cache, &lines, start..start + 10, &fetched);
+        }
+        let tokens = run(&mut cache, &lines, 9_990..10_000, &fetched);
+        assert!(
+            tokens.iter().all(|t| t[0].kind == SyntaxKind::Comment),
+            "exact checkpoints reach the end inside the comment"
+        );
     }
 }

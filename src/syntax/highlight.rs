@@ -89,13 +89,19 @@ impl LineState {
     /// Tokens of `line` (without its line break); advances the state to
     /// the next line.
     pub fn advance(&mut self, grammars: Grammars, line: &str) -> LineTokens {
-        let line = &line[..line.floor_char_boundary(MAX_LINE_BYTES)];
+        let cut = line.floor_char_boundary(MAX_LINE_BYTES);
+        let truncated = cut < line.len();
+        let line = &line[..cut];
         let mut painter = Painter::new(line);
         let mut pos = 0;
+        // The shallowest the stack got: regions opened past it on this
+        // line may close in the part never analysed.
+        let mut settled = self.stack.len();
         while let Some(next) = grammars.step(&mut painter, &self.stack, pos) {
             match next {
                 Boundary::End(depth, at) => {
                     self.stack.truncate(depth);
+                    settled = settled.min(depth);
                     pos = at;
                 }
                 Boundary::Start(frame, at) => {
@@ -103,6 +109,12 @@ impl LineState {
                     pos = at;
                 }
             }
+        }
+        // A cut line or an exhausted budget hid where the regions it opened
+        // end: carrying them on would turn every following line inside
+        // out (a string opened in a long base64 line), so they close here.
+        if truncated || painter.exhausted() {
+            self.stack.truncate(settled);
         }
         painter.tokens()
     }
@@ -184,7 +196,10 @@ impl<'g> Grammars<'g> {
             if depth + 1 != stack.len() && region.include.is_none() {
                 continue;
             }
-            let end = frame.end.as_deref().unwrap_or(&region.end);
+            let end = match frame.end.as_deref() {
+                Some(captured) => (captured, true),
+                None => (&region.end, false),
+            };
             let Some(m) = painter.find_end(end, region.skip.as_ref(), pos) else {
                 continue;
             };

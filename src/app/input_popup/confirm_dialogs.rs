@@ -100,11 +100,11 @@ impl Confirmation for ConfirmDiscardEditorChanges {
 }
 
 impl Confirmation for ConfirmClearHistory {
-    fn confirm(self, state: &mut AppState, _context: &mut AppContext) {
+    fn confirm(self, state: &mut AppState, context: &mut AppContext) {
         if let Some(kind) = HistoryKind::from_key(&self.history_type) {
             state.history.clear(kind);
         }
-        state.history.save();
+        state.history.save(&context.config.settings);
     }
 
     /// Back to the corresponding history list.

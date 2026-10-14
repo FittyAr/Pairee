@@ -28,6 +28,7 @@ pub fn merge_annotated(
     label: &str,
     message: Option<&str>,
 ) -> anyhow::Result<Outcome> {
+    crate::git::outcome::ensure_no_pending(repo)?;
     let (analysis, _) = repo.merge_analysis(&[theirs])?;
     if analysis.is_up_to_date() {
         Ok(Outcome::UpToDate)
@@ -35,6 +36,7 @@ pub fn merge_annotated(
         fast_forward(repo, theirs.id(), &format!("merge {label}: Fast-forward"))?;
         Ok(Outcome::FastForward)
     } else if analysis.is_normal() {
+        crate::git::outcome::ensure_nothing_staged(repo)?;
         repo.merge(&[theirs], None, None)
             .map_err(local_changes_error)?;
         let message = message

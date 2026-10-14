@@ -2,7 +2,7 @@
 //! first use.
 
 use super::definition::Definition;
-use super::grammar::Grammar;
+use super::grammar::{self, Grammar};
 use regex::Regex;
 use std::path::Path;
 use std::sync::OnceLock;
@@ -33,7 +33,7 @@ impl Language {
     pub fn new(definition: Definition) -> Result<Self, String> {
         let regex = |p: &Option<String>, at: &str| {
             p.as_deref()
-                .map(|p| Regex::new(p).map_err(|e| format!("{at}: {e}")))
+                .map(|p| grammar::build(p, false).map_err(|e| format!("{at}: {e}")))
                 .transpose()
         };
         let lower = |v: &[String]| v.iter().map(|s| s.to_lowercase()).collect();

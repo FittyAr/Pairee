@@ -10,13 +10,16 @@ use crate::terminal::Event;
 use std::sync::Mutex;
 use tokio::sync::mpsc;
 use windows_sys::Win32::System::Console::{
-    CTRL_C_EVENT, CTRL_CLOSE_EVENT, CTRL_SHUTDOWN_EVENT, SetConsoleCtrlHandler,
+    CTRL_BREAK_EVENT, CTRL_C_EVENT, CTRL_CLOSE_EVENT, CTRL_SHUTDOWN_EVENT, SetConsoleCtrlHandler,
 };
 
 static SENDER_LOCK: Mutex<Option<mpsc::Sender<Event>>> = Mutex::new(None);
 
 unsafe extern "system" fn console_ctrl_handler(ctrl_type: u32) -> i32 {
     match ctrl_type {
+        // Typed for a child running in the console, which receives it too:
+        // handled (ignored) here so Pairee keeps running.
+        CTRL_C_EVENT | CTRL_BREAK_EVENT if super::suspend::child_owns_terminal() => 1,
         CTRL_C_EVENT | CTRL_CLOSE_EVENT | CTRL_SHUTDOWN_EVENT => {
             if let Ok(guard) = SENDER_LOCK.lock()
                 && let Some(ref sender) = *guard

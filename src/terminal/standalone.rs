@@ -1,76 +1,91 @@
 use anyhow::Result;
 use std::env;
+use std::ffi::OsString;
+#[cfg(not(target_os = "windows"))]
 use std::process::Command;
 
-/// Checks if the `--standalone` argument was provided.
-/// If it is present, it launches a new independent terminal window running
-/// the same executable (without the `--standalone` flag) and returns `true`.
-/// If the flag is not present, returns `false`.
-pub fn check_and_launch_standalone() -> Result<bool> {
-    let args: Vec<String> = env::args().collect();
+const STANDALONE: &str = "--standalone";
 
-    if let Some(pos) = args.iter().position(|x| x == "--standalone") {
-        let current_exe = env::current_exe()?;
+/// Checks if the `--standalone` argument is among `args` (the full command
+/// line, program first). If it is present, it launches a new independent
+/// terminal window running the same executable (without the
+/// `--standalone` flag) and returns `true`. If the flag is not present,
+/// returns `false`.
+pub fn check_and_launch_standalone(args: &[OsString]) -> Result<bool> {
+    let Some(pos) = args.iter().position(|x| x == STANDALONE) else {
+        return Ok(false);
+    };
+    let current_exe = env::current_exe()?;
+    let new_args: Vec<&OsString> = args
+        .iter()
+        .enumerate()
+        .skip(1) // the executable path itself
+        .filter(|(i, _)| *i != pos)
+        .map(|(_, a)| a)
+        .collect();
 
-        let mut new_args = args.clone();
-        new_args.remove(pos);
-        if !new_args.is_empty() {
-            new_args.remove(0); // remove the executable path itself
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            let mut cmd = Command::new("cmd.exe");
-            cmd.arg("/c").arg("start").arg("Pairee").arg(&current_exe);
-            for arg in new_args {
-                cmd.arg(arg);
-            }
-            cmd.spawn()?;
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            let terminals = [
-                "x-terminal-emulator",
-                "gnome-terminal",
-                "konsole",
-                "xfce4-terminal",
-                "alacritty",
-                "kitty",
-                "xterm",
-            ];
-
-            let mut spawned = false;
-            for term in terminals {
-                let mut cmd = Command::new(term);
-                cmd.arg("-e").arg(&current_exe);
-                for arg in &new_args {
-                    cmd.arg(arg);
-                }
-
-                if cmd.spawn().is_ok() {
-                    spawned = true;
-                    break;
-                }
-            }
-
-            if !spawned {
-                return Ok(false); // Fallback to running in current terminal
-            }
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            let mut cmd = Command::new("open");
-            cmd.arg("-a").arg("Terminal").arg(&current_exe);
-            for arg in new_args {
-                cmd.arg("--args").arg(arg);
-            }
-            cmd.spawn()?;
-        }
-
-        return Ok(true);
+    #[cfg(target_os = "windows")]
+    {
+        // `start`'s first quoted argument is the window title; every other
+        // argument is quoted for cmd (a folder like `R&D` stays whole).
+        let line = shell_line(&current_exe, &new_args);
+        crate::shell::shell_command(&format!("start \"Pairee\" {line}")).spawn()?;
     }
 
-    Ok(false)
+    #[cfg(target_os = "linux")]
+    {
+        let terminals = [
+            "x-terminal-emulator",
+            "gnome-terminal",
+            "konsole",
+            "xfce4-terminal",
+            "alacritty",
+            "kitty",
+            "xterm",
+        ];
+
+        let mut spawned = false;
+        for term in terminals {
+            let mut cmd = Command::new(term);
+            // gnome-terminal's `-e` takes one string; `--` runs the argv.
+            cmd.arg(if term == "gnome-terminal" { "--" } else { "-e" })
+                .arg(&current_exe)
+                .args(&new_args);
+
+            if cmd.spawn().is_ok() {
+                spawned = true;
+                break;
+            }
+        }
+
+        if !spawned {
+            return Ok(false); // Fallback to running in current terminal
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // `open --args` would hand the arguments to Terminal, not to
+        // Pairee: Terminal runs a shell command line instead.
+        let line = shell_line(&current_exe, &new_args);
+        let applescript_string = line.replace('\\', "\\\\").replace('"', "\\\"");
+        Command::new("osascript")
+            .arg("-e")
+            .arg(format!(
+                "tell application \"Terminal\" to do script \"{applescript_string}\""
+            ))
+            .spawn()?;
+    }
+
+    Ok(true)
+}
+
+/// `exe` and `args` as one command line for the platform shell.
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+fn shell_line(exe: &std::path::Path, args: &[&OsString]) -> String {
+    std::iter::once(exe.as_os_str())
+        .chain(args.iter().map(|a| a.as_os_str()))
+        .map(|a| crate::shell::quote_native(&a.to_string_lossy()))
+        .collect::<Vec<_>>()
+        .join(" ")
 }

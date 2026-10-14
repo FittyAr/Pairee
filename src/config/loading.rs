@@ -50,7 +50,12 @@ pub(super) fn load_settings(settings_path: &Path) -> Result<(Settings, Option<St
             .context("Failed to write default config.toml")?;
         return Ok((default_settings, None));
     }
-    let content = fs::read_to_string(settings_path).context("Failed to read config.toml")?;
+    let content = match fs::read_to_string(settings_path) {
+        Ok(content) => content,
+        // Unreadable (permissions, not UTF-8): like a parse error, the
+        // load guard backs it up and keeps it from being overwritten.
+        Err(e) => return Ok((Settings::default(), Some(e.to_string()))),
+    };
     match toml::from_str(&content) {
         Ok(s) => Ok((s, None)),
         Err(e) => {
@@ -124,11 +129,12 @@ pub(super) type Loaded<T> = (T, Option<String>);
 pub(super) fn load_keybindings(settings_path: &Path) -> Result<Loaded<KeybindingsConfig>> {
     let keybindings_path = paths::get_keybindings_file_path();
     if keybindings_path.exists() {
-        let content =
-            fs::read_to_string(&keybindings_path).context("Failed to read keybindings.toml")?;
-        return Ok(match KeybindingsConfig::from_toml(&content) {
+        let parsed = fs::read_to_string(&keybindings_path)
+            .map_err(|e| e.to_string())
+            .and_then(|content| KeybindingsConfig::from_toml(&content).map_err(|e| e.to_string()));
+        return Ok(match parsed {
             Ok(cfg) => (cfg, None),
-            Err(e) => (KeybindingsConfig::default(), Some(e.to_string())),
+            Err(e) => (KeybindingsConfig::default(), Some(e)),
         });
     }
     let mut default_keybindings = KeybindingsConfig::default();
@@ -183,10 +189,12 @@ pub(super) fn load_theme(theme_name: &str) -> Result<Loaded<Theme>> {
     let Some(theme_path) = theme_path(theme_name).filter(|p| p.exists()) else {
         return Ok((builtin(), None));
     };
-    let content = fs::read_to_string(&theme_path).context("Failed to read theme file")?;
-    Ok(match toml::from_str(&content) {
+    let parsed = fs::read_to_string(&theme_path)
+        .map_err(|e| e.to_string())
+        .and_then(|content| toml::from_str(&content).map_err(|e| e.to_string()));
+    Ok(match parsed {
         Ok(theme) => (theme, None),
-        Err(e) => (builtin(), Some(e.to_string())),
+        Err(e) => (builtin(), Some(e)),
     })
 }
 
@@ -228,5 +236,17 @@ keybinding_preset = \"neovim\"
             None
         );
         assert_eq!(legacy_preset("not toml ["), None);
+    }
+
+    #[test]
+    fn an_unreadable_config_is_an_error_to_guard_not_a_failed_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, b"theme = \"\xff\xfe\"").unwrap();
+
+        let (settings, error) = load_settings(&path).unwrap();
+
+        assert!(error.is_some());
+        assert_eq!(settings.theme, Settings::default().theme);
     }
 }

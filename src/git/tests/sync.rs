@@ -197,3 +197,29 @@ fn test_push_rejected_reference_is_reported() {
     let expected_prefix = t("git_error_push_rejected").replace("{}", "");
     assert!(err.to_string().starts_with(&expected_prefix), "{err}");
 }
+
+#[test]
+fn test_push_goes_to_the_tracked_branch_even_when_named_differently() {
+    let pair = setup_pair();
+    let (remote, branch) = (&pair.local, current_branch(&pair.local));
+    create_branch(remote, "feat", "HEAD").unwrap();
+    checkout_branch(remote, "feat").unwrap();
+    // `feat` tracks `origin/feature-x` (like `git push -u origin feat:feature-x`).
+    let mut cfg = remote.config().unwrap();
+    cfg.set_str("branch.feat.remote", "origin").unwrap();
+    cfg.set_str("branch.feat.merge", "refs/heads/feature-x")
+        .unwrap();
+    let oid = write_and_commit(remote, "feat.txt", "feat", "feat work");
+
+    push(remote, "origin", "feat", false, NetHooks::default()).unwrap();
+
+    let bare = git2::Repository::open_bare(pair.remote_dir.path()).unwrap();
+    assert_eq!(
+        bare.find_reference("refs/heads/feature-x")
+            .unwrap()
+            .target(),
+        Some(oid)
+    );
+    assert!(bare.find_reference("refs/heads/feat").is_err());
+    assert_ne!(branch, "feat");
+}

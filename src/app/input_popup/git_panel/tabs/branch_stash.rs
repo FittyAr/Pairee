@@ -135,13 +135,13 @@ fn confirm_on_stash(
     open_confirm(state, repo_path, msg, action);
 }
 
-/// Applies the stash at `index` in the background, then reports success
-/// over the refreshed panel.
-fn apply_stash(state: &mut AppState, repo_path: &Path, index: usize) {
+/// Applies the stash `oid` in the background, then reports success over
+/// the refreshed panel.
+fn apply_stash(state: &mut AppState, repo_path: &Path, oid: String) {
     let reload = repo_path.to_path_buf();
     state.run_git_local(
         repo_path,
-        move |repo| crate::git::stash::stash_apply(repo, index).ctx("git_error_stash_apply_failed"),
+        move |repo| crate::git::stash::stash_apply(repo, &oid).ctx("git_error_stash_apply_failed"),
         move |state, ()| {
             state.reload_git_panel(&reload);
             state
@@ -160,13 +160,13 @@ pub fn handle_stash_tab(
 ) -> bool {
     let stash = stash_entries.get(cursor_idx);
     match (code, stash) {
-        (KeyCode::Char('a' | 'A'), Some(stash)) => apply_stash(state, repo_path, stash.index),
+        (KeyCode::Char('a' | 'A'), Some(stash)) => apply_stash(state, repo_path, stash.oid.clone()),
         (KeyCode::Char('p' | 'P') | KeyCode::Enter, Some(stash)) => confirm_on_stash(
             state,
             repo_path,
             stash.index,
             "git_confirm_stash_pop",
-            GitConfirmedAction::StashPop(stash.index),
+            GitConfirmedAction::StashPop(stash.oid.clone()),
         ),
         (KeyCode::Char('d' | 'D'), Some(stash)) => {
             let (oid, label) = (stash.oid.clone(), format!("stash@{{{}}}", stash.index));
@@ -179,7 +179,7 @@ pub fn handle_stash_tab(
             repo_path,
             stash.index,
             "git_confirm_stash_drop",
-            GitConfirmedAction::StashDrop(stash.index),
+            GitConfirmedAction::StashDrop(stash.oid.clone()),
         ),
         (KeyCode::Char('C'), Some(_)) => open_confirm(
             state,

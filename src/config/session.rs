@@ -2,8 +2,7 @@
 //! sides, the focused side and the panel layout, written on exit and read
 //! at startup when `restore_session` is on.
 
-use super::load_guard::backup_path;
-use super::toml_store::{self, Loaded};
+use super::toml_store;
 use crate::app::state::ActivePanel;
 use crate::app::state::tabs::spec::TabSpec;
 use anyhow::Result;
@@ -51,25 +50,7 @@ impl SessionFile {
     }
 
     pub fn load_from(path: &Path) -> Option<Self> {
-        match toml_store::read(path) {
-            Loaded::Ok(session) => Some(session),
-            Loaded::Missing => None,
-            Loaded::Invalid(e) => {
-                let bak = backup_path(path);
-                match std::fs::copy(path, &bak) {
-                    Ok(_) => log::warn!(
-                        "Ignoring corrupted {} ({e}); kept a copy in {}",
-                        path.display(),
-                        bak.display()
-                    ),
-                    Err(copy) => log::warn!(
-                        "Ignoring corrupted {} ({e}); backup failed: {copy}",
-                        path.display()
-                    ),
-                }
-                None
-            }
-        }
+        toml_store::load(path)
     }
 
     pub fn save(&self) -> Result<()> {
@@ -161,7 +142,7 @@ mod tests {
         std::fs::write(&path, "active_side = [broken").unwrap();
         assert_eq!(SessionFile::load_from(&path), None);
         assert_eq!(
-            std::fs::read_to_string(backup_path(&path)).unwrap(),
+            std::fs::read_to_string(crate::config::load_guard::backup_path(&path)).unwrap(),
             "active_side = [broken"
         );
     }

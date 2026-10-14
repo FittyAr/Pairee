@@ -89,7 +89,7 @@ impl RemoteKind {
 /// For S3, `host` is the bucket, `username` / `password` the access key and
 /// secret key, `path` the key prefix and `options` the endpoint settings
 /// (`endpoint=https://…&region=…&path_style=true`).
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Connection {
     pub name: String,
     /// Older `[[ssh_presets]]` entries have no kind: SFTP.
@@ -121,6 +121,25 @@ pub struct Connection {
     pub secret_unread: bool,
 }
 
+/// Never prints the password (settings are `Debug`; a log line or panic
+/// message with them must not leak it).
+impl std::fmt::Debug for Connection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Connection")
+            .field("name", &self.name)
+            .field("kind", &self.kind)
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("username", &self.username)
+            .field("password", &self.password.as_ref().map(|_| "<redacted>"))
+            .field("key_path", &self.key_path)
+            .field("path", &self.path)
+            .field("options", &self.options)
+            .field("secret_unread", &self.secret_unread)
+            .finish()
+    }
+}
+
 impl Connection {
     /// The port to connect to: the typed one, else the kind's default.
     pub fn port_number(&self) -> Option<u16> {
@@ -148,5 +167,22 @@ impl Connection {
             && self.host == host
             && self.username == user
             && self.port_number() == port
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_output_hides_the_password() {
+        let conn = Connection {
+            name: "box".into(),
+            password: Some("hunter2".into()),
+            ..Connection::default()
+        };
+        let text = format!("{conn:?}");
+        assert!(!text.contains("hunter2"), "{text}");
+        assert!(text.contains("box") && text.contains("redacted"), "{text}");
     }
 }

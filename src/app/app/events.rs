@@ -17,8 +17,6 @@ pub async fn handle_input_event(
             // Always track the most recent keyboard modifiers
             state.key_bar.held = key.modifiers;
 
-            log::debug!("KeyEvent received: {:?}", key);
-
             // Filter out KeyRelease events on Windows to prevent double-step triggers
             if key.kind == crossterm::event::KeyEventKind::Release {
                 return Ok(());

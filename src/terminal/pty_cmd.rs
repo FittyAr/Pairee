@@ -7,43 +7,37 @@
 use super::pty::{ChildWaiter, NativePty, PtyCommand, PtySize, PtySystem, SpawnedPty};
 use super::pty_control::{Control, PtyControl};
 use anyhow::{Context, anyhow};
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
+/// Cursor position query ConPTY sends at start-up; stripped from output.
 const DSR_QUERY: &str = "\u{1b}[6n";
-const DSR_REPLY: &[u8] = b"\x1b[1;1R";
+/// Longest line kept whole: output without newlines (progress bars,
+/// minified files) is split here instead of growing without bound.
+const MAX_LINE_BYTES: usize = 64 * 1024;
+/// After the child exits, output still arriving is read until the stream
+/// ends or stays quiet this long (a background descendant may keep the
+/// terminal open forever)...
+const DRAIN_QUIET: Duration = Duration::from_millis(500);
+/// ...and never for longer than this.
+const DRAIN_MAX: Duration = Duration::from_secs(5);
 
 /// Result of a PTY-backed shell command.
 #[derive(Debug, Clone)]
 pub struct PtyRunResult {
     pub output: String,
     pub success: bool,
-    pub pid: Option<u32>,
 }
 
 /// Run `script` on a PTY and return the captured text (stdout+stderr mixed).
 pub fn run_shell_on_pty(script: &str, cwd: Option<&Path>) -> anyhow::Result<PtyRunResult> {
     let mut lines = Vec::new();
-    let result = stream_shell_on_pty(script, cwd, |line| lines.push(line))?;
+    let (_control, run) = spawn_shell_on_pty(script, cwd, PtySize::DEFAULT)?;
+    let success = run.wait(|line| lines.push(line))?;
     Ok(PtyRunResult {
         output: lines.join("\n"),
-        success: result.success,
-        pid: result.pid,
-    })
-}
-
-/// Stream complete lines from a PTY-backed shell command.
-pub fn stream_shell_on_pty(
-    script: &str,
-    cwd: Option<&Path>,
-    on_line: impl FnMut(String),
-) -> anyhow::Result<PtyRunResult> {
-    let (control, run) = spawn_shell_on_pty(script, cwd, PtySize::DEFAULT)?;
-    let success = run.wait(on_line)?;
-    Ok(PtyRunResult {
-        output: String::new(),
         success,
-        pid: control.pid(),
     })
 }
 
@@ -130,10 +124,27 @@ impl PtyRun {
             }
         };
         control.release();
-        while let Ok(line) = line_rx.recv() {
-            on_line(line);
-        }
+        drain_after_exit(&line_rx, &mut on_line, DRAIN_QUIET, DRAIN_MAX);
         status
+    }
+}
+
+/// Passes on the lines still arriving after the child exited, until the
+/// reader ends, `quiet` passes without a line, or `max` passes. A reader
+/// still blocked (a descendant holding the terminal) is left behind.
+fn drain_after_exit(
+    line_rx: &std::sync::mpsc::Receiver<String>,
+    on_line: &mut impl FnMut(String),
+    quiet: Duration,
+    max: Duration,
+) {
+    let deadline = Instant::now() + max;
+    loop {
+        let wait = quiet.min(deadline.saturating_duration_since(Instant::now()));
+        match line_rx.recv_timeout(wait) {
+            Ok(line) => on_line(line),
+            Err(_) => return,
+        }
     }
 }
 
@@ -149,8 +160,9 @@ fn read_lines(mut reader: Box<dyn Read + Send>) -> std::sync::mpsc::Receiver<Str
             match reader.read(&mut chunk) {
                 Ok(0) => break,
                 Ok(n) => {
+                    let scanned = acc.len();
                     decode_utf8_chunk(&mut pending, &chunk[..n], &mut acc);
-                    for line in take_complete_lines(&mut acc, None) {
+                    for line in take_complete_lines(&mut acc, scanned) {
                         if line_tx.send(line).is_err() {
                             return;
                         }
@@ -163,7 +175,7 @@ fn read_lines(mut reader: Box<dyn Read + Send>) -> std::sync::mpsc::Receiver<Str
         if !pending.is_empty() {
             acc.push_str(&String::from_utf8_lossy(&pending));
         }
-        for line in take_complete_lines(&mut acc, None) {
+        for line in take_complete_lines(&mut acc, 0) {
             let _ = line_tx.send(line);
         }
         if !acc.is_empty() {
@@ -217,29 +229,45 @@ fn decode_utf8_chunk(pending: &mut Vec<u8>, chunk: &[u8], acc: &mut String) {
     }
 }
 
-/// Reply to ConPTY cursor queries and split complete lines (`\n`, strip `\r`).
-pub(crate) fn take_complete_lines(
-    acc: &mut String,
-    mut reply: Option<&mut dyn Write>,
-) -> Vec<String> {
-    while let Some(i) = acc.find(DSR_QUERY) {
-        if let Some(w) = reply.as_mut() {
-            let _ = w.write_all(DSR_REPLY);
-            let _ = w.flush();
-        }
+/// Strips ConPTY cursor queries and splits complete lines (`\n`, strip
+/// `\r`) off `acc`; a line past [`MAX_LINE_BYTES`] is cut there. Only the
+/// bytes from `scanned` on (those added since the last call) can hold a
+/// newline, so each byte is searched once.
+fn take_complete_lines(acc: &mut String, scanned: usize) -> Vec<String> {
+    // A query split across chunks starts at most its length before.
+    let mut from = floor_boundary(acc, scanned.saturating_sub(DSR_QUERY.len()));
+    let mut search = scanned.min(acc.len());
+    while let Some(i) = acc[from..].find(DSR_QUERY).map(|i| i + from) {
         acc.replace_range(i..i + DSR_QUERY.len(), "");
+        // New bytes moved left into the removed query's place.
+        search = search.min(i);
+        from = i;
     }
 
     let mut lines = Vec::new();
-    while let Some(i) = acc.find('\n') {
-        let mut line: String = acc.drain(..=i).collect();
-        line.pop();
-        if line.ends_with('\r') {
-            line.pop();
-        }
-        lines.push(line);
+    let mut start = 0;
+    let mut search = floor_boundary(acc, search.min(acc.len()));
+    while let Some(i) = acc[search..].find('\n').map(|i| i + search) {
+        let mut line = &acc[start..i];
+        line = line.strip_suffix('\r').unwrap_or(line);
+        lines.push(line.to_string());
+        start = i + 1;
+        search = start;
+    }
+    acc.drain(..start);
+    while acc.len() > MAX_LINE_BYTES {
+        let cut = floor_boundary(acc, MAX_LINE_BYTES);
+        lines.push(acc.drain(..cut).collect());
     }
     lines
+}
+
+/// The largest char boundary of `s` at or below `i`.
+fn floor_boundary(s: &str, mut i: usize) -> usize {
+    while !s.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
 }
 
 #[cfg(test)]
@@ -250,19 +278,49 @@ mod tests {
     #[test]
     fn take_complete_lines_strips_cr_and_dsr() {
         let mut acc = String::from("hi\r\n\u{1b}[6nnext");
-        let lines = take_complete_lines(&mut acc, None);
+        let lines = take_complete_lines(&mut acc, 0);
         assert_eq!(lines, vec!["hi".to_string()]);
         assert_eq!(acc, "next");
     }
 
     #[test]
-    fn take_complete_lines_replies_to_dsr() {
-        let mut acc = String::from("\u{1b}[6nline\n");
-        let mut replied = Vec::new();
-        let lines = take_complete_lines(&mut acc, Some(&mut replied));
-        assert_eq!(lines, vec!["line".to_string()]);
-        assert_eq!(replied, DSR_REPLY);
-        assert!(acc.is_empty());
+    fn take_complete_lines_finds_what_spans_chunks() {
+        let mut acc = String::from("a\u{1b}[");
+        assert!(take_complete_lines(&mut acc, 0).is_empty());
+        let scanned = acc.len();
+        acc.push_str("6nb\nc");
+        assert_eq!(take_complete_lines(&mut acc, scanned), ["ab"]);
+        assert_eq!(acc, "c");
+    }
+
+    #[test]
+    fn a_line_without_newline_is_cut_instead_of_growing() {
+        let mut acc = "é".repeat(MAX_LINE_BYTES); // two bytes each
+        let lines = take_complete_lines(&mut acc, 0);
+        assert!(lines.iter().all(|l| l.len() <= MAX_LINE_BYTES));
+        assert!(acc.len() <= MAX_LINE_BYTES);
+        assert_eq!(
+            lines.iter().map(String::len).sum::<usize>() + acc.len(),
+            2 * MAX_LINE_BYTES
+        );
+    }
+
+    #[test]
+    fn draining_stops_when_output_goes_quiet() {
+        // A descendant keeps the terminal open: the sender never closes.
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send("late".to_string()).unwrap();
+        let started = Instant::now();
+        let mut lines = Vec::new();
+        drain_after_exit(
+            &rx,
+            &mut |l| lines.push(l),
+            Duration::from_millis(50),
+            Duration::from_secs(5),
+        );
+        assert_eq!(lines, ["late"]);
+        assert!(started.elapsed() < Duration::from_secs(2));
+        drop(tx);
     }
 
     /// A child that printed `output` and exited with `success`.

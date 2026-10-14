@@ -90,53 +90,54 @@ fn load_cache() -> Option<CachedRelease> {
     }
 }
 
-fn save_cache(release: &GhRelease) {
-    let cached = CachedRelease {
-        fetched_at: now_secs(),
-        tag_name: release.tag_name.clone(),
-        html_url: release.html_url.clone(),
-        body: release.body.clone().unwrap_or_default(),
-        assets: release
-            .assets
-            .iter()
-            .map(|a| CachedAsset {
-                name: a.name.clone(),
-                url: a.browser_download_url.clone(),
-                size: a.size,
-            })
-            .collect(),
-    };
-    if let Ok(json) = serde_json::to_string_pretty(&cached)
+impl From<GhRelease> for CachedRelease {
+    fn from(release: GhRelease) -> Self {
+        Self {
+            fetched_at: now_secs(),
+            tag_name: release.tag_name,
+            html_url: release.html_url,
+            body: release.body.unwrap_or_default(),
+            assets: release
+                .assets
+                .into_iter()
+                .map(|a| CachedAsset {
+                    name: a.name,
+                    url: a.browser_download_url,
+                    size: a.size,
+                })
+                .collect(),
+        }
+    }
+}
+
+fn save_cache(cached: &CachedRelease) {
+    if let Ok(json) = serde_json::to_string_pretty(cached)
         && let Err(e) = std::fs::write(cache_path(), json)
     {
         log::warn!("Failed to write update cache: {}", e);
     }
 }
 
-// ─── Version comparison (simple semver: MAJOR.MINOR.PATCH) ──────────────────
-
-fn parse_version(v: &str) -> Option<(u32, u32, u32)> {
-    let v = v.trim_start_matches('v');
-    // Accept "0.5.0" or "0.5.0-beta" (just compare numeric parts)
-    let parts: Vec<&str> = v.split('-').next()?.split('.').collect();
-    if parts.len() < 3 {
-        if parts.len() == 2 {
-            return Some((parts[0].parse().ok()?, parts[1].parse().ok()?, 0));
-        }
+/// The update `release` offers over `current`, if it is newer.
+fn newer_release(release: CachedRelease, current: &str) -> Option<UpdateInfo> {
+    if !super::version::is_newer(&release.tag_name, current) {
         return None;
     }
-    Some((
-        parts[0].parse().ok()?,
-        parts[1].parse().ok()?,
-        parts[2].parse().ok()?,
-    ))
-}
-
-fn is_newer(latest_tag: &str, current: &str) -> bool {
-    match (parse_version(latest_tag), parse_version(current)) {
-        (Some(l), Some(c)) => l > c,
-        _ => false,
-    }
+    Some(UpdateInfo {
+        version: release.tag_name.trim_start_matches('v').to_string(),
+        tag: release.tag_name,
+        release_notes: extract_notes(&release.body),
+        html_url: release.html_url,
+        assets: release
+            .assets
+            .into_iter()
+            .map(|a| ReleaseAsset {
+                name: a.name,
+                browser_download_url: a.url,
+                size: a.size,
+            })
+            .collect(),
+    })
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -150,30 +151,10 @@ impl UpdateChecker {
         let current = env!("CARGO_PKG_VERSION");
         tokio::task::spawn_blocking(super::installer::remove_stale_files);
 
-        // Try cache first
         if let Some(cached) = load_cache() {
-            if !is_newer(&cached.tag_name, current) {
-                return Ok(None);
-            }
-            let notes = extract_notes(&cached.body);
-            return Ok(Some(UpdateInfo {
-                tag: cached.tag_name.clone(),
-                version: cached.tag_name.trim_start_matches('v').to_string(),
-                release_notes: notes,
-                html_url: cached.html_url,
-                assets: cached
-                    .assets
-                    .iter()
-                    .map(|a| ReleaseAsset {
-                        name: a.name.clone(),
-                        browser_download_url: a.url.clone(),
-                        size: a.size,
-                    })
-                    .collect(),
-            }));
+            return Ok(newer_release(cached, current));
         }
 
-        // Fetch from GitHub
         let client = super::http::client(CHECK_TIMEOUT)?;
         let response = client
             .get(GITHUB_API_LATEST)
@@ -191,47 +172,34 @@ impl UpdateChecker {
             .context("failed to read the GitHub API response")?;
         let release: GhRelease =
             serde_json::from_slice(&body).context("failed to parse GitHub release JSON")?;
+        let cached = CachedRelease::from(release);
+        save_cache(&cached);
+        Ok(newer_release(cached, current))
+    }
 
-        save_cache(&release);
-
-        if !is_newer(&release.tag_name, current) {
-            return Ok(None);
-        }
-
-        let body_text = release.body.clone().unwrap_or_default();
-        let notes = extract_notes(&body_text);
-
-        Ok(Some(UpdateInfo {
-            tag: release.tag_name.clone(),
-            version: release.tag_name.trim_start_matches('v').to_string(),
-            release_notes: notes,
-            html_url: release.html_url.clone(),
-            assets: release
-                .assets
-                .iter()
-                .map(|a| ReleaseAsset {
-                    name: a.name.clone(),
-                    browser_download_url: a.browser_download_url.clone(),
-                    size: a.size,
-                })
-                .collect(),
-        }))
+    /// Forgets the cached release, so the next check asks GitHub.
+    pub fn forget_cache() {
+        let _ = std::fs::remove_file(cache_path());
     }
 
     /// Spawn a background task that checks for updates and sends the result
     /// over the provided oneshot channel.
     pub fn check_in_background(tx: tokio::sync::oneshot::Sender<Option<UpdateInfo>>) {
-        tokio::spawn(async move {
-            match Self::check().await {
-                Ok(info) => {
-                    let _ = tx.send(info);
-                }
-                Err(e) => {
-                    log::debug!("Update check failed: {}", e);
-                    let _ = tx.send(None);
-                }
-            }
-        });
+        tokio::spawn(async move { deliver(tx, Self::check().await) });
+    }
+}
+
+/// Sends the outcome of a check. A failed check drops `tx` without sending,
+/// so the receiver tells "check failed" apart from "no update".
+fn deliver(
+    tx: tokio::sync::oneshot::Sender<Option<UpdateInfo>>,
+    result: Result<Option<UpdateInfo>>,
+) {
+    match result {
+        Ok(info) => {
+            let _ = tx.send(info);
+        }
+        Err(e) => log::debug!("Update check failed: {}", e),
     }
 }
 
@@ -253,20 +221,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_version() {
-        assert_eq!(parse_version("v0.5.0"), Some((0, 5, 0)));
-        assert_eq!(parse_version("0.4.1"), Some((0, 4, 1)));
-        assert_eq!(parse_version("1.0.0-beta"), Some((1, 0, 0)));
-        assert_eq!(parse_version("v2.3"), Some((2, 3, 0)));
-        assert_eq!(parse_version("invalid"), None);
+    fn a_failed_check_is_not_reported_as_no_update() {
+        use tokio::sync::oneshot::error::TryRecvError;
+        let (tx, mut rx) = tokio::sync::oneshot::channel();
+        deliver(tx, Err(anyhow::anyhow!("offline")));
+        assert_eq!(rx.try_recv().unwrap_err(), TryRecvError::Closed);
+
+        let (tx, mut rx) = tokio::sync::oneshot::channel();
+        deliver(tx, Ok(None));
+        assert!(rx.try_recv().unwrap().is_none());
     }
 
     #[test]
-    fn test_is_newer() {
-        assert!(is_newer("v0.5.0", "0.4.1"));
-        assert!(!is_newer("v0.4.1", "0.4.1"));
-        assert!(!is_newer("v0.3.0", "0.4.1"));
-        assert!(is_newer("v1.0.0", "0.9.9"));
+    fn only_newer_releases_are_offered() {
+        let release = |tag: &str| CachedRelease {
+            fetched_at: 0,
+            tag_name: tag.into(),
+            html_url: String::new(),
+            body: String::new(),
+            assets: vec![CachedAsset {
+                name: "a.zip".into(),
+                url: "u".into(),
+                size: 1,
+            }],
+        };
+        assert!(newer_release(release("v0.4.0"), "0.4.0").is_none());
+        let info = newer_release(release("v0.5.0"), "0.4.0").unwrap();
+        assert_eq!(
+            (info.tag.as_str(), info.version.as_str()),
+            ("v0.5.0", "0.5.0")
+        );
+        assert_eq!(info.assets[0].browser_download_url, "u");
     }
 
     #[test]

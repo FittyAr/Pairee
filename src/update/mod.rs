@@ -13,6 +13,7 @@ pub mod downloader;
 pub mod http;
 pub mod installer;
 pub mod signature;
+pub mod version;
 
 pub use checker::UpdateInfo;
 

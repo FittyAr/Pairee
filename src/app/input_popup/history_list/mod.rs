@@ -40,7 +40,7 @@ pub fn handle(
         _ => {
             let idx = *cursor_idx;
             if idx < len {
-                remove_entry(state, kind, idx);
+                remove_entry(state, context, kind, idx);
             }
         }
     }
@@ -86,15 +86,15 @@ fn clear_all(state: &mut AppState, context: &AppContext, kind: HistoryKind) {
         });
     } else {
         state.history.clear(kind);
-        state.history.save();
+        state.history.save(&context.config.settings);
         state.dialogs.clear();
     }
 }
 
 /// Del: remove the entry under the cursor.
-fn remove_entry(state: &mut AppState, kind: HistoryKind, idx: usize) {
+fn remove_entry(state: &mut AppState, context: &AppContext, kind: HistoryKind, idx: usize) {
     let remaining = state.history.remove(kind, idx);
-    state.history.save();
+    state.history.save(&context.config.settings);
     if remaining == 0 {
         state.dialogs.clear();
     } else {

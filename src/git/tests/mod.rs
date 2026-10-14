@@ -53,6 +53,11 @@ fn current_branch(repo: &git2::Repository) -> String {
     repo.head().unwrap().shorthand().unwrap().to_string()
 }
 
+/// The commit id of `stash@{n}`.
+fn stash_oid(repo: &mut git2::Repository, n: usize) -> String {
+    list_stashes(repo).unwrap()[n].oid.clone()
+}
+
 /// A bare repository usable as a local remote, plus its URL.
 fn bare_remote() -> (TempDir, git2::Repository, String) {
     let dir = TempDir::new().unwrap();

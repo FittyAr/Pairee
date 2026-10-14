@@ -87,16 +87,23 @@ pub fn commit_amend(
     author_name: &str,
     author_email: &str,
 ) -> anyhow::Result<git2::Oid> {
+    crate::git::outcome::ensure_no_pending(repo)?;
     let head = repo.head()?;
     let parent = head.peel_to_commit()?;
 
-    let (default_name, default_email) = fallback_identity();
-    let parent_author = parent.author();
-    let fallback = (
-        parent_author.name().unwrap_or(default_name),
-        parent_author.email().unwrap_or(default_email),
-    );
-    let sig = resolve_signature(repo, author_name, author_email, fallback)?;
+    // Like `git commit --amend`, the original author stays unless one is
+    // given; the committer is the configured identity.
+    let committer = resolve_signature(repo, "", "", fallback_identity())?;
+    let author = if author_name.is_empty() && author_email.is_empty() {
+        parent.author().to_owned()
+    } else {
+        let parent_author = parent.author();
+        let fallback = (
+            parent_author.name().unwrap_or(fallback_identity().0),
+            parent_author.email().unwrap_or(fallback_identity().1),
+        );
+        resolve_signature(repo, author_name, author_email, fallback)?
+    };
     let mut index = repo.index()?;
     let tree_oid = index.write_tree()?;
     let tree = repo.find_tree(tree_oid)?;
@@ -109,8 +116,8 @@ pub fn commit_amend(
 
     let oid = parent.amend(
         Some("HEAD"),
-        Some(&sig),
-        Some(&sig),
+        Some(&author),
+        Some(&committer),
         None,
         Some(msg),
         Some(&tree),

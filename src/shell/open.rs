@@ -58,11 +58,18 @@ fn open_blocking(path: &Path) -> std::io::Result<()> {
     } else {
         "xdg-open"
     };
-    // The path is a single argv entry, never a shell string.
-    std::process::Command::new(opener)
+    // The path is a single argv entry, never a shell string. Waited for
+    // (on this worker thread) so it is reaped instead of left a zombie.
+    let status = std::process::Command::new(opener)
         .arg(path)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .spawn()
-        .map(|_| ())
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
+            "{opener} exited with {status}"
+        )))
+    }
 }
