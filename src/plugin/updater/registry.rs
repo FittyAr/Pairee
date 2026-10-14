@@ -112,7 +112,7 @@ pub async fn fetch_blocklist(trust: &RegistryTrust, report: &mut Report) -> Resu
         Ok(Some(data)) => data,
         Ok(None) => return Ok(Blocklist::default()),
         Err(e) => {
-            tracing::warn!("Plugin blocklist unavailable: {e:#}");
+            report.warn(format!("Plugin blocklist unavailable: {e:#}"));
             return Ok(Blocklist::default());
         }
     };
