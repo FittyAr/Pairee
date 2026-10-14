@@ -7,8 +7,9 @@ The website is available at: [pairee.fitty.ar](https://pairee.fitty.ar) (or the 
 ## 🚀 Branch Contents
 
 This branch is exclusively dedicated to the web presentation of the project and contains:
-- `index.html`: The main structure and content of the landing page.
-- `style.css`: The custom stylesheet featuring a modern dark theme, gradients, and a fully responsive layout.
+- `index.html`, `changelog.html`, `plugins.html`: Landing page, release history (read from `docs/CHANGELOG.md` on `master`) and community plugin store (read from the `plugin-registry` branch).
+- `css/` and `js/`: Stylesheets (dark, responsive) and scripts, including ES/EN translations in `js/translations.js`.
+- `llms.txt`, `robots.txt`, `sitemap.xml`: Crawler and AI-assistant metadata.
 - `assets/`: Screenshots and graphics used across the website (including the "Wizard" mascot assets).
 - `LICENSE`: The license file for this branch (MIT).
 

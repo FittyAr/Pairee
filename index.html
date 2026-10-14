@@ -128,8 +128,7 @@
             <div class="feature-icon">⌨</div>
             <h3 data-i18n="feat3_title">Atajos Personalizables</h3>
             <p data-i18n="feat3_desc">
-              Perfiles integrados para controles de Norton Clásico, Vim y navegación moderna. Elige el estilo que mejor
-              se adapte a ti.
+              Perfiles con las teclas que ya conoces: Norton/Far, Explorer/VS Code/Total Commander, Neovim y yazi. Cualquier tecla se puede cambiar desde una lista con búsqueda.
             </p>
           </article>
 
@@ -146,8 +145,7 @@
             <div class="feature-icon">🔍</div>
             <h3 data-i18n="feat5_title">Herramientas Integradas</h3>
             <p data-i18n="feat5_desc">
-              Búsqueda avanzada por nombre/contenido, visor de atributos detallado, comparación de directorios y
-              administrador de procesos del sistema.
+              Búsqueda por nombre/contenido, buscador de duplicados, comparación de directorios, integración con Git, SSH/SFTP, archivos zip/tar/7z y administrador de procesos.
             </p>
           </article>
 
@@ -155,8 +153,7 @@
             <div class="feature-icon">⟳</div>
             <h3 data-i18n="feat6_title">Auto-actualizador Inteligente</h3>
             <p data-i18n="feat6_desc">
-              Detecta tu método de instalación original (soporta hasta 13 vías distintas) y actualiza de manera segura
-              validando firmas SHA-256.
+              Detecta tu método de instalación original (soporta hasta 13 vías distintas) y actualiza de manera segura verificando firmas minisign y sumas SHA-256.
             </p>
           </article>
         </div>
@@ -576,7 +573,7 @@
         console.error('Error fetching release data:', error);
         // Fallback por si la API falla o da error de rate limit
         latestReleaseData = {
-          tag: 'v0.6.1', // La última versión real conocida
+          tag: 'v0.11.0', // La última versión real conocida
           url: 'https://github.com/FittyAr/Pairee/releases',
           isNew: false
         };

@@ -5,6 +5,8 @@ Pairee combines the classic visual convenience of double-panel navigation (inspi
 
 ## Key Resources
 - [Pairee Official Website](https://pairee.fitty.ar): Landing page and presentation.
+- [Plugin Store](https://pairee.fitty.ar/plugins.html): Community plugin catalog.
+- [Changelog](https://pairee.fitty.ar/changelog.html): Release history.
 - [GitHub Repository](https://github.com/FittyAr/Pairee): Main source code repository.
 - [Latest Releases](https://github.com/FittyAr/Pairee/releases): Release logs and precompiled binaries.
 
@@ -15,19 +17,20 @@ Pairee combines the classic visual convenience of double-panel navigation (inspi
 ## Features
 - **Dual-Pane Interface**: Parallel navigation to copy/move/delete without losing context.
 - **Asynchronous Engine**: Non-blocking operations powered by Tokio runtime.
-- **Customizable Control Profiles**: Includes built-in configurations for Norton Classic, Vim, and modern controls.
+- **Customizable Control Profiles**: Presets for Norton/Far, Explorer/VS Code/Total Commander, Neovim and yazi; any key can be changed.
 - **Dynamic Styling**: Customizable Slate, Blue, and other themes.
-- **Self-Updater**: Supports up to 13 installation channels, verifying packages via SHA-256 signatures.
-- **Extra Tools**: Directory difference viewer, system process manager, advanced text/file finder, and detailed attribute panel.
+- **Self-Updater**: Supports up to 13 installation channels, verifying releases with minisign signatures and SHA-256 checksums.
+- **Extra Tools**: Directory comparison, duplicate finder, Git integration, SSH/SFTP, zip/tar/7z archives, process manager, text/file finder and attribute panel.
+- **Lua Plugins**: Sandboxed Lua plugin API with a community catalog.
 
 ## Quick Installation
 
 ### Linux / macOS
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 ```powershell
-irm https://raw.githubusercontent.com/FittyAr/Pairee/master/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex
 ```
