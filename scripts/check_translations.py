@@ -19,7 +19,11 @@ through a `format!("prefix_{...}")` key; review them before deleting any.
 from pathlib import Path
 import re
 import sys
-import tomllib
+
+try:
+    import tomllib
+except ImportError:
+    sys.exit("check_translations.py needs Python 3.11 or newer (tomllib).")
 
 ROOT = Path(__file__).resolve().parents[1]
 LANGS = ("en", "es")
