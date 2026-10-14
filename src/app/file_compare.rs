@@ -98,8 +98,11 @@ fn cursor_file(panel: &PanelState) -> Option<Target> {
 /// Installs a finished comparison in the open view. Returns `true` when
 /// one arrived.
 pub fn poll(state: &mut AppState) -> bool {
-    let Some(result) = state.file_compare.job.poll() else {
-        return false;
+    let result = match state.file_compare.job.poll() {
+        Some(result) => result,
+        // Ended without a result: say so instead of "comparing" forever.
+        None if state.file_compare.job.take_panicked() => Err(t("background_job_failed")),
+        None => return false,
     };
     let view = state.dialogs.iter_mut().find_map(|dialog| match dialog {
         PopupType::FileCompareView(view) => Some(view),

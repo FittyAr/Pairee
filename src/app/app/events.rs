@@ -121,8 +121,18 @@ pub async fn dispatch_popup_key(
             handle_action(state, action, context, terminal_backend).await?;
             Ok(true)
         }
-        Ok(None) => Ok(true),
-        Err(()) => Ok(popup_active),
+        Ok(None) => {
+            // A dialog closed over the quick view: show it again.
+            if !state.dialogs.is_open() {
+                state.update_quick_view_images(context.config.settings.image_preview_enabled);
+            }
+            Ok(true)
+        }
+        Err(()) => Ok(popup_active
+            && !state
+                .dialogs
+                .top()
+                .is_some_and(|top| top.dialog().passes_other_keys())),
     }
 }
 

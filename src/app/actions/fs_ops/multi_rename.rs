@@ -5,17 +5,19 @@ use crate::app::context::AppContext;
 use crate::app::state::popup::MultiRenameState;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crate::fs::journal::FsCommand;
+use crate::fs::journal::{Direction, FsCommand};
 use crate::fs::multi_rename::{RenameReport, RenameSource, Step, TargetFs, execute, plan};
 use crate::fs::remote::{RemoteConn, endpoint_vfs};
 use crate::fs::vfs::Vfs;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-/// A finished batch of renames and the panel connection it ran on.
+/// A finished batch of renames, the panel connection it ran on and the
+/// undo/redo it ran for (`None`: the user's renames).
 pub struct RenameRun {
     pub report: RenameReport,
     pub remote: Option<RemoteConn>,
+    pub direction: Option<Direction>,
 }
 
 /// Opens the dialog for the selected entries (or the one under the cursor),
@@ -63,7 +65,7 @@ pub fn start(state: &mut AppState) {
     dialog.running = true;
     let moves = dialog.preview.moves(&dialog.sources);
     let remote = dialog.source.remote().cloned();
-    spawn(state, remote, move |backend, fs| {
+    spawn(state, remote, None, move |backend, fs| {
         let taken = |path: &Path| backend.exists(path);
         match plan(&moves, fs, &taken) {
             Ok(steps) => execute(&steps, backend, fs),
@@ -78,33 +80,49 @@ pub fn start(state: &mut AppState) {
     });
 }
 
-/// Runs already ordered `steps` (an undo/redo of renames) in the background.
-pub fn run_steps(state: &mut AppState, steps: Vec<Step>, remote: Option<RemoteConn>) {
-    spawn(state, remote, move |backend, fs| {
+/// Runs already ordered `steps` (a rename on a server, or the undo/redo
+/// `direction` of renames) in the background.
+pub fn run_steps(
+    state: &mut AppState,
+    steps: Vec<Step>,
+    remote: Option<RemoteConn>,
+    direction: Option<Direction>,
+) {
+    spawn(state, remote, direction, move |backend, fs| {
         execute(&steps, backend, fs)
     });
 }
 
-/// Runs `job` on the panel's filesystem in the multi-rename job slot.
+/// Runs `job` on the panel's filesystem after the renames started before
+/// it (renames are never interrupted: each batch is journaled).
 fn spawn(
     state: &mut AppState,
     remote: Option<RemoteConn>,
+    direction: Option<Direction>,
     job: impl FnOnce(&dyn Vfs, TargetFs) -> RenameReport + Send + 'static,
 ) {
-    state.multi_rename.start(move |_| {
+    state.multi_rename.push(move || {
         let fs = TargetFs::for_panel(remote.is_some());
         let report = job(endpoint_vfs(&remote).as_ref(), fs);
-        RenameRun { report, remote }
+        RenameRun {
+            report,
+            remote,
+            direction,
+        }
     });
 }
 
 /// Applies a finished rename job: closes the dialog or shows the error, and
 /// rereads the panels either way.
 pub fn poll(state: &mut AppState, context: &AppContext) {
-    let Some(RenameRun { report, remote }) = state.multi_rename.poll() else {
+    let Some(RenameRun {
+        report,
+        remote,
+        direction,
+    }) = state.multi_rename.poll()
+    else {
         return;
     };
-    let direction = state.journal.finish_rename();
     let applied = FsCommand::Rename {
         steps: report.applied.clone(),
         remote,
@@ -156,6 +174,34 @@ fn failure_message(report: &RenameReport) -> Option<String> {
 mod tests {
     use super::*;
     use crate::fs::multi_rename::RenameFailure;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn back_to_back_renames_are_all_applied_and_journaled_apart() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, b, c) = (
+            dir.path().join("a"),
+            dir.path().join("b"),
+            dir.path().join("c"),
+        );
+        std::fs::write(&a, "x").unwrap();
+        let mut state = AppState::new(dir.path().into(), dir.path().into());
+        let context = AppContext::new(crate::config::AppConfig::default());
+        let step = |from: &Path, to: &Path| Step {
+            from: from.to_path_buf(),
+            to: to.to_path_buf(),
+        };
+        run_steps(&mut state, vec![step(&a, &b)], None, None);
+        run_steps(&mut state, vec![step(&b, &c)], None, Some(Direction::Undo));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while state.multi_rename.is_running() {
+            assert!(std::time::Instant::now() < deadline, "renames lost");
+            poll(&mut state, &context);
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+        assert!(c.exists());
+        assert_eq!(state.journal.len(Direction::Undo), 1, "the user's rename");
+        assert_eq!(state.journal.len(Direction::Redo), 1, "the undo's");
+    }
 
     #[test]
     fn success_has_no_message() {

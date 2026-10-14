@@ -162,13 +162,13 @@ pub struct AppState {
 
     /// Background run of the multi-rename tool.
     pub multi_rename:
-        crate::app::jobs::JobSlot<crate::app::actions::fs_ops::multi_rename::RenameRun>,
+        crate::app::jobs::JobQueue<crate::app::actions::fs_ops::multi_rename::RenameRun>,
 
     /// Operation journal (undo/redo of file operations).
     pub journal: crate::fs::journal::Journal,
 
     /// Background change to a non-local panel source (see `vfs_op`).
-    pub vfs_op: crate::app::jobs::JobSlot<Result<vfs_op::VfsFollowUp, String>>,
+    pub vfs_op: vfs_op::VfsOps,
 
     /// Background folder comparison (Compare folders / Synchronize).
     pub folder_scan: crate::app::sync::FolderScanState,
@@ -294,19 +294,33 @@ impl AppState {
 
     /// Points the active panel at a local folder (hotlist / folder shortcut jump).
     pub fn jump_active_panel_to(&mut self, target: PathBuf, show_hidden: bool) {
-        let panel = self.get_active_panel_mut();
-        panel.source = crate::fs::vfs::PanelSource::Local;
-        panel.open_path(target.clone());
-        self.push_folders_history(target);
+        let current = self.get_active_panel().current_path.clone();
+        crate::app::input::cli_cd::go_to_local(self, current, target);
         self.refresh_active_panel(show_hidden);
     }
 
-    /// Restores the last saved selection snapshot.
+    /// Restores the last saved selection snapshot, limited to the entries
+    /// the active panel lists (it may show another folder by now: file
+    /// operations must never act on files that are not in view).
     pub fn restore_selection(&mut self) {
-        let snapshot = self.selection_snapshot.clone();
-        let panel = self.get_active_panel_mut();
-        panel.selected_paths = snapshot.paths;
-        panel.selection_order = snapshot.order;
+        let snapshot = &self.selection_snapshot;
+        let panel = self.panels.active_mut();
+        let listed: std::collections::HashSet<&PathBuf> =
+            panel.entries.iter().map(|e| &e.path).collect();
+        let order: Vec<PathBuf> = snapshot
+            .order
+            .iter()
+            .filter(|p| listed.contains(p))
+            .cloned()
+            .collect();
+        let paths = snapshot
+            .paths
+            .iter()
+            .filter(|p| listed.contains(p))
+            .cloned()
+            .collect();
+        panel.selected_paths = paths;
+        panel.selection_order = order;
     }
 }
 
@@ -322,5 +336,31 @@ mod tests {
         assert!(!state.needs_redraw());
         state.redraw.needs_clear = true;
         assert!(state.needs_redraw());
+    }
+
+    #[test]
+    fn restored_selection_only_tags_listed_entries() {
+        let entry = |path: &str| crate::fs::FileEntry {
+            name: path.rsplit('/').next().unwrap().to_string(),
+            path: PathBuf::from(path),
+            is_dir: false,
+            is_symlink: false,
+            size: 0,
+            modified: None,
+        };
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        let panel = state.get_active_panel_mut();
+        panel.entries = vec![entry("/a/x"), entry("/a/y")];
+        panel.toggle_selection_with_opts(true);
+        panel.cursor_index = 1;
+        panel.toggle_selection_with_opts(true);
+        state.snapshot_selection();
+        let panel = state.get_active_panel_mut();
+        panel.clear_selection();
+        panel.entries = vec![entry("/b/z"), entry("/a/y")];
+        state.restore_selection();
+        let panel = state.get_active_panel();
+        assert_eq!(panel.selection_order, [PathBuf::from("/a/y")]);
+        assert_eq!(panel.get_targeted_paths(), [PathBuf::from("/a/y")]);
     }
 }

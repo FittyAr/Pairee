@@ -12,7 +12,7 @@ fn with_suspended_tui<T>(
     terminal_backend.terminal.flush()?;
     let suspended = crate::terminal::suspend::suspend()?;
     let result = run();
-    println!("\n[Press Enter to return to Pairee]");
+    println!("\n{}", crate::config::localization::t("shell_press_enter"));
     let mut buffer = String::new();
     let _ = std::io::stdin().read_line(&mut buffer);
     suspended.resume()?;
@@ -32,31 +32,15 @@ pub fn execute_shell_command(
         crate::app::sys_helpers::refresh_env_vars();
     }
 
-    let interactive = [
-        "vi", "vim", "nvim", "nano", "pico", "emacs", "htop", "top", "mc", "less", "more", "ssh",
-        "gdb", "python", "node", "mysql", "psql", "sqlite3", "bash", "sh", "zsh", "fish", "tmux",
-        "screen", "ftp", "sftp", "telnet", "w3m", "lynx", "su", "sudo", "login",
-    ];
-    let cmd_name = crate::app::actions::fs_ops::helper::split_command_line(command_str)
-        .into_iter()
-        .next()
-        .unwrap_or_default()
-        .to_lowercase();
-    let is_interactive = interactive.contains(&cmd_name.as_str());
-
-    let final_command = if !is_interactive && !cfg!(target_os = "windows") {
-        if command_str.contains("| less") || command_str.contains("| more") {
-            command_str.to_string()
-        } else {
-            format!("({}) 2>&1 | less -F -R -X", command_str)
-        }
-    } else {
-        command_str.to_string()
-    };
-
+    // The command runs as typed, on the real terminal: interactive programs
+    // (python, `git commit`, `docker run -it`...) work, and its output stays
+    // on screen until Enter (no pager wrapped around it).
     with_suspended_tui(terminal_backend, || {
-        println!("\nPairee shell execution: {}\n", command_str);
-        crate::shell::shell_command(&final_command)
+        println!(
+            "\n{}\n",
+            crate::config::localization::t("shell_running").replacen("{}", command_str, 1)
+        );
+        crate::shell::shell_command(command_str)
             .current_dir(current_dir)
             .stdin(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())

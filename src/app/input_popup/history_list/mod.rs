@@ -66,7 +66,7 @@ fn activate(state: &mut AppState, context: &AppContext, popup: PopupType, idx: u
         {
             state
                 .get_active_panel_mut()
-                .open_path(entries.swap_remove(idx));
+                .open_local(entries.swap_remove(idx));
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
         _ => {}

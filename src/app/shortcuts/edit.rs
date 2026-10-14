@@ -74,9 +74,18 @@ pub fn restore_all(context: &mut AppContext, s: &mut ShortcutsState) {
 
 /// Shows the next (`step` = 1) or previous (`-1`) preset.
 pub fn preview(context: &AppContext, s: &mut ShortcutsState, step: isize) {
+    use crate::app::list_nav::{wrap_next, wrap_prev};
     let names = available_presets(&crate::config::paths::get_keymaps_dir());
-    let i = names.iter().position(|n| *n == s.preset).unwrap_or(0) as isize;
-    s.preset = names[(i + step).rem_euclid(names.len() as isize) as usize].clone();
+    let i = names.iter().position(|n| *n == s.preset).unwrap_or(0);
+    let next = if step < 0 {
+        wrap_prev(i, names.len())
+    } else {
+        wrap_next(i, names.len())
+    };
+    let Some(name) = names.get(next) else {
+        return;
+    };
+    s.preset = name.clone();
     s.rows = rows_for(context, &s.preset);
     s.cursor = 0;
     s.message = (s.preset != active_preset(context)).then(|| t("shortcuts_preview"));
@@ -99,10 +108,15 @@ pub fn export(context: &AppContext, s: &ShortcutsState, name: &str) -> Result<Pa
     if !valid {
         return Err(t("shortcuts_export_bad_name"));
     }
-    let text = exported_preset(context, &s.preset, name);
     let dir = crate::config::paths::get_keymaps_dir();
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(format!("{name}.toml"));
+    // The previewed preset itself (it would extend itself, and lose its
+    // own bindings) or another existing preset file is never replaced.
+    if name == s.preset || path.exists() {
+        return Err(t("shortcuts_export_exists").replacen("{}", name, 1));
+    }
+    let text = exported_preset(context, &s.preset, name);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     std::fs::write(&path, text).map_err(|e| e.to_string())?;
     Ok(path)
 }

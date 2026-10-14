@@ -3,6 +3,7 @@
 
 use crate::app::context::AppContext;
 use crate::app::editor::open::{resolve_save_as_path, save_active_editor};
+use crate::app::editor::remote::{force_upload, save_remote_as};
 use crate::app::form::{FieldKey, confirm_answer, field_key};
 use crate::app::screen_input::editor::{editor_page_height, report_search};
 use crate::app::state::popup::EditorConfirmOverwrite;
@@ -49,7 +50,11 @@ pub fn handle(
             match confirm_answer(&key, true) {
                 Some(true) => {
                     state.dialogs.clear();
-                    save_active_editor(state, Some(target), true);
+                    // A remote copy's upload asked: upload that editor's
+                    // copy, whichever screen is active by now.
+                    if !force_upload(state, &target) {
+                        save_active_editor(state, Some(target), true);
+                    }
                 }
                 Some(false) => state.dialogs.clear(),
                 None => {}
@@ -101,13 +106,20 @@ fn run_search(state: &mut AppState, button: FindButton) {
     report_search(state, outcome);
 }
 
-/// Enter in "save as": save to the typed path (relative to the file's folder).
+/// Enter in "save as": save to the typed path, relative to the file's
+/// folder (for a remote copy, the original's folder on its source).
 fn save_as(state: &mut AppState, input: &str) {
-    let target = state
-        .active_editor_mut()
-        .and_then(|ed| resolve_save_as_path(&ed.path, input));
     state.dialogs.clear();
-    if let Some(target) = target {
+    let Some(ed) = state.active_editor_mut() else {
+        return;
+    };
+    let remote = ed.remote.is_some();
+    let Some(target) = resolve_save_as_path(ed.display_path(), input) else {
+        return;
+    };
+    if remote {
+        save_remote_as(state, target);
+    } else {
         save_active_editor(state, Some(target), false);
     }
 }

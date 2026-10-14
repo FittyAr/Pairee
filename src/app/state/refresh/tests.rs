@@ -154,8 +154,27 @@ fn failed_listing_keeps_previous_entries() {
     apply_listing(&mut panel, listing(&dir, &["a"]));
     let mut failed = listing(&dir, &[]);
     failed.entries = Err("denied".into());
-    apply_listing(&mut panel, failed);
+    let failure = apply_listing(&mut panel, failed).expect("reported");
+    assert_eq!(failure.not_entered, None, "a reread of the shown folder");
     assert_eq!(names(&panel), ["a"]);
+}
+
+#[test]
+fn an_unreadable_folder_is_not_entered() {
+    let dir = PathBuf::from("/data");
+    let mut panel = PanelState::new(dir.clone());
+    apply_listing(&mut panel, listing(&dir, &["a", "locked"]));
+    panel.cursor_index = 1;
+    let locked = dir.join("locked");
+    panel.open_path(locked.clone());
+    let mut failed = listing(&locked, &[]);
+    failed.entries = Err("denied".into());
+    let failure = apply_listing(&mut panel, failed).expect("reported");
+    assert_eq!(failure.not_entered, Some(locked));
+    assert_eq!(panel.current_path, dir, "stays on the folder it shows");
+    assert_eq!(panel.listed_path.as_ref(), Some(&dir));
+    assert_eq!(names(&panel), ["a", "locked"]);
+    assert_eq!(panel.cursor_index, 1, "back on the folder");
 }
 
 #[test]

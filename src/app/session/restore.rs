@@ -74,6 +74,9 @@ fn restore_tab(spec: &TabSpec, settings: &Settings, notices: &mut Vec<String>) -
     if spec.source == SourceKind::Remote {
         spec.path = home_dir();
         spec.cursor = None;
+        // Locked to its remote folder once connected, not to home (a lock
+        // there would split the tab when the connection arrives).
+        spec.locked = false;
     }
     let mut tab = Tab::from_spec(&spec);
     tab.pending_remote = remote;
@@ -95,6 +98,7 @@ fn remote_target(
             path: spec.path.clone(),
             cursor: spec.cursor.clone(),
             connecting: false,
+            locked: spec.locked,
         });
     }
     notices.push(t("session_connection_missing").replace("{}", name));

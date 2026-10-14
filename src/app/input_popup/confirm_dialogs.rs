@@ -78,10 +78,25 @@ impl Confirmation for ConfirmUndo {
     }
 }
 
+/// Asked from the transfer panel, which is shown again after the answer.
 impl Confirmation for ConfirmInterrupt {
     fn confirm(self, state: &mut AppState, context: &mut AppContext) {
         cancel_transfers(state);
         state.refresh_both_panels(context.config.settings.show_hidden);
+        reopen_transfer_panel(state);
+    }
+
+    fn decline(self, state: &mut AppState) {
+        reopen_transfer_panel(state);
+    }
+}
+
+fn reopen_transfer_panel(state: &mut AppState) {
+    if let Some(ts) = state.transfer.as_mut() {
+        ts.view_mode = crate::app::state::TransferViewMode::Expanded;
+        state
+            .dialogs
+            .replace(crate::app::state::popup::TransferPanel);
     }
 }
 
@@ -147,10 +162,7 @@ fn cancel_transfers(state: &AppState) {
     };
     let jobs = ts.engine.queue.get_all();
     if let Some(job) = jobs.get(ts.queue_cursor) {
-        job.cancel();
-        ts.engine.queue.update_job(job.id, |j| {
-            j.status = crate::fs::transfer::job::TransferJobStatus::Cancelled;
-        });
+        super::transfer_panel::queue::cancel_job(ts, job);
     } else {
         jobs.iter()
             .filter(|j| j.is_active())

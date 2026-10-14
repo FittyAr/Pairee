@@ -5,6 +5,9 @@ mod events;
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, Screen};
 
+/// Log lines kept per transfer job (the oldest are dropped).
+const MAX_JOB_LOG_LINES: usize = 1000;
+
 pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
     let mut effects = events::EventEffects::default();
 
@@ -18,17 +21,10 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
             events::handle_transfer_event(event, state, context, &mut effects);
         }
 
-        if let Some(ref mut transfer_state) = state.transfer {
-            let jobs = transfer_state.engine.queue.get_all();
-            for job in jobs {
-                if job.log_lines.len() > 1000 {
-                    let job_id = job.id;
-                    transfer_state.engine.queue.update_job(job_id, |j| {
-                        let drain_count = j.log_lines.len() - 1000;
-                        j.log_lines.drain(0..drain_count);
-                    });
-                }
-            }
+        // Trimmed in place: copying every job (sources, results) to look at
+        // its log stalled each pass of the event loop on big transfers.
+        if let Some(ref transfer_state) = state.transfer {
+            transfer_state.engine.queue.trim_logs(MAX_JOB_LOG_LINES);
         }
     }
 
@@ -65,5 +61,8 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
     }
     if effects.refresh_needed {
         state.refresh_both_panels(context.config.settings.show_hidden);
+    }
+    if effects.quit && state.may_quit() {
+        state.should_quit = true;
     }
 }

@@ -27,6 +27,12 @@ pub struct EditorState {
     pub last_search: Option<Box<LastSearch>>,
     /// Highlight the matches of `last_search` (until Esc).
     pub show_matches: bool,
+    /// Where the last find stopped on an empty match (`^`, `$`...), which
+    /// cannot be shown as a selection; "Replace" replaces it there.
+    pub empty_match: Option<Pos>,
+    /// Where the last Up / Down left the cursor and the display column it
+    /// aims for (kept while the cursor is still there).
+    pub goal_column: Option<(Pos, usize)>,
     /// Line ending, final newline and BOM to write back.
     pub format: TextFormat,
     /// Modification time / read-only flag when the file was read or saved.
@@ -65,6 +71,8 @@ impl EditorState {
             scroll_y: 0,
             last_search: None,
             show_matches: false,
+            empty_match: None,
+            goal_column: None,
             format,
             stamp: DiskStamp::default(),
             locked: false,
@@ -119,6 +127,12 @@ impl EditorState {
         self.history.is_dirty()
     }
 
+    /// Closing would lose work: edits not saved, or (remote copy) saved
+    /// locally but not uploaded to the original yet.
+    pub fn has_unsaved_changes(&self) -> bool {
+        self.is_dirty() || self.remote.as_ref().is_some_and(|origin| !origin.uploaded)
+    }
+
     /// Applies `edit` through the undo history. Returns `false` when the
     /// buffer is locked.
     pub fn edit(&mut self, edit: TextEdit) -> bool {
@@ -162,7 +176,9 @@ impl EditorState {
         if !options.tab_expansion.inserts_spaces() {
             return self.insert_at_cursor("\t");
         }
-        let tab = options.tab_size.max(1);
+        // The width the buffer is shown with (the settings' one since
+        // `AppState::apply_settings`).
+        let tab = self.tab_size;
         let at = self.insertion_point();
         let before = &self.lines[at.y][..at.x];
         let col = display_width(&expand_tabs(before, tab));
@@ -175,7 +191,9 @@ impl EditorState {
         self.history.seal();
         let mut text = String::from("\n");
         if auto_indent {
-            let line = &self.current_line()[..self.cursor_x];
+            // The line the newline goes into (a selection's start).
+            let at = self.insertion_point();
+            let line = &self.lines[at.y][..at.x];
             let indent_len = line.len() - line.trim_start_matches([' ', '\t']).len();
             text.push_str(&line[..indent_len]);
         }
@@ -358,6 +376,31 @@ mod tests {
         assert_eq!(ed.cursor(), Pos::new(1, 3));
         ed.insert_newline(false);
         assert_eq!(ed.lines[2], "");
+    }
+
+    #[test]
+    fn auto_indent_over_a_selection_uses_the_line_it_starts_on() {
+        let mut ed = editor("  a\nbb");
+        ed.selection = Some(Selection::Stream {
+            anchor: Pos::new(0, 2),
+        });
+        ed.set_cursor(Pos::new(1, 2));
+        ed.insert_newline(true);
+        assert_eq!(ed.lines, vec!["  ", "  "]);
+    }
+
+    #[test]
+    fn up_and_down_keep_the_display_column() {
+        let mut ed = editor("日本語\nabcdefgh\nx\n\tabcdefgh");
+        ed.set_cursor(Pos::new(0, "日本".len()));
+        ed.move_down(1);
+        assert_eq!(ed.cursor(), Pos::new(1, 4), "column 4, not byte 6");
+        ed.move_down(1);
+        assert_eq!(ed.cursor(), Pos::new(2, 1), "end of a short line");
+        ed.move_down(1);
+        assert_eq!(ed.cursor(), Pos::new(3, 1), "column 4 again (a tab is 4)");
+        ed.move_up(3);
+        assert_eq!(ed.cursor(), Pos::new(0, "日本".len()));
     }
 
     #[test]

@@ -122,6 +122,29 @@ fn the_wheel_moves_the_cursor_of_the_panel_under_it() {
 }
 
 #[test]
+fn rows_beside_overflowing_scrollbars_take_clicks() {
+    let mut h = Harness::builder()
+        .settings(|s| s.show_scrollbar = true)
+        .build();
+    for i in 0..60 {
+        h.write(&format!("work/left/n{i:02}.dat"), "x");
+        h.write(&format!("work/right/r{i:02}.dat"), "x");
+    }
+    h.write("work/left/a.txt", "a");
+    h.reread();
+    let right_before = h.state.panels.side(ActivePanel::Right).cursor_index;
+    let (x, y) = h.locate("n20.dat");
+    h.click(x, y);
+    assert_eq!(h.state.panels.active, ActivePanel::Left);
+    assert_eq!(h.cursor_name(), "n20.dat", "the row, not a scrollbar");
+    assert_eq!(
+        h.state.panels.side(ActivePanel::Right).cursor_index,
+        right_before,
+        "the other panel's bar did not move"
+    );
+}
+
+#[test]
 fn column_titles_sort_and_a_second_click_reverses() {
     let mut h = panels(0);
     let size = |t: &HitTarget| {

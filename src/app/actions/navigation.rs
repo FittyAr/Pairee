@@ -1,9 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::input::{handle_backspace_key, handle_enter_key, handle_open_archive_key};
-use crate::app::state::popup::CommandHistoryList;
+use crate::app::state::history::HistoryKind;
 use crate::app::state::popup::DriveSelect;
-use crate::app::state::popup::FileViewHistoryList;
-use crate::app::state::popup::FoldersHistoryList;
 use crate::app::state::popup::SelectGroupPrompt;
 use crate::app::state::popup::TreeView;
 use crate::app::state::{ActivePanel, AppState, PopupType, SelectMode};
@@ -112,18 +110,9 @@ fn list_dialog_action(state: &mut AppState, action: &Action) -> bool {
                 caller: crate::app::state::types::TreeViewCaller::Panel(state.panels.active),
             })
         }
-        Action::CommandHistory => PopupType::CommandHistoryList(CommandHistoryList {
-            entries: state.history.commands.clone(),
-            cursor_idx: 0,
-        }),
-        Action::FileViewHistory => PopupType::FileViewHistoryList(FileViewHistoryList {
-            entries: state.history.viewed_files.clone(),
-            cursor_idx: 0,
-        }),
-        Action::FoldersHistory => PopupType::FoldersHistoryList(FoldersHistoryList {
-            entries: state.history.folders.clone(),
-            cursor_idx: 0,
-        }),
+        Action::CommandHistory => HistoryKind::Commands.list_popup(&state.history, 0),
+        Action::FileViewHistory => HistoryKind::ViewedFiles.list_popup(&state.history, 0),
+        Action::FoldersHistory => HistoryKind::Folders.list_popup(&state.history, 0),
         _ => return false,
     };
     state.dialogs.replace(popup);

@@ -168,9 +168,12 @@ impl AppState {
         self.history.push_viewed_file(path);
     }
 
-    /// Pushes a folder to the folders history.
+    /// Pushes a folder to the folders history. It keeps bare paths and is
+    /// replayed on the local disk, so folders of a server are left out.
     pub fn push_folders_history(&mut self, path: PathBuf) {
-        self.history.push_visited_folder(path);
+        if self.get_active_panel().source.remote().is_none() {
+            self.history.push_visited_folder(path);
+        }
     }
 
     /// Pushes a CLI command to the command history.

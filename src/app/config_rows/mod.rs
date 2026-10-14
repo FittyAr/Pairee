@@ -25,11 +25,10 @@ pub const TAB_KEYS: [&str; 8] = [
     "tab_git",
 ];
 
-/// Row text: a translation key, fixed text, or text built at run time.
+/// Row text: a translation key, or text built at run time.
 #[derive(Debug, Clone)]
 pub enum Label {
     Key(&'static str),
-    Raw(&'static str),
     Owned(String),
 }
 
@@ -37,7 +36,6 @@ impl Label {
     pub fn text(&self) -> String {
         match self {
             Self::Key(key) => t(key),
-            Self::Raw(text) => (*text).to_string(),
             Self::Owned(text) => text.clone(),
         }
     }
@@ -213,11 +211,6 @@ macro_rules! toggle {
     };
 }
 pub(crate) use toggle;
-
-/// Builds a title row from fixed text.
-pub fn title(text: &'static str) -> Row {
-    Row::Title(Label::Raw(text))
-}
 
 /// Builds a title row from a translation key.
 pub fn title_key(key: &'static str) -> Row {

@@ -81,16 +81,20 @@ pub struct LoadedText {
     pub stamp: DiskStamp,
 }
 
-/// Splits `text` into lines and detects its format. The first line ending
-/// found decides the style; in a CRLF file the `\r` never stays in a line.
+/// Splits `text` into lines and detects its format. A file is CRLF when
+/// every line ends in `\r\n` (the `\r` then never stays in a line); with
+/// mixed endings it is LF and each `\r` stays in its line, so saving
+/// writes back exactly what was read.
 pub fn parse(text: &str) -> (Vec<String>, TextFormat) {
     let (bom, body) = match text.strip_prefix(UTF8_BOM) {
         Some(rest) => (true, rest),
         None => (false, text),
     };
-    let line_ending = match body.find('\n') {
-        Some(i) if body[..i].ends_with('\r') => LineEnding::CrLf,
-        _ => LineEnding::Lf,
+    let newlines = body.matches('\n').count();
+    let line_ending = if newlines > 0 && body.matches("\r\n").count() == newlines {
+        LineEnding::CrLf
+    } else {
+        LineEnding::Lf
     };
     let trailing_newline = body.ends_with('\n');
     let content = body.strip_suffix('\n').unwrap_or(body);
@@ -141,10 +145,45 @@ pub fn load(path: &Path) -> Result<LoadedText, LoadError> {
     })
 }
 
-/// Writes `lines` to `path` atomically and returns the new disk stamp.
+/// Writes `lines` to `path` and returns the new disk stamp.
+///
+/// The file is replaced atomically, keeping its permissions; a symbolic
+/// link is followed (the link stays and its target is written), and a file
+/// with other hard links is rewritten in place so every name sees the text.
 pub fn save(path: &Path, lines: &[String], format: &TextFormat) -> anyhow::Result<DiskStamp> {
-    crate::config::write_atomic(path, serialize(lines, format).as_bytes())?;
+    let data = serialize(lines, format);
+    let target = link_target(path);
+    let existing = std::fs::metadata(&target).ok();
+    if existing.as_ref().is_some_and(has_other_links) {
+        std::fs::write(&target, data)?;
+    } else {
+        crate::config::write_atomic(&target, data.as_bytes())?;
+        if let Some(meta) = existing {
+            std::fs::set_permissions(&target, meta.permissions())?;
+        }
+    }
     Ok(DiskStamp::of(path))
+}
+
+/// The file a symbolic link at `path` points to (`path` itself otherwise,
+/// or when the link is broken).
+fn link_target(path: &Path) -> std::path::PathBuf {
+    let is_link = std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink());
+    match is_link {
+        true => std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()),
+        false => path.to_path_buf(),
+    }
+}
+
+#[cfg(unix)]
+fn has_other_links(meta: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    meta.nlink() > 1
+}
+
+#[cfg(not(unix))]
+fn has_other_links(_meta: &std::fs::Metadata) -> bool {
+    false
 }
 
 #[cfg(test)]
@@ -168,6 +207,7 @@ mod tests {
             "\n\n",
             "tab\there\n",
             "mixed\nline\r\nends",
+            "a\r\nb\nc\r\n",
         ] {
             roundtrip(text);
         }
@@ -207,5 +247,37 @@ mod tests {
         lines[1].push('!');
         save(&path, &lines, &loaded.format).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "a\r\nb!\r\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_keeps_mode_symlinks_and_hard_links() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("run.sh");
+        std::fs::write(&script, "echo a\n").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let link = dir.path().join("link.sh");
+        std::os::unix::fs::symlink(&script, &link).unwrap();
+        let hard = dir.path().join("hard.sh");
+        std::fs::hard_link(&script, &hard).unwrap();
+        let (lines, format) = parse("echo b\n");
+
+        save(&link, &lines, &format).unwrap();
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(std::fs::read_to_string(&script).unwrap(), "echo b\n");
+        assert_eq!(std::fs::read_to_string(&hard).unwrap(), "echo b\n");
+        let mode = std::fs::metadata(&script).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o755);
+
+        std::fs::remove_file(&hard).unwrap();
+        save(&script, &parse("echo c\n").0, &format).unwrap();
+        let mode = std::fs::metadata(&script).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o755, "atomic replace keeps the mode");
     }
 }

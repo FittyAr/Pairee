@@ -135,7 +135,7 @@ pub fn jump(state: &mut AppState, query: &str) {
         .frecency
         .best(query, now, |path| path != current && path.is_dir());
     match best {
-        Some(path) => go_to(state, current, path),
+        Some(path) => go_to_local(state, current, path),
         None => {
             let text = t("cli_z_no_match").replacen("{}", query, 1);
             state.dialogs.replace(PopupType::info(text));
@@ -151,6 +151,13 @@ pub fn go_to(state: &mut AppState, current: PathBuf, path: PathBuf) {
     }
     state.push_folders_history(path.clone());
     state.get_active_panel_mut().open_path(path);
+}
+
+/// [`go_to`] for a folder of the local disk (frecency, hotlist, folder
+/// shortcuts): a panel showing a server goes back to the local disk.
+pub fn go_to_local(state: &mut AppState, current: PathBuf, path: PathBuf) {
+    state.get_active_panel_mut().source = crate::fs::vfs::PanelSource::Local;
+    go_to(state, current, path);
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 
 mod conflict;
 mod navigation;
-mod queue;
+pub(super) mod queue;
 
 use crate::app::context::AppContext;
 use crate::app::state::popup::{Dialog, KeyHandler, TransferPanel};

@@ -3,7 +3,7 @@
 
 use super::AppState;
 use super::types::Screen;
-use crate::app::jobs::JobSlot;
+use crate::app::jobs::{JobQueue, JobSlot};
 use crate::config::localization::t;
 use crate::config::settings::Settings;
 use crate::fs::text::{EncodingPolicy, encoding_by_name};
@@ -21,8 +21,9 @@ pub struct SearchHit {
 /// Background work of the viewer screens.
 #[derive(Debug, Default)]
 pub struct ViewerJobs {
-    /// Opening the file (encoding detection, image decoding).
-    load: JobSlot<ViewerState>,
+    /// Opening files (encoding detection, image decoding), one after the
+    /// other: a second F3 must not leave the first viewer loading forever.
+    load: JobQueue<ViewerState>,
     /// The running search, with its progress in percent.
     search: JobSlot<SearchHit, u8>,
     /// Status values last painted, to repaint only when they change.
@@ -57,7 +58,7 @@ impl AppState {
         let policy = encoding_policy(settings);
         let syntax = crate::syntax::SyntaxLimits::from_settings(settings);
         let vfs = self.vfs_of_listed(&path);
-        self.viewer.load.start(move |_| {
+        self.viewer.load.push(move || {
             let mut viewer = ViewerState::load_with_images(vfs.as_ref(), path, allow_image, policy);
             viewer.detect_syntax(&syntax);
             if hex {
@@ -81,8 +82,8 @@ impl AppState {
 
     /// The viewer on the active screen.
     pub fn active_viewer_mut(&mut self) -> Option<&mut ViewerState> {
-        match Some(self.screens.active_mut()) {
-            Some(Screen::Viewer(vw)) => Some(vw),
+        match self.screens.active_mut() {
+            Screen::Viewer(vw) => Some(vw),
             _ => None,
         }
     }
@@ -228,7 +229,7 @@ mod tests {
         };
         state.screens.apply_syntax_limits(&on);
         // The job was started with highlighting off.
-        state.viewer.load.start(move |_| {
+        state.viewer.load.push(move || {
             let policy = crate::fs::text::EncodingPolicy::Detect;
             ViewerState::load_with_images(&crate::fs::vfs::LocalVfs, path, false, policy)
         });
@@ -237,6 +238,30 @@ mod tests {
         assert!(!vw.loading);
         assert!(vw.syntax.borrow().is_some(), "the new limits applied");
         assert!(vw.pending_syntax.is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_second_viewer_does_not_leave_the_first_one_loading() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, b) = (dir.path().join("a.txt"), dir.path().join("b.txt"));
+        std::fs::write(&a, "first").unwrap();
+        std::fs::write(&b, "second").unwrap();
+        let mut state = AppState::new(dir.path().into(), dir.path().into());
+        let settings = Settings::default();
+        state.open_viewer(a, &settings, false);
+        state.open_viewer(b, &settings, false);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while state.viewer.load.is_running() {
+            assert!(std::time::Instant::now() < deadline, "loads lost");
+            state.poll_viewer();
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+        let loading = state
+            .screens
+            .iter()
+            .filter(|s| matches!(s, Screen::Viewer(vw) if vw.loading))
+            .count();
+        assert_eq!(loading, 0);
     }
 
     #[test]

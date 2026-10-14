@@ -6,7 +6,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct VisualSelection {
-    anchor: usize,
+    /// The entry visual mode started on (by path: a reread may move it).
+    anchor: PathBuf,
     /// Selection when visual mode started, in selection order.
     base: Vec<PathBuf>,
 }
@@ -16,23 +17,32 @@ impl PanelState {
     /// selected).
     pub fn toggle_visual(&mut self) {
         if self.visual.take().is_none() {
+            let Some(anchor) = self.entries.get(self.cursor_index) else {
+                return;
+            };
             self.visual = Some(VisualSelection {
-                anchor: self.cursor_index,
+                anchor: anchor.path.clone(),
                 base: self.selection_order.clone(),
             });
             self.extend_visual();
         }
     }
 
-    /// Re-applies the visual range after the cursor moved.
+    /// Re-applies the visual range after the cursor moved. An anchor that
+    /// is no longer listed counts as the cursor's entry.
     pub fn extend_visual(&mut self) {
         let Some(visual) = &self.visual else {
             return;
         };
-        let (lo, hi) = if visual.anchor <= self.cursor_index {
-            (visual.anchor, self.cursor_index)
+        let anchor = self
+            .entries
+            .iter()
+            .position(|e| e.path == visual.anchor)
+            .unwrap_or(self.cursor_index);
+        let (lo, hi) = if anchor <= self.cursor_index {
+            (anchor, self.cursor_index)
         } else {
-            (self.cursor_index, visual.anchor)
+            (self.cursor_index, anchor)
         };
         let mut order = visual.base.clone();
         let range = self.entries.iter().skip(lo).take(hi + 1 - lo);
@@ -90,5 +100,23 @@ mod tests {
         p.toggle_visual();
         assert!(p.visual.is_none());
         assert_eq!(p.selected_paths.len(), 3, "leaving keeps the selection");
+    }
+
+    #[test]
+    fn the_anchor_follows_its_entry_when_the_listing_changes() {
+        let mut p = panel(&["a", "b", "c", "d"]);
+        p.cursor_index = 2;
+        p.toggle_visual();
+        // A reread inserted two entries above the anchor ("c").
+        p.entries = panel(&["0", "1", "a", "b", "c", "d"]).entries;
+        p.cursor_index = 5;
+        p.extend_visual();
+        let mut names: Vec<_> = p
+            .selection_order
+            .iter()
+            .map(|x| x.file_name().unwrap().to_owned())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["c", "d"], "not the entries now at 2..=5");
     }
 }

@@ -41,14 +41,6 @@ impl DeleteMode {
 
 /// Deletes the targeted items of the active panel.
 pub fn handle(state: &mut AppState, context: &mut AppContext, mode: DeleteMode) -> bool {
-    if mode == DeleteMode::Trash && !state.get_active_panel().source.is_local() {
-        state
-            .dialogs
-            .replace(PopupType::info(crate::config::localization::t(
-                "trash_unsupported",
-            )));
-        return true;
-    }
     let targets = state.get_active_panel().get_targeted_paths();
     request(state, context, targets, false, mode);
     true
@@ -57,6 +49,10 @@ pub fn handle(state: &mut AppState, context: &mut AppContext, mode: DeleteMode) 
 /// Deletes `targets` (items of the active panel's filesystem), asking first
 /// when the confirmation settings say so. With `over_dialog` the confirmation
 /// opens on top of the current dialog, which comes back afterwards.
+///
+/// A non-local source has no recycle bin: an explicit "trash" is refused,
+/// and "Delete to Recycle Bin" does not apply there (the question says the
+/// deletion is permanent).
 pub fn request(
     state: &mut AppState,
     context: &AppContext,
@@ -67,9 +63,18 @@ pub fn request(
     if targets.is_empty() {
         return;
     }
-    let to_trash = mode.to_trash(context);
     let active_panel = state.get_active_panel();
     let is_remote = !active_panel.source.is_local();
+    if is_remote && mode == DeleteMode::Trash {
+        let message = crate::config::localization::t("trash_unsupported");
+        if over_dialog {
+            state.dialogs.push(PopupType::info(message));
+        } else {
+            state.dialogs.replace(PopupType::info(message));
+        }
+        return;
+    }
+    let to_trash = mode.to_trash(context) && !is_remote;
     let show_prompt = context.config.settings.confirmations.confirm_delete
         || (context
             .config
@@ -78,10 +83,11 @@ pub fn request(
             .confirm_delete_non_empty_folders
             && targets.iter().any(|p| {
                 if is_remote {
-                    active_panel
+                    // Not listed (disk usage, duplicates): may be a folder.
+                    !active_panel
                         .entries
                         .iter()
-                        .any(|e| &e.path == p && e.is_dir)
+                        .any(|e| &e.path == p && !e.is_dir)
                 } else {
                     is_non_empty_dir(p)
                 }
@@ -99,15 +105,31 @@ pub fn request(
             state.dialogs.replace(confirm);
         }
     } else {
-        let remote = state.get_active_panel().source.remote().cloned();
-        let options = TransferOptions {
-            delete_to_recycle_bin: to_trash,
-            ..Default::default()
-        };
-        submit_keeping_dialogs(state, TransferOperation::Delete, targets, options, remote);
-        state.get_active_panel_mut().clear_selection();
-        state.refresh_both_panels(context.config.settings.show_hidden);
+        submit_delete(state, context, targets, to_trash);
     }
+}
+
+/// Queues the deletion of `targets` from the active panel's source, then
+/// clears its selection and rereads the panels.
+pub fn submit_delete(
+    state: &mut AppState,
+    context: &AppContext,
+    targets: Vec<PathBuf>,
+    to_trash: bool,
+) {
+    let remote = state.get_active_panel().source.remote().cloned();
+    let options = TransferOptions {
+        delete_to_recycle_bin: to_trash,
+        ..Default::default()
+    };
+    submit_keeping_dialogs(state, TransferOperation::Delete, targets, options, remote);
+    after_delete_submitted(state, context);
+}
+
+/// Clears the active panel's selection and rereads both panels.
+pub fn after_delete_submitted(state: &mut AppState, context: &AppContext) {
+    state.get_active_panel_mut().clear_selection();
+    state.refresh_both_panels(context.config.settings.show_hidden);
 }
 
 /// Queues a delete or wipe job. Submitting a job closes every dialog; the
