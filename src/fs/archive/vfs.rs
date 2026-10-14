@@ -271,6 +271,7 @@ impl Vfs for ArchiveVfs {
     }
 
     fn remove_dir(&self, path: &Path) -> io::Result<()> {
+        crate::fs::vfs::ensure_empty_dir(self, path)?;
         self.remove_all(path)
     }
 

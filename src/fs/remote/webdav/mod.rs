@@ -229,7 +229,10 @@ impl Vfs for WebDavVfs {
         .map(drop)
     }
 
+    /// `DELETE` of a collection takes its contents with it: only an empty
+    /// one is deleted.
     fn remove_dir(&self, path: &Path) -> io::Result<()> {
+        crate::fs::vfs::ensure_empty_dir(self, path)?;
         http::send(self.request(Method::DELETE, self.url(path, true)), "DELETE").map(drop)
     }
 
