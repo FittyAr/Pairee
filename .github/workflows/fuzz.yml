@@ -65,7 +65,8 @@ jobs:
       # target, where the sanitizers cannot link: build for the host.
       - name: Pick the host target
         shell: bash
-        run: echo "FUZZ_TARGET=$(rustc -vV | sed -n 's/^host: //p')" >> "$GITHUB_ENV"
+        run: |
+          echo "FUZZ_TARGET=$(rustc -vV | sed -n 's/^host: //p')" >> "$GITHUB_ENV"
 
       - name: Build fuzz targets
         run: cargo fuzz build --target "$FUZZ_TARGET"
