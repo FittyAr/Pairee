@@ -128,31 +128,45 @@ pub fn handle_options_toggle(transfer: &mut TransferUIState) {
                 _ => {}
             });
         if transfer.options_cursor == 4 {
-            transfer.post_action = match &transfer.post_action {
-                crate::fs::transfer::post_action::PostAction::None => {
-                    crate::fs::transfer::post_action::PostAction::Shutdown
-                }
-                crate::fs::transfer::post_action::PostAction::Shutdown => {
-                    crate::fs::transfer::post_action::PostAction::Sleep
-                }
-                crate::fs::transfer::post_action::PostAction::Sleep => {
-                    crate::fs::transfer::post_action::PostAction::Hibernate
-                }
-                crate::fs::transfer::post_action::PostAction::Hibernate => {
-                    crate::fs::transfer::post_action::PostAction::EjectDrive(String::new())
-                }
-                crate::fs::transfer::post_action::PostAction::EjectDrive(_) => {
-                    crate::fs::transfer::post_action::PostAction::RunScript(
-                        std::path::PathBuf::new(),
-                    )
-                }
-                crate::fs::transfer::post_action::PostAction::RunScript(_) => {
-                    crate::fs::transfer::post_action::PostAction::CloseApp
-                }
-                crate::fs::transfer::post_action::PostAction::CloseApp => {
-                    crate::fs::transfer::post_action::PostAction::None
-                }
-            };
+            transfer.post_action = next_post_action(&transfer.post_action);
         }
+    }
+}
+
+/// The post action after `current` in the Options row. "Eject drive" and
+/// "Run script" are not offered: nothing lets the user choose the drive or
+/// the script, and an empty one fell back to an arbitrary disk.
+fn next_post_action(
+    current: &crate::fs::transfer::post_action::PostAction,
+) -> crate::fs::transfer::post_action::PostAction {
+    use crate::fs::transfer::post_action::PostAction as P;
+    match current {
+        P::None => P::Shutdown,
+        P::Shutdown => P::Sleep,
+        P::Sleep => P::Hibernate,
+        P::Hibernate => P::CloseApp,
+        P::EjectDrive(_) | P::RunScript(_) | P::CloseApp => P::None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_post_action;
+    use crate::fs::transfer::post_action::PostAction as P;
+
+    #[test]
+    fn post_actions_cycle_without_unset_targets() {
+        let mut seen = vec![P::None];
+        loop {
+            let next = next_post_action(seen.last().unwrap());
+            if next == P::None {
+                break;
+            }
+            seen.push(next);
+        }
+        assert_eq!(
+            seen,
+            [P::None, P::Shutdown, P::Sleep, P::Hibernate, P::CloseApp]
+        );
     }
 }

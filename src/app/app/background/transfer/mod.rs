@@ -62,4 +62,7 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
     if effects.refresh_needed {
         state.refresh_both_panels(context.config.settings.show_hidden);
     }
+    if effects.quit && state.may_quit() {
+        state.should_quit = true;
+    }
 }

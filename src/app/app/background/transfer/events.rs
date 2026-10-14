@@ -13,6 +13,8 @@ pub struct EventEffects {
     pub refresh_needed: bool,
     /// Jobs that ended, with the final results of the completed ones.
     pub finished: Vec<(Uuid, Option<TransferResults>)>,
+    /// The queue finished with "close the application" as post action.
+    pub quit: bool,
 }
 
 pub fn handle_transfer_event(
@@ -45,12 +47,17 @@ pub fn handle_transfer_event(
                 save_report(transfer, context, job_id, &results);
             }
             effects.finished.push((job_id, Some(results)));
-            if transfer.engine.queue.pending_count() == 0
-                && transfer.post_action != crate::fs::transfer::post_action::PostAction::None
-            {
-                let _ = crate::fs::transfer::post_action::execute_post_action(
-                    transfer.post_action.clone(),
-                );
+            use crate::fs::transfer::post_action::{PostAction, execute_post_action};
+            if transfer.engine.queue.pending_count() == 0 {
+                match transfer.post_action.clone() {
+                    PostAction::None => {}
+                    // Quit through the event loop (terminal restored, session
+                    // saved, unsaved editors kept), never `process::exit`.
+                    PostAction::CloseApp => effects.quit = true,
+                    action => {
+                        let _ = execute_post_action(action);
+                    }
+                }
             }
         }
         TransferEvent::JobFailed { .. } => {
