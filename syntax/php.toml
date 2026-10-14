@@ -1,0 +1,78 @@
+# PHP. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "PHP"
+extensions = ["php", "php3", "php4", "php5", "php7", "php8", "phtml", "phpt", "phps"]
+first_line = '^(?:#!.*\bphp\b|<\?php)'
+case_insensitive = true
+
+[[rule]]
+kind = "function"
+pattern = '\b([A-Za-z_][A-Za-z0-9_]*)\s*\('
+group = 1
+
+[[rule]]
+kind = "type_name"
+pattern = '\b(?:class|interface|trait|enum|new|extends|implements|instanceof)\s+\\?([A-Za-z_][A-Za-z0-9_\\]*)'
+group = 1
+
+[[rule]]
+kind = "type_name"
+pattern = '\$[A-Za-z_][A-Za-z0-9_]*'
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~?.]+'
+
+[[rule]]
+kind = "keyword"
+words = ["abstract", "and", "array", "as", "break", "callable", "case", "catch", "class",
+         "clone", "const", "continue", "declare", "default", "do", "echo", "else", "elseif",
+         "empty", "enddeclare", "endfor", "endforeach", "endif", "endswitch", "endwhile",
+         "enum", "eval", "exit", "die", "extends", "final", "finally", "fn", "for", "foreach",
+         "function", "global", "goto", "if", "implements", "include", "include_once",
+         "instanceof", "insteadof", "interface", "isset", "list", "match", "namespace", "new",
+         "or", "print", "private", "protected", "public", "readonly", "require",
+         "require_once", "return", "static", "switch", "throw", "trait", "try", "unset",
+         "use", "var", "while", "xor", "yield", "self", "parent"]
+
+[[rule]]
+kind = "type_name"
+words = ["int", "float", "bool", "string", "void", "mixed", "object", "iterable", "never"]
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "null", "__CLASS__", "__DIR__", "__FILE__", "__FUNCTION__",
+         "__LINE__", "__METHOD__", "__NAMESPACE__", "PHP_EOL"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0x[0-9a-f_]+|0b[01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:e[+-]?[0-9]+)?)\b'
+
+[[rule]]
+kind = "tag"
+pattern = '<\?(?:php|=)?|\?>'
+
+[[region]]
+kind = "comment"
+start = '//|#(?:[^\[]|$)'
+end = '$|\?>'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\.|\{?\$[A-Za-z_][A-Za-z0-9_]*(?:->[A-Za-z_][A-Za-z0-9_]*|\[[^\]]*\])?\}?'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'"
+skip = '\\.'

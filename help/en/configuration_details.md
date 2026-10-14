@@ -175,6 +175,48 @@ Pairee edits files only with its built-in editor (`F4`); there is no external ed
 * **Syntax highlighting (editor and viewer):** Colors source files by language (`syntax_highlighting`). The colors are the theme's `[syntax]` group (see *Color groups*).
 * **Highlight files up to:** Larger files open without highlighting (`syntax_highlighting_max_kb`; Enter cycles 512 KiB, 1, 2, 8 and 32 MiB).
 
+Both settings apply at once to the editors and viewers already open. After *Save as* with another extension, the editor highlights the file as the new language.
+
+### Syntax highlighting definitions
+Pairee knows Rust, C, C++, C#, Go, Java, Kotlin, Swift, JavaScript, TypeScript, Python, Ruby, PHP, Lua, shell scripts (sh, bash, zsh), PowerShell, batch files, HTML, CSS, XML, JSON, YAML, TOML, INI, Markdown, SQL, Makefiles, Dockerfiles and diffs. Each language is a small TOML file. To add a language, or to change a built-in one, put a `<name>.toml` file in the `syntax` folder of the configuration directory (next to `config.toml`) and restart Pairee. A file whose `name` is the name of a built-in language replaces it. A file that cannot be read or whose patterns are not valid is skipped, and Pairee says why when it starts.
+
+```toml
+name = "Notes"                  # shown in the editor status line
+extensions = ["note", "notes"]  # without the dot, any case
+names = ["NOTES"]               # whole file names (optional)
+filename = '^notes[-_]'         # regular expression on the file name (optional)
+first_line = '^#!.*\bnotes\b'   # regular expression on the first line (optional)
+case_insensitive = false        # match every pattern ignoring case (optional)
+
+[[rule]]                        # color every match of a pattern...
+kind = "keyword"
+words = ["TODO", "DONE"]        # ...or any of these whole words
+
+[[rule]]
+kind = "function"
+pattern = '@(\w+)'
+group = 1                       # color only this group of the match (optional)
+
+[[region]]                      # from `start` to `end`, possibly over several lines
+kind = "string"
+start = '"'
+end = '"'
+skip = '\\.'                    # passed over while looking for the end (optional)
+
+[[region.rule]]                 # rules and regions inside the region
+kind = "constant"
+pattern = '\\.'
+```
+
+* **Kinds** are the theme's `[syntax]` colors: `comment`, `string`, `keyword`, `constant`, `function`, `type_name`, `operator` and `tag`.
+* **Patterns** use the syntax of the Rust `regex` crate (no look-around or back-references). Write them in single quotes (`'...'`) so backslashes are kept as they are.
+* **Rules** apply in order: a later rule paints over an earlier one. They only see the text outside regions, or inside the region they belong to.
+* **Regions** win over rules: where several regions could start, the earliest one wins (the first declared on a tie). Use `end = '$'` for a region that ends with the line (line comments), and an empty `end = ''` for a single token that nothing can split (a character literal such as `'"'`).
+* **Detection:** a file name in `names` wins over `filename`, which wins over the extension, which wins over the first line. Your files are tried before the built-in ones.
+* Only the first 4 KiB of a very long line are highlighted.
+
+The built-in definitions are in the [`syntax`](https://github.com/FittyAr/Pairee/tree/master/syntax) folder of the source code; copy one as a starting point.
+
 ---
 
 ## 📂 Tab 6: Colors Settings

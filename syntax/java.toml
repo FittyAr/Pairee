@@ -1,0 +1,76 @@
+# Java. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Java"
+extensions = ["java", "jav"]
+
+[[rule]]
+kind = "type_name"
+pattern = '\b[A-Z][A-Za-z0-9_]*\b'
+
+[[rule]]
+kind = "type_name"
+words = ["boolean", "byte", "char", "double", "float", "int", "long", "short", "void", "var"]
+
+[[rule]]
+kind = "function"
+pattern = '\b([a-z_$][A-Za-z0-9_$]*)\s*\('
+group = 1
+
+[[rule]]
+kind = "function"
+pattern = '@[A-Za-z_][A-Za-z0-9_.]*'
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~?]+'
+
+[[rule]]
+kind = "keyword"
+words = ["abstract", "assert", "break", "case", "catch", "class", "const", "continue",
+         "default", "do", "else", "enum", "extends", "final", "finally", "for", "goto", "if",
+         "implements", "import", "instanceof", "interface", "native", "new", "non-sealed",
+         "package", "permits", "private", "protected", "public", "record", "return",
+         "sealed", "static", "strictfp", "super", "switch", "synchronized", "this", "throw",
+         "throws", "transient", "try", "volatile", "while", "yield"]
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "null"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0[xX][0-9A-Fa-f_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][+-]?[0-9]+)?)[lLfFdD]?\b'
+
+[[region]]
+kind = "comment"
+start = '//'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region.rule]]
+kind = "keyword"
+pattern = '@[a-zA-Z]+'
+
+[[region]]
+kind = "string"
+start = '"""'
+end = '"""'
+skip = '\\.'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:u[0-9A-Fa-f]{4}|[0-7]{1,3}|.)'
+
+[[region]]
+kind = "constant"
+start = ''''(?:\\(?:u[0-9A-Fa-f]{4}|[0-7]{1,3}|.)|[^'\\])''''
+end = ''

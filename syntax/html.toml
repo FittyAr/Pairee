@@ -1,0 +1,47 @@
+# HTML. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "HTML"
+extensions = ["html", "htm", "xhtml", "shtml", "hta", "vue", "svelte", "cshtml", "razor"]
+first_line = '(?i)^\s*<!DOCTYPE\s+html|^\s*<html\b'
+case_insensitive = true
+
+[[rule]]
+kind = "constant"
+pattern = '&(?:[a-z][a-z0-9]*|#[0-9]+|#x[0-9a-f]+);'
+
+[[region]]
+kind = "comment"
+start = '<!--'
+end = '-->'
+
+[[region]]
+kind = "keyword"
+start = '<!'
+end = '>'
+
+# A tag: its name and brackets in the tag color, attributes and values inside.
+[[region]]
+kind = "tag"
+start = '</?[a-z][a-z0-9:._-]*'
+end = '/?>'
+
+[[region.rule]]
+kind = "function"
+pattern = '[a-z_:@#.\[\]()-][a-z0-9_:@.\[\]()-]*'
+
+[[region.rule]]
+kind = "operator"
+pattern = '='
+
+[[region.region]]
+kind = "string"
+start = '"'
+end = '"'
+
+[[region.region.rule]]
+kind = "constant"
+pattern = '&(?:[a-z][a-z0-9]*|#[0-9]+|#x[0-9a-f]+);'
+
+[[region.region]]
+kind = "string"
+start = "'"
+end = "'"

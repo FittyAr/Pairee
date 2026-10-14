@@ -1,0 +1,61 @@
+# Makefiles. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Makefile"
+extensions = ["mk", "mak", "make"]
+names = ["Makefile", "GNUmakefile", "BSDmakefile", "Kbuild", "Makefile.am",
+         "Makefile.in", "OCamlMakefile"]
+
+[[rule]]
+kind = "function"
+pattern = '^([^:=#\s\t][^:=#]*?)\s*::?(?:[^=]|$)'
+group = 1
+
+[[rule]]
+kind = "type_name"
+pattern = '^\s*(?:export\s+|override\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*(?:[:+?!]|::)?='
+group = 1
+
+[[rule]]
+kind = "operator"
+pattern = '::?=|[+?!]?=|::?|\|'
+
+[[rule]]
+kind = "keyword"
+pattern = '^\s*-?(?:include|sinclude|ifeq|ifneq|ifdef|ifndef|else|endif|define|endef|export|unexport|override|undefine|vpath|private)\b'
+
+[[rule]]
+kind = "keyword"
+pattern = '^\.[A-Z_]+'
+
+[[rule]]
+kind = "constant"
+pattern = '\$\$?[@<^?*%+|]|\$\$?\{[^}]*\}|\$\$?[A-Za-z0-9_]'
+
+[[region]]
+kind = "comment"
+start = '#'
+end = '$'
+
+[[region]]
+kind = "constant"
+start = '\$\$?\('
+end = '\)'
+
+[[region.rule]]
+kind = "function"
+pattern = '\b(?:abspath|addprefix|addsuffix|and|basename|call|dir|error|eval|file|filter|filter-out|findstring|firstword|flavor|foreach|guile|if|info|join|lastword|notdir|or|origin|patsubst|realpath|shell|sort|strip|subst|suffix|value|warning|wildcard|word|wordlist|words)\b'
+
+[[region.region]]
+kind = "constant"
+start = '\$\$?\('
+end = '\)'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'|$"

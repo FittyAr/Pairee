@@ -3,6 +3,7 @@ use crate::app::state::AppState;
 use crate::app::state::ConfigDraft;
 use crate::app::state::popup::InfoPanel;
 use crate::app::sys_helpers::{change_preset, change_theme};
+use crate::syntax::SyntaxLimits;
 
 pub fn apply_settings(state: &mut AppState, context: &mut AppContext, draft: ConfigDraft) {
     let ConfigDraft {
@@ -16,6 +17,10 @@ pub fn apply_settings(state: &mut AppState, context: &mut AppContext, draft: Con
         change_preset(context, &keymap_preset);
     }
     state.apply_settings(&settings);
+    let syntax = SyntaxLimits::from_settings(&settings);
+    if syntax != SyntaxLimits::from_settings(&context.config.settings) {
+        state.screens.apply_syntax_limits(&syntax);
+    }
     let lang_to_load = settings.language.clone();
     let secure_mode_changed = settings.secure_mode != context.config.settings.secure_mode;
     context.config.settings = settings;

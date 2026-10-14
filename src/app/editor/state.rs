@@ -49,6 +49,9 @@ pub struct EditorState {
     /// Syntax highlighter (`None`: plain text, highlighting off or file too
     /// large). Painting fills its cache, hence the cell.
     pub syntax: RefCell<Option<SyntaxCache>>,
+    /// The settings `syntax` was chosen with (kept to choose again after
+    /// "save as" or a settings change).
+    pub syntax_limits: SyntaxLimits,
 }
 
 impl EditorState {
@@ -72,6 +75,7 @@ impl EditorState {
             block_mode: false,
             remote: None,
             syntax: RefCell::new(None),
+            syntax_limits: SyntaxLimits::default(),
         }
     }
 
@@ -274,6 +278,7 @@ impl EditorState {
     /// Picks the syntax highlighter for the file (none when `limits` say
     /// so or no grammar knows it).
     pub fn detect_syntax(&mut self, limits: &SyntaxLimits) {
+        self.syntax_limits = *limits;
         let size: usize = self.lines.iter().map(|l| l.len() + 1).sum();
         let first = self.lines.first().map_or("", String::as_str);
         let cache = limits.cache_for(self.display_path(), first, size as u64);
@@ -297,7 +302,12 @@ impl EditorState {
     /// and makes it the edited file.
     pub fn save_to(&mut self, target: &Path) -> anyhow::Result<()> {
         self.stamp = document::save(target, &self.lines, &self.format)?;
-        self.path = target.to_path_buf();
+        if self.path != target {
+            // "Save as" with another name may change the language.
+            self.path = target.to_path_buf();
+            let limits = self.syntax_limits;
+            self.detect_syntax(&limits);
+        }
         self.locked = false;
         self.history.mark_saved();
         Ok(())
@@ -411,6 +421,23 @@ mod tests {
             max_bytes: 4,
         });
         assert!(ed.syntax.borrow().is_none(), "over the size limit");
+    }
+
+    #[test]
+    fn save_as_detects_the_new_language() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("notes.txt");
+        std::fs::write(
+            &path, "x = 1
+",
+        )
+        .unwrap();
+        let mut ed = EditorState::open(path, &options(TabExpansion::Keep)).unwrap();
+        assert!(ed.syntax.borrow().is_none(), "plain text");
+        ed.save_to(&dir.path().join("script.py")).unwrap();
+        assert_eq!(ed.syntax.borrow().as_ref().unwrap().language(), "Python");
+        ed.save_to(&dir.path().join("back.txt")).unwrap();
+        assert!(ed.syntax.borrow().is_none());
     }
 
     #[test]

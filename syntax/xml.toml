@@ -1,0 +1,58 @@
+# XML. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "XML"
+extensions = ["xml", "xsd", "xsl", "xslt", "svg", "plist", "csproj", "vbproj", "fsproj",
+              "vcxproj", "proj", "props", "targets", "resx", "xaml", "axaml", "wsdl", "rss",
+              "atom", "nuspec", "manifest", "xul", "kml", "gpx", "dtd", "tld",
+              "storyboard", "xib", "iml", "wxs", "wxi", "glade", "ui", "qrc"]
+first_line = '^\s*<\?xml\b'
+
+[[rule]]
+kind = "constant"
+pattern = '&(?:[A-Za-z_][A-Za-z0-9._-]*|#[0-9]+|#x[0-9A-Fa-f]+);'
+
+[[region]]
+kind = "comment"
+start = '<!--'
+end = '-->'
+
+[[region]]
+kind = "string"
+start = '<!\[CDATA\['
+end = '\]\]>'
+
+[[region]]
+kind = "keyword"
+start = '<[!?]'
+end = '\??>'
+
+[[region.region]]
+kind = "string"
+start = '"'
+end = '"'
+
+[[region]]
+kind = "tag"
+start = '</?[A-Za-z_][A-Za-z0-9:._-]*'
+end = '/?>'
+
+[[region.rule]]
+kind = "function"
+pattern = '[A-Za-z_][A-Za-z0-9:._-]*'
+
+[[region.rule]]
+kind = "operator"
+pattern = '='
+
+[[region.region]]
+kind = "string"
+start = '"'
+end = '"'
+
+[[region.region.rule]]
+kind = "constant"
+pattern = '&(?:[A-Za-z_][A-Za-z0-9._-]*|#[0-9]+|#x[0-9A-Fa-f]+);'
+
+[[region.region]]
+kind = "string"
+start = "'"
+end = "'"

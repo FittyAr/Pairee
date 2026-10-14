@@ -1,0 +1,45 @@
+# JSON (comments allowed, as in JSONC). Format: see help "Syntax highlighting
+# definitions"; credits in README.md.
+name = "JSON"
+extensions = ["json", "jsonc", "json5", "jsonl", "ndjson", "geojson", "webmanifest",
+              "har", "ipynb", "code-workspace", "sarif"]
+names = [".babelrc", ".eslintrc", ".prettierrc", ".jshintrc", ".swcrc", "composer.lock",
+         "flake.lock", ".watchmanconfig"]
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "null"]
+
+[[rule]]
+kind = "constant"
+pattern = '-?\b[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\b'
+
+[[rule]]
+kind = "operator"
+pattern = '[:,]'
+
+[[region]]
+kind = "comment"
+start = '//'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+# Object keys as one token (declared before strings: they start at the same quote).
+[[region]]
+kind = "tag"
+start = '"(?:\\.|[^"\\])*"\s*:'
+end = ''
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:u[0-9A-Fa-f]{4}|.)'

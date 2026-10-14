@@ -1,0 +1,94 @@
+# SQL (common keywords of the main dialects). Format: see help "Syntax highlighting
+# definitions"; credits in README.md.
+name = "SQL"
+extensions = ["sql", "ddl", "dml", "pgsql", "psql", "mysql", "sqlite", "hql", "cql", "prc",
+              "pkb", "pks"]
+case_insensitive = true
+
+[[rule]]
+kind = "function"
+pattern = '\b([a-z_][a-z0-9_]*)\s*\('
+group = 1
+
+[[rule]]
+kind = "type_name"
+words = ["bigint", "binary", "bit", "blob", "boolean", "bool", "char", "character", "clob",
+         "date", "datetime", "datetime2", "decimal", "double", "float", "int", "integer",
+         "interval", "json", "jsonb", "money", "nchar", "numeric", "nvarchar", "real",
+         "serial", "bigserial", "smallint", "text", "time", "timestamp", "timestamptz",
+         "tinyint", "uuid", "varbinary", "varchar", "xml", "precision", "varying"]
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!|&^~]+|::'
+
+[[rule]]
+kind = "keyword"
+words = ["add", "all", "alter", "analyze", "and", "any", "as", "asc", "begin", "between",
+         "by", "cascade", "case", "check", "column", "commit", "constraint", "create",
+         "cross", "current_date", "current_timestamp", "database", "declare", "default",
+         "delete", "desc", "distinct", "do", "drop", "else", "end", "escape", "except",
+         "exec", "execute", "exists", "explain", "fetch", "for", "foreign", "from", "full",
+         "function", "grant", "group", "having", "if", "ilike", "in", "index", "inner",
+         "insert", "intersect", "into", "is", "join", "key", "language", "lateral", "left",
+         "like", "limit", "loop", "materialized", "merge", "natural", "not", "nulls",
+         "offset", "on", "or", "order", "outer", "over", "partition", "primary", "procedure",
+         "references", "rename", "replace", "return", "returning", "returns", "revoke",
+         "right", "rollback", "row", "rows", "schema", "select", "sequence", "set", "table",
+         "temp", "temporary", "then", "to", "top", "transaction", "trigger", "truncate",
+         "union", "unique", "update", "using", "values", "view", "when", "where", "while",
+         "window", "with", "without", "conflict", "nothing", "go", "use", "show", "describe",
+         "pragma", "vacuum", "unsigned", "auto_increment", "autoincrement", "identity",
+         "engine", "charset", "collate", "owner", "security", "definer", "invoker",
+         "immutable", "stable", "volatile", "strict", "plpgsql", "elsif", "raise", "notice",
+         "exception", "perform", "open", "close", "cursor", "of"]
+
+[[rule]]
+kind = "constant"
+words = ["null", "true", "false", "unknown"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0x[0-9a-f]+|[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)\b|[@:$][a-z_][a-z0-9_]*|\$[0-9]+|\?'
+
+[[region]]
+kind = "comment"
+start = '--'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '(?:^|\s)#'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region]]
+kind = "string"
+start = "[enbx]?'"
+end = "'"
+skip = "''|\\\\."
+
+[[region]]
+kind = "string"
+start = '\$[a-z_]*\$'
+end = '\$[a-z_]*\$'
+
+[[region]]
+kind = "type_name"
+start = '"'
+end = '"'
+skip = '""'
+
+[[region]]
+kind = "type_name"
+start = '`'
+end = '`'
+
+[[region]]
+kind = "type_name"
+start = '\['
+end = '\]'
