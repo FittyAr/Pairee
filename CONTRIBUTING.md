@@ -115,7 +115,7 @@ cargo xtask release            # or `cargo xtask dev release`
 ```
 
 The task updates every dependency to its latest compatible version, runs the
-local gate (lint, clippy, tests), bumps the version (Cargo.toml, installer,
+local gate (lint, clippy, tests), bumps the version (Cargo.toml and the
 WinGet manifests), moves `docs/UNRELEASED.md` into `docs/CHANGELOG.md`, then
 commits, tags and pushes the branch and the tag in one atomic push.
 `cargo xtask help` lists its options.
