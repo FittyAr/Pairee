@@ -73,7 +73,7 @@ pub fn run(
         None
     };
     let free_space = if local {
-        crate::app::sys_helpers::get_free_space(&req.path)
+        crate::fs::transfer::network::get_free_space(&req.path).ok()
     } else {
         None
     };

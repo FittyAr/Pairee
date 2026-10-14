@@ -63,7 +63,9 @@ pub fn mount_fs_type(path: &Path) -> Option<String> {
         .map(|(_, fs_type)| fs_type)
 }
 
-/// Obtiene el espacio libre disponible en bytes en la unidad que contiene el path destino.
+/// Free bytes available to the user on the volume holding `path` (the
+/// panel status line and the transfer low-space check). An error means
+/// unknown.
 pub fn get_free_space(path: &Path) -> std::io::Result<u64> {
     #[cfg(target_os = "windows")]
     {
@@ -109,6 +111,6 @@ pub fn get_free_space(path: &Path) -> std::io::Result<u64> {
                 return Ok(kb * 1024);
             }
         }
-        Ok(u64::MAX)
+        Err(std::io::Error::other("df did not report the free space"))
     }
 }
