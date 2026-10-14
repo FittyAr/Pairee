@@ -4,7 +4,6 @@ use super::types::{PanelViewMode, SortField};
 use crate::app::jobs::JobSlot;
 use crate::fs::FileEntry;
 use crate::fs::attrs::FileAttrs;
-use crate::fs::glob::glob_matches;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -175,86 +174,6 @@ impl PanelState {
         }
     }
 
-    /// Selects / tags the highlighted entry.
-    /// `select_folders` controls whether directory entries can be tagged.
-    pub fn toggle_selection_with_opts(&mut self, select_folders: bool) {
-        if let Some(entry) = self.entries.get(self.cursor_index) {
-            let selected = !self.selected_paths.contains(&entry.path);
-            self.set_selected(self.cursor_index, selected, select_folders);
-        }
-    }
-
-    /// Tags (`selected`) or untags entry `idx`; `..` never is, and folders
-    /// only when `select_folders`.
-    pub fn set_selected(&mut self, idx: usize, selected: bool, select_folders: bool) {
-        let Some(entry) = self.entries.get(idx) else {
-            return;
-        };
-        if entry.name == ".." || (entry.is_dir && !select_folders) {
-            return;
-        }
-        let path = entry.path.clone();
-        if !selected {
-            if self.selected_paths.remove(&path) {
-                self.selection_order.retain(|p| p != &path);
-            }
-        } else if self.selected_paths.insert(path.clone()) {
-            self.selection_order.push(path);
-        }
-    }
-
-    /// Whether entry `idx` is tagged.
-    pub fn is_selected(&self, idx: usize) -> bool {
-        self.entries
-            .get(idx)
-            .is_some_and(|entry| self.selected_paths.contains(&entry.path))
-    }
-
-    /// Selects all entries matching a glob mask.
-    pub fn select_group(&mut self, mask: &str) {
-        for entry in &self.entries {
-            if entry.name != ".."
-                && glob_matches(mask, &entry.name)
-                && self.selected_paths.insert(entry.path.clone())
-            {
-                self.selection_order.push(entry.path.clone());
-            }
-        }
-    }
-
-    /// Deselects all entries matching a glob mask.
-    pub fn unselect_group(&mut self, mask: &str) {
-        self.selected_paths
-            .retain(|p| !glob_matches(mask, &p.file_name().unwrap_or_default().to_string_lossy()));
-        self.selection_order
-            .retain(|p| !glob_matches(mask, &p.file_name().unwrap_or_default().to_string_lossy()));
-    }
-
-    /// Inverts the selection state of all non-".." entries.
-    pub fn invert_selection(&mut self) {
-        let all: HashSet<PathBuf> = self
-            .entries
-            .iter()
-            .filter(|e| e.name != "..")
-            .map(|e| e.path.clone())
-            .collect();
-        let currently_selected = std::mem::take(&mut self.selected_paths);
-        self.selected_paths = all.difference(&currently_selected).cloned().collect();
-        // Rebuild selection_order keeping directory list order
-        self.selection_order.clear();
-        for entry in &self.entries {
-            if self.selected_paths.contains(&entry.path) {
-                self.selection_order.push(entry.path.clone());
-            }
-        }
-    }
-
-    /// Clears both selected_paths and selection_order
-    pub fn clear_selection(&mut self) {
-        self.selected_paths.clear();
-        self.selection_order.clear();
-    }
-
     /// Points the panel at `path` with the cursor on the first row and no
     /// selection (the caller refreshes the listing).
     pub fn open_path(&mut self, path: PathBuf) {
@@ -334,64 +253,5 @@ impl PanelState {
             .filter(|e| e.is_dir && e.name != "..")
             .count();
         (total_files, total_dirs, total_size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A panel on `/tmp` listing `a.rs` and `b.rs`.
-    fn panel_with_two_files() -> PanelState {
-        let mut panel = PanelState::new(PathBuf::from("/tmp"));
-        panel.entries = ["a.rs", "b.rs"]
-            .into_iter()
-            .map(|name| FileEntry {
-                name: name.to_string(),
-                path: PathBuf::from("/tmp").join(name),
-                is_dir: false,
-                is_symlink: false,
-                size: 0,
-                modified: None,
-            })
-            .collect();
-        panel
-    }
-
-    #[test]
-    fn test_invert_selection() {
-        let mut panel = panel_with_two_files();
-        panel.selected_paths.insert(PathBuf::from("/tmp/a.rs"));
-        panel.invert_selection();
-        assert!(!panel.selected_paths.contains(&PathBuf::from("/tmp/a.rs")));
-        assert!(panel.selected_paths.contains(&PathBuf::from("/tmp/b.rs")));
-    }
-
-    #[test]
-    fn test_selection_order() {
-        let mut panel = panel_with_two_files();
-
-        // Toggle selection on a.rs (index 0)
-        panel.cursor_index = 0;
-        panel.toggle_selection_with_opts(false);
-        assert_eq!(panel.selection_order, vec![PathBuf::from("/tmp/a.rs")]);
-
-        // Toggle selection on b.rs (index 1)
-        panel.cursor_index = 1;
-        panel.toggle_selection_with_opts(false);
-        assert_eq!(
-            panel.selection_order,
-            vec![PathBuf::from("/tmp/a.rs"), PathBuf::from("/tmp/b.rs")]
-        );
-
-        // Toggle selection on a.rs again (deselects it)
-        panel.cursor_index = 0;
-        panel.toggle_selection_with_opts(false);
-        assert_eq!(panel.selection_order, vec![PathBuf::from("/tmp/b.rs")]);
-
-        // Clear selection
-        panel.clear_selection();
-        assert!(panel.selection_order.is_empty());
-        assert!(panel.selected_paths.is_empty());
     }
 }

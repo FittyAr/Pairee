@@ -23,10 +23,11 @@ pub fn handle(
                 state.dialogs.pop_as::<SelectGroupPrompt>()
             {
                 state.dialogs.clear();
+                let select_folders = state.prefs.select_folders;
                 let panel = state.get_active_panel_mut();
                 match mode {
-                    SelectMode::Add => panel.select_group(query.text()),
-                    SelectMode::Remove => panel.unselect_group(query.text()),
+                    SelectMode::Add => panel.select_group(query.text(), select_folders),
+                    SelectMode::Remove => panel.unselect_group(query.text(), select_folders),
                 }
             }
         }

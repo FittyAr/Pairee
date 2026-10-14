@@ -8,6 +8,7 @@ use crate::app::state::{ActivePanel, AppState, PopupType, SelectMode};
 use crate::app::sys_helpers::{build_tree_nodes, get_system_drives};
 use crate::config::localization::t;
 use crate::keybindings::Action;
+use std::ops::RangeInclusive;
 
 /// Rows a page step moves the cursor.
 const PAGE_ROWS: usize = 10;
@@ -82,18 +83,27 @@ fn selection_action(state: &mut AppState, action: &Action) -> bool {
         Action::UnselectGroup => open_select_group(state, SelectMode::Remove),
         Action::InvertSelection => {
             state.snapshot_selection();
-            state.get_active_panel_mut().invert_selection();
+            let select_folders = state.prefs.select_folders;
+            state
+                .get_active_panel_mut()
+                .invert_selection(select_folders);
         }
         Action::RestoreSelection => state.restore_selection(),
         Action::SelectAll => {
             state.snapshot_selection();
-            state.get_active_panel_mut().select_group("*");
+            let select_folders = state.prefs.select_folders;
+            state
+                .get_active_panel_mut()
+                .select_group("*", select_folders);
         }
         Action::UnselectAll => {
             state.snapshot_selection();
             state.get_active_panel_mut().clear_selection();
         }
-        Action::VisualMode => state.get_active_panel_mut().toggle_visual(),
+        Action::VisualMode => {
+            let select_folders = state.prefs.select_folders;
+            state.get_active_panel_mut().toggle_visual(select_folders);
+        }
         _ => return false,
     }
     true
@@ -127,16 +137,41 @@ fn select_item(state: &mut AppState) {
     state.get_active_panel_mut().move_cursor_down();
 }
 
-/// Tags or untags entry `idx` of the active panel. Like Far/MC, tagging a
-/// folder also measures it.
+/// Tags or untags entry `idx` of the active panel on its own (Insert, a
+/// click): folders too, whatever "Select folders" says
+/// (`state::selection`). Like Far/MC, tagging a folder also measures it.
 pub(crate) fn set_selected(state: &mut AppState, idx: usize, selected: bool) {
+    measure_if_tagged(state, idx..=idx, selected);
+    state.get_active_panel_mut().set_selected(idx, selected);
+}
+
+/// Tags or untags the entries `from..=to` (either order) of the active
+/// panel as a group (Shift+click, right-drag): folders only with "Select
+/// folders".
+pub(crate) fn set_range(state: &mut AppState, from: usize, to: usize, selected: bool) {
     let select_folders = state.prefs.select_folders;
+    let range = from.min(to)..=from.max(to);
+    measure_if_tagged(state, range.clone(), selected);
     let panel = state.get_active_panel_mut();
-    if selected && let Some(entry) = panel.entries.get(idx) {
-        let path = entry.path.clone();
-        panel.calculate_dir_sizes(&[path]);
+    for idx in range {
+        panel.set_group_selected(idx, selected, select_folders);
     }
-    panel.set_selected(idx, selected, select_folders);
+}
+
+/// Starts measuring the folders among `range` when they are being tagged.
+fn measure_if_tagged(state: &mut AppState, range: RangeInclusive<usize>, selected: bool) {
+    if !selected {
+        return;
+    }
+    let panel = state.get_active_panel_mut();
+    let paths: Vec<_> = range
+        .filter_map(|idx| panel.entries.get(idx))
+        .filter(|e| e.is_dir && e.name != "..")
+        .map(|e| e.path.clone())
+        .collect();
+    if !paths.is_empty() {
+        panel.calculate_dir_sizes(&paths);
+    }
 }
 
 fn open_select_group(state: &mut AppState, mode: SelectMode) {

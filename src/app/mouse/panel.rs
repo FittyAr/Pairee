@@ -3,7 +3,7 @@
 //! dispatches that key's action.
 
 use super::{Click, act};
-use crate::app::actions::navigation::set_selected;
+use crate::app::actions::navigation::{set_range, set_selected};
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState, SortField};
 use crate::config::settings::RightClick;
@@ -139,13 +139,6 @@ pub fn drag(state: &mut AppState, target: Option<&HitTarget>) -> bool {
         ..drag
     });
     true
-}
-
-/// Tags or untags entries `from..=to` (either order) of the active panel.
-fn set_range(state: &mut AppState, from: usize, to: usize, selected: bool) {
-    for idx in from.min(to)..=from.max(to) {
-        set_selected(state, idx, selected);
-    }
 }
 
 /// Moves the cursor of the panel under the wheel, focused or not.

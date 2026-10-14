@@ -158,3 +158,4 @@
 - Missing texts for the plugin developer install messages and the video mode hint.
 - Uninstalling a plugin in the Plugin Manager (`d` / Del) asks for confirmation first.
 - PgUp / PgDn in the quick view scroll to the real end of the text whatever the panel height, and a plugin preview scrolls by its own rows (images, which are scaled to fit, no longer keep a hidden scroll position).
+- "Select folders" applies the same way everywhere: it decides whether masks (`+` / `-`), Select all, Invert selection, Shift+click and right-drag ranges and visual mode take folders, while Insert, Ctrl+click and a right click always toggle the entry under the cursor (see the help).

@@ -66,7 +66,7 @@ Controls layout columns, directory display filters and updates.
 * **Highlight files:**
   - *Description:* Renders files in different colors based on their file extensions.
 * **Select folders:**
-  - *Description:* When tagging groups (`+` or `-`), folder paths will match and be selected alongside files.
+  - *Description:* Whether selections of many entries at once take folders as well as files: masks (`+` / `-`), Select all, Invert selection (`*`), Shift+click and right-drag ranges, and visual mode. Insert, Space, Ctrl+click and a right click always toggle the entry under the cursor, folder or not. `..` is never selected.
 
 ### Sorting
 * **Sort folder names by extension:**

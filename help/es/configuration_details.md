@@ -63,7 +63,7 @@ Controla las columnas del listado, filtros y actualizaciones.
 * **Highlight files (Resaltar archivos):**
   - *Descripción:* Colorea los archivos según la extensión de su tipo de formato.
 * **Select folders (Seleccionar carpetas):**
-  - *Descripción:* Al marcar grupos de archivos (`+` o `-`), los directorios también coincidirán con los filtros de máscara.
+  - *Descripción:* Indica si las selecciones de muchas entradas a la vez incluyen carpetas además de archivos: máscaras (`+` / `-`), Seleccionar todo, Invertir selección (`*`), rangos con Mayús+clic y arrastre con el botón derecho, y el modo visual. Insert, Espacio, Ctrl+clic y un clic derecho siempre marcan o desmarcan la entrada bajo el cursor, sea carpeta o no. `..` nunca se selecciona.
 
 ### Ordenación
 * **Sort folder names by extension (Ordenar carpetas por extensión):**
