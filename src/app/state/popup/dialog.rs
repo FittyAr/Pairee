@@ -71,6 +71,13 @@ pub trait Dialog {
     fn reads_raw_keys(&self) -> bool {
         false
     }
+
+    /// Keys it does not handle go on to the screen under it (a preview
+    /// beside the panels: the panels keep their keys). Other dialogs own
+    /// every key while they are open.
+    fn passes_other_keys(&self) -> bool {
+        false
+    }
 }
 
 /// Large dialogs are boxed in [`PopupType`]; the box is the dialog.
@@ -92,6 +99,9 @@ impl<T: Dialog> Dialog for Box<T> {
     }
     fn reads_raw_keys(&self) -> bool {
         (**self).reads_raw_keys()
+    }
+    fn passes_other_keys(&self) -> bool {
+        (**self).passes_other_keys()
     }
 }
 

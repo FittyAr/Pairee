@@ -99,4 +99,10 @@ impl Dialog for QuickViewDialog {
     fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
         (id == ScrollTargetId::QuickView).then_some(DialogScroll::Offset(&mut self.scroll))
     }
+    fn reads_raw_keys(&self) -> bool {
+        true
+    }
+    fn passes_other_keys(&self) -> bool {
+        true
+    }
 }

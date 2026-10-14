@@ -20,6 +20,7 @@ mod panel_scroll;
 mod panel_search;
 mod plugin_keys;
 mod polish;
+mod quick_view;
 mod refresh_resize;
 mod remote_connections;
 mod screen_keymaps;
