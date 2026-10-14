@@ -1,9 +1,17 @@
+use crate::ui::resolved_theme::{ResolvedTheme, UiPalette};
 use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
-pub fn parse_markdown_to_lines(text: &str) -> Vec<Line<'static>> {
-    let mut renderer = MarkdownLines::default();
+pub fn parse_markdown_to_lines(text: &str, theme: &ResolvedTheme) -> Vec<Line<'static>> {
+    let mut renderer = MarkdownLines {
+        ui: theme.ui,
+        lines: Vec::new(),
+        current_spans: Vec::new(),
+        bold: false,
+        italic: false,
+        link: false,
+    };
     for event in Parser::new(text) {
         renderer.event(event);
     }
@@ -12,8 +20,8 @@ pub fn parse_markdown_to_lines(text: &str) -> Vec<Line<'static>> {
 }
 
 /// Builds styled lines from Markdown events.
-#[derive(Default)]
 struct MarkdownLines {
+    ui: UiPalette,
     lines: Vec<Line<'static>>,
     current_spans: Vec<Span<'static>>,
     bold: bool,
@@ -34,7 +42,7 @@ impl MarkdownLines {
             Event::Code(c) => {
                 self.current_spans.push(Span::styled(
                     format!(" `{}` ", c),
-                    Style::default().fg(Color::Magenta),
+                    Style::default().fg(self.ui.special),
                 ));
             }
             Event::SoftBreak | Event::HardBreak => self.flush(),
@@ -66,7 +74,7 @@ impl MarkdownLines {
                 self.current_spans.push(Span::styled(
                     prefix,
                     Style::default()
-                        .fg(Color::Yellow)
+                        .fg(self.ui.warning)
                         .add_modifier(Modifier::BOLD),
                 ));
             }
@@ -77,7 +85,7 @@ impl MarkdownLines {
             Tag::Item => {
                 self.flush();
                 self.current_spans
-                    .push(Span::styled("• ", Style::default().fg(Color::Cyan)));
+                    .push(Span::styled("• ", Style::default().fg(self.ui.accent)));
             }
             _ => {}
         }
@@ -87,7 +95,7 @@ impl MarkdownLines {
         match tag {
             TagEnd::Heading(_) => {
                 for span in &mut self.current_spans {
-                    span.style = span.style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
+                    span.style = span.style.fg(self.ui.warning).add_modifier(Modifier::BOLD);
                 }
                 self.flush();
                 self.lines.push(Line::from(""));
@@ -104,7 +112,7 @@ impl MarkdownLines {
         }
     }
 
-    /// Bold/italic as open; links blue and underlined, other text white.
+    /// Bold/italic as open; links underlined in the link color, other text strong.
     fn text_style(&self) -> Style {
         let mut style = Style::default();
         if self.bold {
@@ -114,9 +122,9 @@ impl MarkdownLines {
             style = style.add_modifier(Modifier::ITALIC);
         }
         if self.link {
-            style.fg(Color::Blue).add_modifier(Modifier::UNDERLINED)
+            style.fg(self.ui.link).add_modifier(Modifier::UNDERLINED)
         } else {
-            style.fg(Color::White)
+            style.fg(self.ui.strong)
         }
     }
 }

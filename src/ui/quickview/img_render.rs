@@ -3,7 +3,7 @@ use ratatui::{Frame, layout::Rect, widgets::Block};
 pub fn render_quick_view_image(
     f: &mut Frame,
     area: Rect,
-    img: &image::DynamicImage,
+    img: &std::sync::Arc<image::DynamicImage>,
     block: Block,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {

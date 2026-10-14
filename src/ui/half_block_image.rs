@@ -1,13 +1,16 @@
 //! Draws an image with Unicode half blocks (two pixels per cell), fitted to
 //! an area and centered (quick view and F3 viewer).
 
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView};
 use ratatui::{Frame, layout::Rect, style::Color};
+use std::cell::RefCell;
+use std::sync::{Arc, Weak};
 
 /// Draws `img` fitted whole inside `area` (so there is nothing to scroll).
 /// `bg` fills the lower half of the last row of odd-height images and shows
-/// through transparent pixels.
-pub fn draw(f: &mut Frame, area: Rect, img: &image::DynamicImage, bg: Color) {
+/// through transparent pixels. The cells are computed once per image, size
+/// and background (see [`cells`]), so redraws do not resize the image again.
+pub fn draw(f: &mut Frame, area: Rect, img: &Arc<DynamicImage>, bg: Color) {
     if area.width == 0 || area.height == 0 {
         return;
     }
@@ -17,35 +20,88 @@ pub fn draw(f: &mut Frame, area: Rect, img: &image::DynamicImage, bg: Color) {
         area.width as u32,
         area.height as u32 * 2,
     );
-    let resized = img.resize_exact(dw, dh, image::imageops::FilterType::Nearest);
-    let rows = (dh as usize).div_ceil(2);
+    let image = cells(img, (dw, dh), bg);
+    let rows = image.rows();
     let start_x = area.x + (area.width - dw as u16) / 2;
     let start_y = area.y + (area.height - rows as u16) / 2;
-    let rgb = |x: u32, y: u32| over(resized.get_pixel(x, y).0, bg);
 
     let buf = f.buffer_mut();
-    for row in 0..rows {
+    for (row, line) in image.cells.chunks(dw as usize).enumerate() {
         let y = start_y + row as u16;
-        for col in 0..dw {
+        for (col, &(symbol, fg, cell_bg)) in line.iter().enumerate() {
             let x = start_x + col as u16;
             if x >= area.x + area.width {
                 continue;
             }
-            let Some(cell) = buf.cell_mut((x, y)) else {
-                continue;
-            };
-            let top = rgb(col, 2 * row as u32);
-            if 2 * row + 1 < dh as usize {
-                cell.set_char('▄');
-                cell.set_fg(rgb(col, 2 * row as u32 + 1));
-                cell.set_bg(top);
-            } else {
-                cell.set_char('▀');
-                cell.set_fg(top);
-                cell.set_bg(bg);
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.set_char(symbol).set_fg(fg).set_bg(cell_bg);
             }
         }
     }
+}
+
+/// An image resized to `width` × `height` pixels as half-block cells (row by
+/// row: character, foreground, background).
+struct HalfBlocks {
+    width: u32,
+    cells: Vec<(char, Color, Color)>,
+}
+
+impl HalfBlocks {
+    fn rows(&self) -> usize {
+        self.cells.len() / self.width as usize
+    }
+
+    fn new(img: &DynamicImage, (dw, dh): (u32, u32), bg: Color) -> Self {
+        let resized = img.resize_exact(dw, dh, image::imageops::FilterType::Nearest);
+        let rgb = |x: u32, y: u32| over(resized.get_pixel(x, y).0, bg);
+        let rows = dh.div_ceil(2);
+        let mut cells = Vec::with_capacity((rows * dw) as usize);
+        for row in 0..rows {
+            for col in 0..dw {
+                let top = rgb(col, 2 * row);
+                cells.push(if 2 * row + 1 < dh {
+                    ('▄', rgb(col, 2 * row + 1), top)
+                } else {
+                    ('▀', top, bg)
+                });
+            }
+        }
+        Self { width: dw, cells }
+    }
+}
+
+/// Images whose cells were computed recently. A [`Weak`] keeps the
+/// allocation of the image alive, so its address cannot be reused by
+/// another image while the entry exists.
+type CacheEntry = (Weak<DynamicImage>, (u32, u32), Color, Arc<HalfBlocks>);
+
+/// Quick views of both panels, a plugin preview and the viewer can show
+/// pictures at the same time.
+const CACHED_IMAGES: usize = 4;
+
+thread_local! {
+    static CACHE: RefCell<Vec<CacheEntry>> = const { RefCell::new(Vec::new()) };
+}
+
+/// The cells of `img` at `size` over `bg`: from the cache, or computed and
+/// cached (most recent first; dropped images and the oldest entries go).
+fn cells(img: &Arc<DynamicImage>, size: (u32, u32), bg: Color) -> Arc<HalfBlocks> {
+    CACHE.with_borrow_mut(|cache| {
+        let id = Arc::downgrade(img);
+        cache.retain(|(image, ..)| image.strong_count() > 0);
+        let found = cache
+            .iter()
+            .position(|(image, s, b, _)| Weak::ptr_eq(image, &id) && *s == size && *b == bg);
+        let entry = match found {
+            Some(i) => cache.remove(i),
+            None => (id, size, bg, Arc::new(HalfBlocks::new(img, size, bg))),
+        };
+        let blocks = Arc::clone(&entry.3);
+        cache.insert(0, entry);
+        cache.truncate(CACHED_IMAGES);
+        blocks
+    })
 }
 
 /// `rgba` composited over `bg` (an RGB background; any other background
@@ -76,7 +132,32 @@ fn fit(img_w: u32, img_h: u32, max_w: u32, max_h: u32) -> (u32, u32) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Color, fit, over};
+    use super::{Color, cells, fit, over};
+    use std::sync::Arc;
+
+    fn picture(width: u32, height: u32) -> Arc<image::DynamicImage> {
+        Arc::new(image::DynamicImage::new_rgba8(width, height))
+    }
+
+    #[test]
+    fn redraws_reuse_the_resized_cells() {
+        let img = picture(8, 8);
+        let first = cells(&img, (4, 4), Color::Reset);
+        assert_eq!((first.width, first.rows()), (4, 2));
+        assert!(Arc::ptr_eq(&first, &cells(&img, (4, 4), Color::Reset)));
+        assert!(!Arc::ptr_eq(&first, &cells(&img, (2, 2), Color::Reset)));
+        assert!(!Arc::ptr_eq(&first, &cells(&img, (4, 4), Color::Black)));
+        let other = picture(8, 8);
+        assert!(!Arc::ptr_eq(&first, &cells(&other, (4, 4), Color::Reset)));
+    }
+
+    #[test]
+    fn odd_heights_end_in_an_upper_half_block() {
+        let blocks = cells(&picture(2, 3), (2, 3), Color::Blue);
+        let symbols: Vec<char> = blocks.cells.iter().map(|c| c.0).collect();
+        assert_eq!(symbols, ['▄', '▄', '▀', '▀']);
+        assert_eq!(blocks.cells[3].2, Color::Blue);
+    }
 
     #[test]
     fn transparent_pixels_show_the_background() {

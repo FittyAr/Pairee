@@ -8,7 +8,7 @@ use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     widgets::Paragraph,
 };
 
@@ -18,7 +18,7 @@ pub(super) fn render(f: &mut Frame, dialog: &SyncDialog, theme: &ResolvedTheme, 
         size,
         (72, 12),
         super::title(dialog.options.direction),
-        Style::default().fg(Color::Yellow),
+        Style::default().fg(theme.ui.warning),
         theme,
     );
     let mut constraints = vec![Constraint::Length(1); 6];

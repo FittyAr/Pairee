@@ -40,6 +40,20 @@ impl StatusKind {
             StatusKind::Conflicted => "!",
         }
     }
+
+    /// The kind whose [`Self::label`] is `label`.
+    pub fn from_label(label: &str) -> Option<Self> {
+        [
+            Self::Modified,
+            Self::Added,
+            Self::Deleted,
+            Self::Untracked,
+            Self::Renamed,
+            Self::Conflicted,
+        ]
+        .into_iter()
+        .find(|kind| kind.label() == label)
+    }
 }
 
 /// Reads all changed, staged and untracked files from the repository.

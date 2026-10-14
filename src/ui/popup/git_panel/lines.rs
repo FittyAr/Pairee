@@ -1,21 +1,9 @@
 use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::text_width::pad_to_width;
 use ratatui::{
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
 };
-
-pub fn status_color(kind: &crate::git::status::StatusKind) -> Color {
-    use crate::git::status::StatusKind;
-    match kind {
-        StatusKind::Modified => Color::Yellow,
-        StatusKind::Added => Color::Green,
-        StatusKind::Deleted => Color::Red,
-        StatusKind::Untracked => Color::Magenta,
-        StatusKind::Renamed => Color::Cyan,
-        StatusKind::Conflicted => Color::LightRed,
-    }
-}
 
 pub fn render_status_lines(
     entries: &[crate::git::status::GitFileStatus],
@@ -31,7 +19,7 @@ pub fn render_status_lines(
         .take(height)
         .map(|(i, entry)| {
             let is_cursor = i == cursor_idx;
-            let label_color = status_color(&entry.kind);
+            let label_color = theme.git_status(&entry.kind);
             let (bg, fg) = theme.row_colors(is_cursor);
             let stage_label = if entry.is_staged && entry.is_unstaged {
                 "[staged+] "
@@ -41,11 +29,11 @@ pub fn render_status_lines(
                 "          "
             };
             let stage_color = if entry.is_staged && entry.is_unstaged {
-                Color::Cyan
+                theme.ui.accent
             } else if entry.is_staged {
-                Color::Green
+                theme.ui.success
             } else {
-                Color::DarkGray
+                theme.ui.muted
             };
             Line::from(vec![
                 Span::styled(
@@ -84,17 +72,17 @@ pub fn render_log_lines(
                 Span::styled(
                     format!(" {} ", commit.hash_short.clone()),
                     Style::default()
-                        .fg(Color::Yellow)
+                        .fg(theme.ui.warning)
                         .bg(bg)
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     format!("{} ", commit.date.clone()),
-                    Style::default().fg(Color::Cyan).bg(bg),
+                    Style::default().fg(theme.ui.accent).bg(bg),
                 ),
                 Span::styled(
                     format!("{} ", pad_to_width(&commit.author, 20)),
-                    Style::default().fg(Color::Green).bg(bg),
+                    Style::default().fg(theme.ui.success).bg(bg),
                 ),
                 Span::styled(commit.message.clone(), Style::default().fg(fg).bg(bg)),
             ])
@@ -122,9 +110,9 @@ pub fn render_branch_lines(
                 theme.popup_bg
             };
             let name_color = if branch.is_remote {
-                Color::DarkGray
+                theme.ui.muted
             } else if branch.is_current {
-                Color::Green
+                theme.ui.success
             } else {
                 theme.popup_fg
             };
@@ -150,11 +138,11 @@ pub fn render_branch_lines(
             Line::from(vec![
                 Span::styled(
                     format!(" {}", prefix),
-                    Style::default().fg(Color::Yellow).bg(bg),
+                    Style::default().fg(theme.ui.warning).bg(bg),
                 ),
-                Span::styled(type_label, Style::default().fg(Color::DarkGray).bg(bg)),
+                Span::styled(type_label, Style::default().fg(theme.ui.muted).bg(bg)),
                 Span::styled(branch.name.clone(), Style::default().fg(name_color).bg(bg)),
-                Span::styled(sync_label, Style::default().fg(Color::Cyan).bg(bg)),
+                Span::styled(sync_label, Style::default().fg(theme.ui.accent).bg(bg)),
             ])
         })
         .collect()
@@ -184,13 +172,13 @@ pub fn render_stash_lines(
                 Span::styled(
                     format!(" stash@{{{}}} ", stash.index),
                     Style::default()
-                        .fg(Color::Yellow)
+                        .fg(theme.ui.warning)
                         .bg(bg)
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     format!("{} ", short_oid),
-                    Style::default().fg(Color::DarkGray).bg(bg),
+                    Style::default().fg(theme.ui.muted).bg(bg),
                 ),
                 Span::styled(stash.message.clone(), Style::default().fg(fg).bg(bg)),
             ])
@@ -223,13 +211,13 @@ pub fn render_tag_lines(
                 Span::styled(
                     format!("  {} ", tag.name),
                     Style::default()
-                        .fg(Color::Yellow)
+                        .fg(theme.ui.warning)
                         .bg(bg)
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     format!("[{}] ", short_oid),
-                    Style::default().fg(Color::DarkGray).bg(bg),
+                    Style::default().fg(theme.ui.muted).bg(bg),
                 ),
                 Span::styled(msg.to_string(), Style::default().fg(fg).bg(bg)),
             ])

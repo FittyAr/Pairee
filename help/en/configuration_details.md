@@ -249,7 +249,7 @@ The built-in definitions are in the [`syntax`](https://github.com/FittyAr/Pairee
 
 ### Theme Configuration
 * **Theme:** Apply color profiles (Slate, Blue, High Contrast).
-* **Color groups / Highlighting:** Edit specific color values for UI components and customized file extensions. The `syntax_*` groups (comment, string, keyword, constant, function, type_name, operator, tag) color the syntax highlighting of the editor and viewer; in a theme file they are the `[syntax]` table, and a theme without it uses the default colors.
+* **Color groups / Highlighting:** Edit specific color values for UI components and customized file extensions. The `syntax_*` groups (comment, string, keyword, constant, function, type_name, operator, tag) color the syntax highlighting of the editor and viewer; in a theme file they are the `[syntax]` table, and a theme without it uses the default colors. The `ui_*` groups are the semantic colors of dialogs, status labels and progress bars (the `[ui]` table of a theme file; missing entries keep their defaults): `accent` (informational dialogs, progress bars), `accent_alt`, `warning` (confirmations, key hints, hotkeys), `warning_alt`, `danger` (destructive dialogs, deleted files, cancelled jobs), `error` (error messages, conflicts, failed jobs), `success`, `success_alt` (completed jobs), `muted` (hints, separators, inactive items and the menu and key bar backgrounds), `secondary` (details and logs), `info` (folders in lists), `link`, `special` (untracked files, code in help pages), `strong` (emphasized text), `badge_fg` (text on colored labels) and `alert_bg` (the file conflict dialog of transfers).
 
 ---
 

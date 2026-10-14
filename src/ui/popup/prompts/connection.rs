@@ -11,7 +11,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
@@ -30,7 +30,7 @@ impl DialogView for ConnectionPromptState {
         f.render_widget(Clear, area);
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
+            .border_style(Style::default().fg(theme.ui.accent))
             .title(t("prompt_conn_title"))
             .style(Style::default().bg(theme.popup_bg));
         let inner = block.inner(area);
@@ -55,7 +55,7 @@ impl DialogView for ConnectionPromptState {
 
         let styles = kit::FocusStyles::from_theme(theme);
         let form = kit::mouse::FormFocus::new(FORM, self.cursor_idx);
-        let list = List::new(list_items(self, saved, styles))
+        let list = List::new(list_items(self, saved, styles, theme))
             .block(Block::default().title(format!(" {} ", t("prompt_conn_list_title").trim())))
             .style(Style::default().bg(theme.popup_bg));
         f.render_widget(list, list_area);
@@ -64,13 +64,13 @@ impl DialogView for ConnectionPromptState {
         let bar = ratatui::symbols::line::VERTICAL;
         for y in bar_area.y..bar_area.bottom() {
             f.render_widget(
-                Paragraph::new(bar).style(Style::default().fg(Color::Cyan)),
+                Paragraph::new(bar).style(Style::default().fg(theme.ui.accent)),
                 Rect::new(bar_area.x, y, 1, 1),
             );
         }
-        render_fields(f, fields_area, self, styles, form);
+        render_fields(f, fields_area, self, (styles, form), theme);
         f.render_widget(
-            kit::separator(inner.width, Style::default().fg(Color::Cyan)),
+            kit::separator(inner.width, Style::default().fg(theme.ui.accent)),
             sep_area,
         );
         let buttons = [
@@ -119,12 +119,13 @@ fn list_items(
     prompt: &ConnectionPromptState,
     saved: &[Connection],
     styles: kit::FocusStyles,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) -> Vec<ListItem<'static>> {
     if saved.is_empty() {
         let none = format!(" {} ", t("prompt_conn_none"));
         return vec![ListItem::new(Line::from(Span::styled(
             none,
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(theme.ui.muted),
         )))];
     }
     let list_focused = prompt.cursor_idx == ConnectionPromptState::ROW_LIST;
@@ -135,7 +136,7 @@ fn list_items(
             let current = Some(i) == prompt.selected_idx;
             let style = match (current, list_focused) {
                 (true, true) => styles.active,
-                (true, false) => Style::default().bg(Color::DarkGray).fg(Color::White),
+                (true, false) => Style::default().bg(theme.ui.muted).fg(theme.ui.strong),
                 _ => styles.normal,
             };
             let text = format!(" {} ({}) ", c.name, t(c.kind.label_key()));
@@ -149,12 +150,12 @@ fn render_fields(
     f: &mut Frame,
     area: Rect,
     prompt: &ConnectionPromptState,
-    styles: kit::FocusStyles,
-    form: kit::mouse::FormFocus,
+    (styles, form): (kit::FocusStyles, kit::mouse::FormFocus),
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
     f.render_widget(
         Paragraph::new(format!(" {}", t("prompt_conn_details_title")))
-            .style(Style::default().fg(Color::Yellow)),
+            .style(Style::default().fg(theme.ui.warning)),
         Rect::new(area.x, area.y, area.width, 1),
     );
     for (field, y) in ConnectionField::ALL

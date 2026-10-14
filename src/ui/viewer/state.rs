@@ -27,7 +27,7 @@ pub struct ViewerState {
     /// The content, paged from disk (text and hex modes).
     pub doc: TextDocument,
     /// Loaded image data if applicable.
-    pub image_data: Option<image::DynamicImage>,
+    pub image_data: Option<std::sync::Arc<image::DynamicImage>>,
     pub is_image: bool,
     pub is_text: bool,
     pub mode: ViewerMode,
@@ -108,7 +108,8 @@ impl ViewerState {
         let detected = text::detect(&sample, sample.len() as u64 >= size, policy);
         let image_data = (allow_image && size <= VIEWER_MAX_BYTES && is_image_extension(&path))
             .then(|| decode_image(&path, store.read_range(0, size).ok()?))
-            .flatten();
+            .flatten()
+            .map(std::sync::Arc::new);
         let (doc, job) = TextDocument::new(store, detected.encoding, detected.bom_len);
         spawn_index(job);
         let is_text = !detected.binary;

@@ -2,7 +2,7 @@ use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, Paragraph},
 };
@@ -13,8 +13,7 @@ pub fn render_controls(
     cursor_idx: usize,
     install_progress: Option<&f32>,
     error: Option<&String>,
-    theme_popup_fg: Color,
-    theme_popup_bg: Color,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
     let method = crate::update::detect::detect_install_method();
     let is_managed = method.is_managed();
@@ -40,11 +39,11 @@ pub fn render_controls(
         let is_selected = cursor_idx == *idx;
         let btn_style = if is_selected {
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Cyan)
+                .fg(theme.ui.badge_fg)
+                .bg(theme.ui.accent)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(theme_popup_fg).bg(theme_popup_bg)
+            Style::default().fg(theme.popup_fg).bg(theme.popup_bg)
         };
         let btn_text = if is_selected {
             format!("[ {} ]", label)
@@ -76,7 +75,7 @@ pub fn render_controls(
                 t("update_downloading").replacen("{}", &format!("{:.0}", progress * 100.0), 1);
             let gauge = Gauge::default()
                 .block(Block::default().borders(Borders::NONE))
-                .gauge_style(Style::default().fg(Color::Cyan).bg(Color::DarkGray))
+                .gauge_style(Style::default().fg(theme.ui.accent).bg(theme.ui.muted))
                 .ratio((*progress as f64).clamp(0.0, 1.0))
                 .label(label);
             f.render_widget(gauge, gauge_area);
@@ -94,7 +93,7 @@ pub fn render_controls(
             f.render_widget(
                 Paragraph::new(Line::from(Span::styled(
                     format!(" ⚠ {}", short_err),
-                    Style::default().fg(Color::Red),
+                    Style::default().fg(theme.ui.danger),
                 ))),
                 err_area,
             );

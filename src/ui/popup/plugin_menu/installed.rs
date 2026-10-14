@@ -5,7 +5,7 @@ use crate::config::localization::t;
 use crate::plugin::installed::InstalledPlugin;
 use ratatui::{
     Frame,
-    style::{Color, Modifier as StyleModifier, Style},
+    style::{Modifier as StyleModifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem},
 };
@@ -24,7 +24,7 @@ pub fn render_installed(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
     let list_items = if loading {
         vec![ListItem::new(Line::from(vec![Span::styled(
             format!("  {} {}", spinner_frame(), menu.installed_loading_status),
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(pane.theme.ui.warning),
         )]))]
     } else {
         installed
@@ -48,7 +48,7 @@ pub fn render_installed(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
         Some(plugin) => plugin_details(pane, plugin),
         None if installed.is_empty() => vec![Line::from(Span::styled(
             t("plugin_no_selected"),
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(pane.theme.ui.muted),
         ))],
         None => Vec::new(),
     };
@@ -94,7 +94,7 @@ fn render_loading(f: &mut Frame, pane: &Pane, loading_status: &str) {
     f.render_widget(gauge, pane.detail_area);
     let status_line = Line::from(Span::styled(
         format!("{} {}", spinner_frame(), status),
-        Style::default().fg(Color::Yellow),
+        Style::default().fg(pane.theme.ui.warning),
     ));
     render_details(f, pane, vec![status_line]);
 }
@@ -183,11 +183,12 @@ fn plugin_details(pane: &Pane, plugin: &InstalledPlugin) -> Vec<Line<'static>> {
             Line::from(vec![
                 Span::styled(
                     t("plugin_detail_update_avail"),
-                    text.add_modifier(StyleModifier::BOLD).fg(Color::Yellow),
+                    text.add_modifier(StyleModifier::BOLD)
+                        .fg(pane.theme.ui.warning),
                 ),
                 Span::styled(
                     format!("v{}{}", new_ver, t("plugin_detail_press_update")),
-                    text.fg(Color::Yellow),
+                    text.fg(pane.theme.ui.warning),
                 ),
             ])
         }

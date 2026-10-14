@@ -5,7 +5,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -17,7 +17,7 @@ impl DialogView for InfoPanel {
 
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
+            .border_style(Style::default().fg(cx.theme.ui.accent))
             .title(t("info_panel_title"))
             .style(Style::default().bg(cx.theme.popup_bg));
 

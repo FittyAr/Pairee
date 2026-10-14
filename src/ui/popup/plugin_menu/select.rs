@@ -3,7 +3,7 @@ use crate::config::localization::t;
 use crate::ui::popup::kit::{ListPopup, Scroll, list_area};
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::scrollbar::ScrollTargetId;
-use ratatui::{Frame, style::Color};
+use ratatui::Frame;
 
 impl DialogView for SelectDevPlugin {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
@@ -22,7 +22,7 @@ impl DialogView for SelectDevPlugin {
             // Two extra columns for the scrollbar.
             area: list_area(size, width.max(30) + 2, options.len(), 15),
             title: t("dev_plugin_select_title"),
-            border: Color::Yellow,
+            border: theme.ui.warning,
             empty: None,
             header: Vec::new(),
             rows: options

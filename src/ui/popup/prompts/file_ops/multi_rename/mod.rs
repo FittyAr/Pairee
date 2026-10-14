@@ -11,7 +11,7 @@ use crate::ui::scrollbar::ScrollbarUiState;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     widgets::Paragraph,
 };
 
@@ -36,7 +36,7 @@ fn render(
     if dialog.running {
         title.push_str(&t("multi_rename_running"));
     }
-    let inner = kit::frame_in(f, area, title, kit::fg(Color::Cyan), theme);
+    let inner = kit::frame_in(f, area, title, kit::fg(theme.ui.accent), theme);
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -53,7 +53,7 @@ fn render(
         .split(inner);
     let styles = kit::FocusStyles::from_theme(theme);
 
-    f.render_widget(summary(dialog, styles.normal), rows[0]);
+    f.render_widget(summary(dialog, styles.normal, theme), rows[0]);
     render_fields(
         f,
         dialog,
@@ -80,14 +80,17 @@ fn render(
             RenameField::CounterDigits,
         ],
     );
-    f.render_widget(kit::separator(inner.width, kit::fg(Color::Cyan)), rows[5]);
+    f.render_widget(
+        kit::separator(inner.width, kit::fg(theme.ui.accent)),
+        rows[5],
+    );
     preview::render(f, dialog, theme, rows[6], scrollbar);
-    f.render_widget(kit::hint(t("multi_rename_placeholders")), rows[7]);
+    f.render_widget(kit::hint(t("multi_rename_placeholders"), theme), rows[7]);
     let rename_style = if dialog.can_run() {
         styles
     } else {
         kit::FocusStyles {
-            normal: kit::fg(Color::DarkGray),
+            normal: kit::fg(theme.ui.muted),
             ..styles
         }
     };
@@ -101,11 +104,11 @@ fn render(
 }
 
 /// "N files, M to rename, K conflicts", or the regex error in red.
-fn summary(dialog: &Dialog, normal: Style) -> Paragraph<'static> {
+fn summary(dialog: &Dialog, normal: Style, theme: &ResolvedTheme) -> Paragraph<'static> {
     if let Some(error) = &dialog.error {
         let text =
             t("multi_rename_regex_error").replacen("{}", error.lines().last().unwrap_or(""), 1);
-        return Paragraph::new(format!(" {text}")).style(kit::fg(Color::LightRed));
+        return Paragraph::new(format!(" {text}")).style(kit::fg(theme.ui.error));
     }
     let preview = &dialog.preview;
     let text = t("multi_rename_summary")
@@ -113,7 +116,7 @@ fn summary(dialog: &Dialog, normal: Style) -> Paragraph<'static> {
         .replacen("{}", &preview.changes().to_string(), 1)
         .replacen("{}", &preview.conflicts().to_string(), 1);
     let style = if preview.conflicts() > 0 {
-        kit::fg(Color::LightRed)
+        kit::fg(theme.ui.error)
     } else {
         normal
     };

@@ -11,7 +11,7 @@ use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Text},
 };
 
@@ -31,7 +31,7 @@ pub(super) fn render(
     let rows = review
         .visible()
         .into_iter()
-        .map(|idx| row(&review.items[idx]))
+        .map(|idx| row(&review.items[idx], theme))
         .collect();
     let header = vec![
         Line::from(summary_text(&summary)),
@@ -47,7 +47,7 @@ pub(super) fn render(
     ListPopup {
         area: centered_rect_in(90, 80, size),
         title: super::title(dialog.options.direction),
-        border: Color::Yellow,
+        border: theme.ui.warning,
         empty: Some(t("sync_no_differences")),
         header,
         rows,
@@ -62,12 +62,12 @@ pub(super) fn render(
     }
 }
 
-fn row(item: &SyncItem) -> (String, Style) {
+fn row(item: &SyncItem, theme: &ResolvedTheme) -> (String, Style) {
     let color = match item.action {
-        SyncAction::CopyToRight => Color::LightGreen,
-        SyncAction::CopyToLeft => Color::LightCyan,
-        SyncAction::DeleteLeft | SyncAction::DeleteRight => Color::LightRed,
-        SyncAction::Skip => Color::DarkGray,
+        SyncAction::CopyToRight => theme.ui.success_alt,
+        SyncAction::CopyToLeft => theme.ui.accent_alt,
+        SyncAction::DeleteLeft | SyncAction::DeleteRight => theme.ui.error,
+        SyncAction::Skip => theme.ui.muted,
     };
     let size = item.left_bytes.max(item.right_bytes);
     let mut path = item.rel_path.display().to_string();
@@ -104,7 +104,7 @@ fn render_confirm(f: &mut Frame, s: &SyncSummary, theme: &ResolvedTheme, size: R
     TextBox {
         size: (60, 7),
         title: t("sync_confirm_title"),
-        border: Style::default().fg(Color::LightRed),
+        border: Style::default().fg(theme.ui.error),
         body: Text::from(vec![
             Line::from(""),
             Line::from(question),

@@ -9,7 +9,7 @@ use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::text_width::display_width;
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Clear, Paragraph};
 
 pub fn render(f: &mut Frame, state: &AppState, theme: &ResolvedTheme) {
@@ -44,7 +44,7 @@ pub fn render(f: &mut Frame, state: &AppState, theme: &ResolvedTheme) {
         Some(Drop::CommandLine) => (format!(" {what} → {} ", t("drag_command_line")), selected),
         None => (
             format!(" {what} "),
-            Style::default().bg(Color::DarkGray).fg(Color::White),
+            Style::default().bg(theme.ui.muted).fg(theme.ui.strong),
         ),
     };
     let screen = f.area();

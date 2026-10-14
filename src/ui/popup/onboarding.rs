@@ -6,7 +6,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Text},
     widgets::{Paragraph, Wrap},
 };
@@ -29,7 +29,7 @@ impl DialogView for OnboardingKeymap {
             size,
             (66, 4 + 3 * preset_ids().len() as u16 + 2),
             t("onboarding_title"),
-            crate::ui::popup::kit::fg(Color::Cyan),
+            crate::ui::popup::kit::fg(theme.ui.accent),
             theme,
         );
 
@@ -80,7 +80,7 @@ impl DialogView for OnboardingKeymap {
         }
 
         f.render_widget(
-            Paragraph::new(t("onboarding_hint")).style(Style::default().fg(Color::DarkGray)),
+            Paragraph::new(t("onboarding_hint")).style(Style::default().fg(theme.ui.muted)),
             chunks[ids.len() + 1],
         );
     }

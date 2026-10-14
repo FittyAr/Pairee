@@ -1,6 +1,6 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Gauge, Paragraph};
 
 use crate::app::state::TransferUIState;
@@ -15,6 +15,7 @@ pub(crate) fn render_header(
     ts: &TransferUIState,
     prog: Option<&TransferProgress>,
     job: &crate::fs::transfer::job::TransferJob,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -33,7 +34,7 @@ pub(crate) fn render_header(
         _ => t("transfer_job_status").replace("{}", &labels::status(job)),
     };
     f.render_widget(
-        Paragraph::new(file_text).style(Style::default().fg(Color::White)),
+        Paragraph::new(file_text).style(Style::default().fg(theme.ui.strong)),
         chunks[0],
     );
 
@@ -65,20 +66,20 @@ pub(crate) fn render_header(
         .gauge_style(
             Style::default()
                 .fg(match job.status {
-                    TransferJobStatus::Completed => Color::LightGreen,
-                    TransferJobStatus::Cancelled => Color::Red,
-                    TransferJobStatus::Failed => Color::LightRed,
-                    TransferJobStatus::Paused => Color::Yellow,
-                    _ => Color::Green,
+                    // A running bar is green whatever the stage.
+                    TransferJobStatus::Queued
+                    | TransferJobStatus::Scanning
+                    | TransferJobStatus::Verifying => theme.ui.success,
+                    status => crate::ui::transfer::status_color(theme, status),
                 })
-                .bg(Color::DarkGray)
+                .bg(theme.ui.muted)
                 .add_modifier(Modifier::BOLD),
         );
     f.render_widget(gauge, gauge_chunk[0]);
 
     let info_text = format!(" {}/s | {} ", speed_formatted, eta_text);
     f.render_widget(
-        Paragraph::new(info_text).style(Style::default().fg(Color::Yellow)),
+        Paragraph::new(info_text).style(Style::default().fg(theme.ui.warning)),
         gauge_chunk[1],
     );
 }
@@ -86,18 +87,18 @@ pub(crate) fn render_header(
 pub(crate) fn render_footer(
     f: &mut Frame,
     area: Rect,
-    _job: &crate::fs::transfer::job::TransferJob,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
     let p = Paragraph::new(t("transfer_footer_keys"))
         .block(
             ratatui::widgets::Block::default()
                 .borders(ratatui::widgets::Borders::ALL)
                 .border_type(ratatui::widgets::BorderType::Rounded)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(Style::default().fg(theme.ui.muted)),
         )
         .style(
             Style::default()
-                .fg(Color::Cyan)
+                .fg(theme.ui.accent)
                 .add_modifier(Modifier::BOLD),
         );
     f.render_widget(p, area);

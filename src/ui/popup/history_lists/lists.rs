@@ -4,7 +4,7 @@ use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::scrollbar::ScrollTargetId;
-use ratatui::{Frame, style::Color};
+use ratatui::Frame;
 
 /// Title, empty-list text and hint of each history list.
 const COMMAND_KEYS: [&str; 3] = [
@@ -43,7 +43,7 @@ fn history_list(
     ListPopup {
         area: centered_rect_in(kind.width, 50, cx.area),
         title: t(title),
-        border: Color::Cyan,
+        border: cx.theme.ui.accent,
         empty: Some(t(empty)),
         header: Vec::new(),
         rows: entries

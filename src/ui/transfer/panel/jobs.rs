@@ -1,6 +1,6 @@
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem};
 
 use crate::app::state::TransferUIState;
@@ -20,11 +20,11 @@ pub(crate) fn render_jobs_sidebar(
     let mut list_items = Vec::new();
     let selected_job = jobs.get(ts.queue_cursor);
     let (sel_bg, sel_fg) = match selected_job.map(|j| &j.status) {
-        Some(TransferJobStatus::Cancelled) => (Color::Red, Color::White),
-        Some(TransferJobStatus::Failed) => (Color::LightRed, Color::White),
-        Some(TransferJobStatus::Paused) => (Color::Yellow, Color::Black),
-        Some(TransferJobStatus::Completed) => (Color::Green, Color::Black),
-        _ => (Color::Cyan, Color::Black),
+        Some(TransferJobStatus::Cancelled) => (theme.ui.danger, theme.ui.strong),
+        Some(TransferJobStatus::Failed) => (theme.ui.error, theme.ui.strong),
+        Some(TransferJobStatus::Paused) => (theme.ui.warning, theme.ui.badge_fg),
+        Some(TransferJobStatus::Completed) => (theme.ui.success, theme.ui.badge_fg),
+        _ => (theme.ui.accent, theme.ui.badge_fg),
     };
 
     for (idx, job) in jobs.iter().enumerate() {
@@ -32,16 +32,7 @@ pub(crate) fn render_jobs_sidebar(
 
         let op_name = crate::ui::transfer::labels::operation(job.operation);
         let status_str = crate::ui::transfer::labels::status(job);
-        let color = match job.status {
-            TransferJobStatus::Queued => Color::Gray,
-            TransferJobStatus::Scanning => Color::Cyan,
-            TransferJobStatus::Transferring => Color::Green,
-            TransferJobStatus::Verifying => Color::LightBlue,
-            TransferJobStatus::Paused => Color::Yellow,
-            TransferJobStatus::Completed => Color::LightGreen,
-            TransferJobStatus::Failed => Color::LightRed,
-            TransferJobStatus::Cancelled => Color::Red,
-        };
+        let color = crate::ui::transfer::status_color(theme, job.status);
 
         let title_line = format!("#{} {} - {}", idx + 1, op_name, status_str);
         let dest_str = t("transfer_job_dest").replace(
@@ -67,7 +58,7 @@ pub(crate) fn render_jobs_sidebar(
                 if is_selected {
                     Style::default().fg(sel_fg).bg(sel_bg)
                 } else {
-                    Style::default().fg(Color::DarkGray)
+                    Style::default().fg(theme.ui.muted)
                 },
             )),
             ratatui::text::Line::from(""),
@@ -86,7 +77,7 @@ pub(crate) fn render_jobs_sidebar(
                 .borders(Borders::ALL)
                 .title(t("transfer_jobs_title"))
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(Style::default().fg(theme.ui.muted)),
         )
         .highlight_style(Style::default().bg(sel_bg).fg(sel_fg));
 

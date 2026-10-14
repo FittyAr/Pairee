@@ -4,7 +4,7 @@ use crate::config::localization::t;
 use crate::ui::text_width::fit_to_width;
 use ratatui::{
     Frame,
-    style::{Color, Modifier as StyleModifier, Style},
+    style::{Modifier as StyleModifier, Style},
     text::{Line, Span},
     widgets::{List, ListItem},
 };
@@ -47,11 +47,11 @@ impl Columns {
 }
 
 pub fn render_search(f: &mut Frame, pane: &Pane, menu: &crate::app::state::PluginMenuState) {
-    let dim_style = Style::default().fg(Color::DarkGray);
+    let dim_style = Style::default().fg(pane.theme.ui.muted);
     let list_items = if menu.is_searching {
         vec![ListItem::new(Line::from(vec![Span::styled(
             t("plugin_search_searching"),
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(pane.theme.ui.warning),
         )]))]
     } else if menu.registry.is_empty() {
         vec![ListItem::new(Line::from(vec![Span::styled(
@@ -66,7 +66,7 @@ pub fn render_search(f: &mut Frame, pane: &Pane, menu: &crate::app::state::Plugi
     let (list_title, border_style) = if menu.editing_query {
         (
             format!("{} [{}]", t("plugin_title"), t("plugin_search_typing")),
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(pane.theme.ui.warning),
         )
     } else {
         (t("plugin_title"), pane.border_style)
@@ -146,7 +146,7 @@ fn registry_page(
     registry: &[RegistryEntry],
     cursor_idx: usize,
 ) -> Vec<ListItem<'static>> {
-    let dim_style = Style::default().fg(Color::DarkGray);
+    let dim_style = Style::default().fg(pane.theme.ui.muted);
     // Usable inner width (subtract 2 for borders, 1 leading space)
     let inner_w = (pane.list_area.width as usize).saturating_sub(3);
     let columns = Columns::for_width(inner_w);
