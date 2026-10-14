@@ -63,11 +63,36 @@ pub fn cycle_action(state: &mut AppState, action: &Action, context: &AppContext)
     true
 }
 
+/// The order a "sort by" action picks. Creation and access times, owners
+/// and descriptions are not listed, so those sort by write time / name.
+fn sort_field_for(action: &Action) -> Option<crate::app::state::SortField> {
+    use crate::app::state::SortField;
+    Some(match action {
+        Action::SortByName | Action::SortByDescription | Action::SortByOwner => SortField::Name,
+        Action::SortByExtension => SortField::Extension,
+        Action::SortByWriteTime | Action::SortByCreationTime | Action::SortByAccessTime => {
+            SortField::Date
+        }
+        Action::SortBySize => SortField::Size,
+        Action::SortUnsorted => SortField::Unsorted,
+        _ => return None,
+    })
+}
+
 pub fn handle_view_sort_action(
     state: &mut AppState,
     action: &Action,
     context: &mut AppContext,
 ) -> bool {
+    if let Some(field) = sort_field_for(action) {
+        state.get_active_panel_mut().sort_field = field;
+        state.refresh_panel(
+            state.panels.active,
+            context.config.settings.show_hidden,
+            true,
+        );
+        return true;
+    }
     match action {
         Action::PanelViewBrief
         | Action::PanelViewMedium
@@ -121,40 +146,16 @@ pub fn handle_view_sort_action(
             });
             true
         }
+        // Only the active panel's order changes: the other one (maybe on a
+        // server) is not read again.
         Action::ToggleSortReverse => {
-            let current = state.get_active_panel().sort_reverse;
-            state.get_active_panel_mut().sort_reverse = !current;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortByName => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Name;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortByExtension => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Extension;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortByWriteTime | Action::SortByCreationTime | Action::SortByAccessTime => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Date;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortBySize => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Size;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortUnsorted => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Unsorted;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortByDescription | Action::SortByOwner => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Name;
-            state.refresh_both_panels(context.config.settings.show_hidden);
+            let panel = state.get_active_panel_mut();
+            panel.sort_reverse = !panel.sort_reverse;
+            state.refresh_panel(
+                state.panels.active,
+                context.config.settings.show_hidden,
+                true,
+            );
             true
         }
         Action::CompareFolder => {

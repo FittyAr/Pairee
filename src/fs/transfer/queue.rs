@@ -132,6 +132,20 @@ impl TransferQueue {
         self.changed.notify_one();
     }
 
+    /// Whether a job is running (checked without copying the jobs).
+    pub fn has_active(&self) -> bool {
+        self.jobs.lock_safe().iter().any(TransferJob::is_active)
+    }
+
+    /// Number of listed jobs.
+    pub fn len(&self) -> usize {
+        self.jobs.lock_safe().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Drops the oldest log lines of every job so each keeps at most `keep`
     /// (in place: no job is copied).
     pub fn trim_logs(&self, keep: usize) {

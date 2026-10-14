@@ -44,7 +44,7 @@ pub fn handle_navigation(transfer: &mut TransferUIState, code: KeyCode) -> bool 
             true
         }
         KeyCode::Down => {
-            let max_idx = transfer.engine.queue.get_all().len().saturating_sub(1);
+            let max_idx = transfer.engine.queue.len().saturating_sub(1);
             if transfer.queue_cursor < max_idx {
                 transfer.queue_cursor += 1;
             }
