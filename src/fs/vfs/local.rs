@@ -78,13 +78,24 @@ impl Vfs for LocalVfs {
     }
 
     fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
-        Ok(fs::read_dir(dir)?
-            .flatten()
-            .map(|entry| {
-                let name = entry.file_name().to_string_lossy().into_owned();
-                local_entry(name, entry.path(), entry.metadata().ok())
-            })
-            .collect())
+        self.list_reporting(dir).map(|(entries, _)| entries)
+    }
+
+    fn list_reporting(&self, dir: &Path) -> io::Result<(Vec<VfsEntry>, Option<io::Error>)> {
+        let mut entries = Vec::new();
+        let mut skipped = None;
+        for entry in fs::read_dir(dir)? {
+            match entry {
+                Ok(entry) => {
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    entries.push(local_entry(name, entry.path(), entry.metadata().ok()));
+                }
+                Err(e) => {
+                    skipped.get_or_insert(e);
+                }
+            }
+        }
+        Ok((entries, skipped))
     }
 
     fn stat(&self, path: &Path) -> io::Result<VfsEntry> {

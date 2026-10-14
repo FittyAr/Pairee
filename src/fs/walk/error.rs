@@ -14,6 +14,12 @@ pub enum WalkError {
         path: PathBuf,
         source: std::io::Error,
     },
+    /// A folder was listed, but some of its entries could not be read
+    /// (the others are still walked).
+    Incomplete {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     /// A followed link leads back to a folder being walked.
     Cycle { path: PathBuf },
     /// The folder is deeper than the walk allows.
@@ -25,7 +31,10 @@ impl WalkError {
     pub fn path(&self) -> Option<&Path> {
         match self {
             Self::Cancelled => None,
-            Self::Io { path, .. } | Self::Cycle { path } | Self::TooDeep { path } => Some(path),
+            Self::Io { path, .. }
+            | Self::Incomplete { path, .. }
+            | Self::Cycle { path }
+            | Self::TooDeep { path } => Some(path),
         }
     }
 
@@ -42,6 +51,9 @@ impl std::fmt::Display for WalkError {
             Self::Io { path, source } => {
                 with_path("walk_error_unreadable", path).replacen("{}", &source.to_string(), 1)
             }
+            Self::Incomplete { path, source } => {
+                with_path("walk_error_incomplete", path).replacen("{}", &source.to_string(), 1)
+            }
             Self::Cycle { path } => with_path("walk_error_cycle", path),
             Self::TooDeep { path } => with_path("walk_error_too_deep", path),
         };
@@ -52,7 +64,7 @@ impl std::fmt::Display for WalkError {
 impl std::error::Error for WalkError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Io { source, .. } => Some(source),
+            Self::Io { source, .. } | Self::Incomplete { source, .. } => Some(source),
             _ => None,
         }
     }
@@ -61,7 +73,7 @@ impl std::error::Error for WalkError {
 impl From<WalkError> for std::io::Error {
     fn from(e: WalkError) -> Self {
         let kind = match &e {
-            WalkError::Io { source, .. } => source.kind(),
+            WalkError::Io { source, .. } | WalkError::Incomplete { source, .. } => source.kind(),
             WalkError::Cancelled => std::io::ErrorKind::Interrupted,
             _ => std::io::ErrorKind::Other,
         };

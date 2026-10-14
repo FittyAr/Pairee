@@ -184,16 +184,26 @@ impl<'a, V: Vfs + ?Sized> Walker<'a, V> {
         let Some(dir) = self.pending.take() else {
             return Ok(());
         };
-        let entries = self.vfs.list(&dir.path).map_err(|source| WalkError::Io {
-            path: dir.path.clone(),
-            source,
-        })?;
+        let (entries, skipped) =
+            self.vfs
+                .list_reporting(&dir.path)
+                .map_err(|source| WalkError::Io {
+                    path: dir.path.clone(),
+                    source,
+                })?;
         self.stack.push(Frame {
             entries: entries.into_iter(),
             depth: dir.depth,
             identity: dir.identity,
         });
-        Ok(())
+        // The entries that could be read are still walked.
+        match skipped {
+            Some(source) => Err(WalkError::Incomplete {
+                path: dir.path,
+                source,
+            }),
+            None => Ok(()),
+        }
     }
 
     /// What to return for `entry` found at `depth` (`None`: left out).
