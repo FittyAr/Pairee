@@ -47,9 +47,8 @@ pub fn installed_rows(
                 enabled: plugins.get(name).is_none_or(|p| p.enabled),
                 secure_mode,
                 update_available: index
-                    .and_then(|idx| idx.plugins.get(name))
-                    .filter(|reg| reg.version != info.version)
-                    .map(|reg| reg.version.clone()),
+                    .and_then(|idx| idx.update_for(name, &info.version))
+                    .map(str::to_string),
                 commands: manifest
                     .as_ref()
                     .map(|m| m.permissions.commands.clone())
@@ -109,6 +108,13 @@ mod tests {
         assert!(rows[0].trusted && rows[0].pinned && rows[0].secure_mode);
         assert!(!rows[0].enabled);
         assert_eq!(rows[0].update_available.as_deref(), Some("1.1.0"));
+        // No badge offering a downgrade.
+        lock.plugins
+            .get_mut("zz-demo-not-installed")
+            .unwrap()
+            .version = "2.0.0".into();
+        let rows = installed_rows(&lock, &plugins, true, Some(&index));
+        assert_eq!(rows[0].update_available, None);
         assert!(rows[0].commands.is_empty());
         assert_eq!(rows[0].settings, 0);
     }

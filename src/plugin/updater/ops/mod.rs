@@ -6,6 +6,7 @@ mod install_guard;
 pub mod manage;
 pub mod query;
 
+pub(crate) use files::{replace_dir, staging_dir};
 pub use install::install;
 pub use install_guard::is_identifier;
 #[cfg(test)]

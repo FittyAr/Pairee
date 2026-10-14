@@ -98,7 +98,9 @@ fn update_detection_compares_against_registry_version() {
     assert_eq!(index.update_for("git-status", "1.2.0"), None);
     // A lower registry version (a replayed old index) is not offered.
     assert_eq!(index.update_for("git-status", "9.0.0"), None);
-    assert_eq!(index.update_for("git-status", "dev"), Some("1.2.0"));
+    // An unreadable installed version cannot be ruled out as a downgrade.
+    assert_eq!(index.update_for("git-status", "dev"), None);
+    assert_eq!(index.update_for("git-status", "1.1"), Some("1.2.0"));
     assert_eq!(index.update_for("not-in-registry", "1.0.0"), None);
 }
 
@@ -144,7 +146,7 @@ fn lockfile_round_trips_through_disk() {
     plugins.insert("minimal".to_string(), pinned("0.1.0", false, &[]));
     write_lockfile_to(&path, &PluginsLock { plugins }).unwrap();
 
-    let lock = read_lockfile_from(&path);
+    let lock = read_lockfile_from(&path).unwrap();
     assert_eq!(lock.plugins.len(), 2);
     let gs = &lock.plugins["git-status"];
     assert_eq!(gs.version, "1.2.0");
@@ -154,13 +156,27 @@ fn lockfile_round_trips_through_disk() {
 }
 
 #[test]
-fn lockfile_missing_or_corrupt_reads_as_empty() {
+fn lockfile_missing_is_empty_but_corrupt_is_an_error() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("plugins.lock");
-    assert!(read_lockfile_from(&path).plugins.is_empty());
+    assert!(read_lockfile_from(&path).unwrap().plugins.is_empty());
 
     std::fs::write(&path, "plugins = 3").unwrap();
-    assert!(read_lockfile_from(&path).plugins.is_empty());
+    let err = read_lockfile_from(&path).unwrap_err();
+    assert!(err.to_string().contains("corrupt"), "{err:#}");
+}
+
+#[test]
+fn writing_over_a_corrupt_lockfile_sets_it_aside() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("plugins.lock");
+    std::fs::write(&path, "plugins = 3").unwrap();
+    write_lockfile_to(&path, &PluginsLock::default()).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("plugins.lock.bak")).unwrap(),
+        "plugins = 3"
+    );
+    assert!(read_lockfile_from(&path).unwrap().plugins.is_empty());
 }
 
 #[test]

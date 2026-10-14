@@ -105,9 +105,7 @@ fn keymap_command(cmd: &str, rest: &[String]) {
 async fn plugin_command(cmd: &str, rest: &[String]) -> Result<()> {
     use plugin::updater;
     let first = rest.first().map(String::as_str);
-    let settings = crate::config::AppConfig::load_or_create()
-        .map(|c| c.settings)
-        .unwrap_or_default();
+    let settings = plugin_settings()?;
     let trust = updater::RegistryTrust::from_settings(&settings);
     let report = match (cmd, first) {
         ("list", _) => updater::list_installed(&settings.plugins, &trust).await?,
@@ -128,6 +126,23 @@ async fn plugin_command(cmd: &str, rest: &[String]) -> Result<()> {
     };
     println!("{report}");
     Ok(())
+}
+
+/// The saved settings for a plugin command. A `config.toml` that cannot be
+/// read is an error: falling back to defaults would silently swap the
+/// configured `registry_public_key` and signature policy for the built-in
+/// ones.
+fn plugin_settings() -> Result<crate::config::settings::Settings> {
+    use anyhow::Context as _;
+    let mut config = crate::config::AppConfig::load_or_create()
+        .context("Cannot load the configuration (config.toml)")?;
+    if config.settings_save_locked() {
+        let detail = config.take_load_error().unwrap_or_default();
+        anyhow::bail!(
+            "config.toml is invalid, so the plugin registry settings in it cannot be used: {detail}"
+        );
+    }
+    Ok(config.settings)
 }
 
 /// A report holding one message.
