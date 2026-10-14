@@ -21,9 +21,12 @@ pub fn quote_posix(s: &str) -> String {
 }
 
 /// Characters `cmd.exe` interprets on a command line. Each one is emitted
-/// as `^c`, so cmd never sees a quoted region, never expands `%VAR%` (the
-/// name would end in `^`, which is never defined) and never splits on
+/// as `^c`, so cmd never sees a quoted region and never splits on
 /// `& | < > ( )`. `!` is covered for the case delayed expansion is on.
+/// Percent expansion runs before carets are removed, so a `%` is also
+/// followed by a caret: every `%...%` pair then names a variable starting
+/// with `^`, which is never defined (a name ending in `^` is not enough:
+/// `%VAR:a=b^%` substitutes in `VAR`).
 const CMD_METACHARS: &[char] = &['(', ')', '%', '!', '^', '"', '<', '>', '&', '|'];
 
 /// Quote one argument for a program started by `cmd.exe /S /C`.
@@ -36,11 +39,13 @@ const CMD_METACHARS: &[char] = &['(', ')', '%', '!', '^', '"', '<', '>', '&', '|
 pub fn quote_cmd(s: &str) -> String {
     let argv = quote_msvcrt(s);
     let mut out = String::with_capacity(argv.len() * 2);
+    let mut after_percent = false;
     for c in argv.chars() {
-        if CMD_METACHARS.contains(&c) {
+        if after_percent || CMD_METACHARS.contains(&c) {
             out.push('^');
         }
         out.push(c);
+        after_percent = c == '%';
     }
     out
 }
@@ -140,7 +145,7 @@ mod tests {
 
     #[test]
     fn cmd_quote_escapes_every_metachar() {
-        assert_eq!(quote_cmd("%PATH%.txt"), r#"^"^%PATH^%.txt^""#);
+        assert_eq!(quote_cmd("%PATH%.txt"), r#"^"^%^PATH^%^.txt^""#);
         assert_eq!(quote_cmd("a&b.txt"), r#"^"a^&b.txt^""#);
         assert_eq!(quote_cmd(r#"x"y"#), r#"^"x\^"y^""#);
         assert_eq!(quote_cmd("100%^!.txt"), r#"^"100^%^^^!.txt^""#);
@@ -149,12 +154,22 @@ mod tests {
 
     #[test]
     fn cmd_quote_never_leaves_an_unescaped_metachar() {
-        for name in ["%PATH%.txt", "a&b.txt", r#"x"y"#, "100%^!.txt", "^^&&"] {
+        for name in [
+            "%PATH%.txt",
+            "a&b.txt",
+            r#"x"y"#,
+            "100%^!.txt",
+            "^^&&",
+            "%COMSPEC:e=^^%&echo PWNED",
+        ] {
             let q = quote_cmd(name);
             let mut chars = q.chars();
             while let Some(c) = chars.next() {
                 if c == '^' {
                     assert!(chars.next().is_some(), "{q}");
+                } else if c == '%' {
+                    // Never a variable name start: the next char is a caret.
+                    assert_eq!(chars.clone().next(), Some('^'), "{q}");
                 } else {
                     assert!(!CMD_METACHARS.contains(&c), "{name} -> {q}");
                 }
