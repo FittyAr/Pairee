@@ -1,6 +1,6 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Table};
 
 use crate::app::state::TransferUIState;
@@ -22,7 +22,7 @@ pub(crate) fn render_file_list_tab(
     if total_files == 0 {
         let empty_p = Paragraph::new(t("transfer_no_files")).style(
             Style::default()
-                .fg(Color::Gray)
+                .fg(theme.ui.secondary)
                 .add_modifier(Modifier::ITALIC),
         );
         f.render_widget(empty_p, area);
@@ -36,7 +36,7 @@ pub(crate) fn render_file_list_tab(
     let end = start + height.min(total_files.saturating_sub(start));
 
     let rows: Vec<Row> = (start..end)
-        .map(|i| file_row(res, i, i == cursor))
+        .map(|i| file_row(res, i, i == cursor, theme))
         .collect();
 
     let table = Table::new(
@@ -60,7 +60,7 @@ pub(crate) fn render_file_list_tab(
         )
         .style(
             Style::default()
-                .fg(Color::Cyan)
+                .fg(theme.ui.accent)
                 .add_modifier(Modifier::BOLD),
         ),
     )
@@ -95,7 +95,12 @@ pub(crate) fn render_file_list_tab(
 
 /// Row `i` of the list: failed files first, then skipped, then completed,
 /// colored red/yellow/green (inverted when selected).
-fn file_row(res: &TransferResults, i: usize, selected: bool) -> Row<'static> {
+fn file_row(
+    res: &TransferResults,
+    i: usize,
+    selected: bool,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
+) -> Row<'static> {
     let f_len = res.failed_files.len();
     let s_len = res.skipped_files.len();
     let (cells, color, selected_fg) = if i < f_len {
@@ -106,7 +111,7 @@ fn file_row(res: &TransferResults, i: usize, selected: bool) -> Row<'static> {
             "-".to_string(),
             f.error.clone(),
         ];
-        (cells, Color::Red, Color::White)
+        (cells, theme.ui.danger, theme.ui.strong)
     } else if i < f_len + s_len {
         let f = &res.skipped_files[i - f_len];
         let cells = [
@@ -115,7 +120,7 @@ fn file_row(res: &TransferResults, i: usize, selected: bool) -> Row<'static> {
             "-".to_string(),
             f.reason.clone(),
         ];
-        (cells, Color::Yellow, Color::Black)
+        (cells, theme.ui.warning, theme.ui.badge_fg)
     } else {
         let f = &res.completed_files[i - f_len - s_len];
         let src_hash = f.src_hash.as_deref().unwrap_or("-");
@@ -131,7 +136,7 @@ fn file_row(res: &TransferResults, i: usize, selected: bool) -> Row<'static> {
             bytesize::ByteSize(f.size).to_string(),
             hash_text,
         ];
-        (cells, Color::Green, Color::Black)
+        (cells, theme.ui.success, theme.ui.badge_fg)
     };
     let style = if selected {
         Style::default()

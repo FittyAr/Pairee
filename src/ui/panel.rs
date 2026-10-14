@@ -12,7 +12,7 @@ use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
@@ -53,7 +53,7 @@ pub fn render_panel(
     let border_color = if is_active {
         theme.panel_border
     } else {
-        Color::DarkGray
+        theme.ui.muted
     };
 
     let title = build_panel_title(panel, settings);
@@ -164,7 +164,7 @@ fn footer_lines(panel: &PanelState, context: &AppContext) -> Vec<Line<'static>> 
         let free_text = free_space_text(panel.free_space);
         footer_lines.push(Line::from(Span::styled(
             format!(" {} {}", t("label_free"), free_text),
-            Style::default().fg(Color::Green).bg(theme.panel_bg),
+            Style::default().fg(theme.ui.success).bg(theme.panel_bg),
         )));
     }
     footer_lines

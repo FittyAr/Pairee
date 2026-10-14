@@ -5,11 +5,14 @@
 //! * refuses to create anything beneath a pre-existing symlink/junction in
 //!   the destination, so an archive can never write through a link;
 //! * never overwrites an existing file or link — such entries are skipped
-//!   and reported via [`ExtractGuard::skipped`];
+//!   and reported via [`ExtractGuard::skipped`] — except one this very
+//!   extraction wrote: a later entry of the same name replaces it, as tar
+//!   archives updated with `tar -u` expect;
 //! * caps the number of entries and the total uncompressed bytes written,
 //!   aborting decompression bombs early.
 
 use anyhow::{Result, anyhow, bail};
+use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Component, Path, PathBuf};
@@ -32,6 +35,9 @@ pub struct ExtractGuard {
     bytes: u64,
     entries: usize,
     skipped: Vec<PathBuf>,
+    /// Files and links this extraction created (a later entry of the same
+    /// name replaces them).
+    written: HashSet<PathBuf>,
 }
 
 impl ExtractGuard {
@@ -55,6 +61,7 @@ impl ExtractGuard {
             bytes: 0,
             entries: 0,
             skipped: Vec::new(),
+            written: HashSet::new(),
         })
     }
 
@@ -160,6 +167,11 @@ impl ExtractGuard {
         let parent = self.create_dir(rel.parent().unwrap_or(Path::new("")))?;
         let target = parent.join(file_name);
         match fs::symlink_metadata(&target) {
+            Ok(meta) if !meta.is_dir() && self.written.contains(&target) => {
+                // An older copy of this entry, written by this extraction.
+                fs::remove_file(&target)?;
+                Ok(Some(target))
+            }
             Ok(_) => {
                 tracing::warn!("extract: skipping existing {}", target.display());
                 self.skipped.push(rel.to_path_buf());
@@ -170,9 +182,10 @@ impl ExtractGuard {
         }
     }
 
-    /// Creates a brand-new file for `rel`. Returns `None` if the path already
-    /// exists (the entry is skipped, never overwritten).
-    pub fn create_file(&mut self, rel: &Path) -> Result<Option<File>> {
+    /// Creates a brand-new file for `rel` and returns it with its path, or
+    /// `None` if the path already exists (the entry is skipped, never
+    /// overwritten).
+    fn create_file(&mut self, rel: &Path) -> Result<Option<(File, PathBuf)>> {
         let Some(target) = self.prepare_leaf(rel)? else {
             return Ok(None);
         };
@@ -183,7 +196,10 @@ impl ExtractGuard {
             .create_new(true)
             .open(&target)
         {
-            Ok(f) => Ok(Some(f)),
+            Ok(f) => {
+                self.written.insert(target.clone());
+                Ok(Some((f, target)))
+            }
             Err(e) if e.kind() == ErrorKind::AlreadyExists => {
                 self.skipped.push(rel.to_path_buf());
                 Ok(None)
@@ -192,12 +208,36 @@ impl ExtractGuard {
         }
     }
 
+    /// Writes the file entry `rel` from `data` (skipped, returning `None`,
+    /// when something already exists there). A failure or a cancellation
+    /// (`cancelled` is polled between chunks) removes the partial file, so
+    /// a later extraction does not skip it as already present.
+    pub fn write_file(
+        &mut self,
+        rel: &Path,
+        data: &mut dyn Read,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<Option<File>> {
+        let Some((mut out, target)) = self.create_file(rel)? else {
+            return Ok(None);
+        };
+        match self.copy_limited(data, &mut out, cancelled) {
+            Ok(_) => Ok(Some(out)),
+            Err(e) => {
+                drop(out);
+                let _ = fs::remove_file(&target);
+                Err(e)
+            }
+        }
+    }
+
     /// Creates a symlink entry. Links are never written through by this
     /// guard, so a hostile target cannot be used to escape the destination.
     #[cfg(unix)]
     pub fn create_symlink(&mut self, rel: &Path, link_target: &Path) -> Result<()> {
         if let Some(target) = self.prepare_leaf(rel)? {
-            std::os::unix::fs::symlink(link_target, target)?;
+            std::os::unix::fs::symlink(link_target, &target)?;
+            self.written.insert(target);
         }
         Ok(())
     }
@@ -239,10 +279,18 @@ impl ExtractGuard {
     }
 
     /// Copies `reader` into `out`, enforcing the total byte budget.
-    pub fn copy_limited(&mut self, reader: &mut dyn Read, out: &mut File) -> Result<u64> {
+    fn copy_limited(
+        &mut self,
+        reader: &mut dyn Read,
+        out: &mut File,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<u64> {
         let mut buf = vec![0u8; COPY_CHUNK];
         let mut written = 0u64;
         loop {
+            if cancelled() {
+                bail!("Job cancelled");
+            }
             let n = match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => n,
@@ -281,8 +329,30 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("keep.txt"), b"original").unwrap();
         let mut guard = ExtractGuard::new(dir.path()).unwrap();
-        assert!(guard.create_file(Path::new("keep.txt")).unwrap().is_none());
+        let mut data: &[u8] = b"new";
+        let written = guard.write_file(Path::new("keep.txt"), &mut data, &|| false);
+        assert!(written.unwrap().is_none());
         assert_eq!(guard.skipped(), &[PathBuf::from("keep.txt")]);
+        assert_eq!(fs::read(dir.path().join("keep.txt")).unwrap(), b"original");
+    }
+
+    /// `tar -u` appends newer versions: the last one is what extracts, but
+    /// a file that was there before the extraction is still never touched.
+    #[test]
+    fn a_later_entry_replaces_only_what_this_extraction_wrote() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("keep.txt"), b"original").unwrap();
+        let mut guard = ExtractGuard::new(dir.path()).unwrap();
+        for data in [&b"old"[..], &b"new"[..]] {
+            let mut data = data;
+            guard
+                .write_file(Path::new("a.txt"), &mut data, &|| false)
+                .unwrap();
+        }
+        assert_eq!(fs::read(dir.path().join("a.txt")).unwrap(), b"new");
+        let mut data: &[u8] = b"x";
+        let kept = guard.write_file(Path::new("keep.txt"), &mut data, &|| false);
+        assert!(kept.unwrap().is_none());
         assert_eq!(fs::read(dir.path().join("keep.txt")).unwrap(), b"original");
     }
 
@@ -295,9 +365,28 @@ mod tests {
         assert!(guard.count_entry().is_err());
         assert!(guard.check_declared_size(11).is_err());
 
-        let mut out = guard.create_file(Path::new("big")).unwrap().unwrap();
         let mut src: &[u8] = &[0u8; 64];
-        assert!(guard.copy_limited(&mut src, &mut out).is_err());
+        assert!(
+            guard
+                .write_file(Path::new("big"), &mut src, &|| false)
+                .is_err()
+        );
+        // The partial file is removed: a new extraction writes it again
+        // instead of skipping it as already present.
+        assert!(!dir.path().join("big").exists());
+    }
+
+    #[test]
+    fn cancelled_write_leaves_no_partial_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut guard = ExtractGuard::new(dir.path()).unwrap();
+        let mut src: &[u8] = &[1u8; 16];
+        assert!(
+            guard
+                .write_file(Path::new("f"), &mut src, &|| true)
+                .is_err()
+        );
+        assert!(!dir.path().join("f").exists());
     }
 
     #[test]
@@ -313,7 +402,12 @@ mod tests {
             return;
         }
         let mut guard = ExtractGuard::new(dir.path()).unwrap();
-        assert!(guard.create_file(Path::new("link/pwn.txt")).is_err());
+        let mut data: &[u8] = b"x";
+        assert!(
+            guard
+                .write_file(Path::new("link/pwn.txt"), &mut data, &|| false)
+                .is_err()
+        );
         assert!(guard.create_dir(Path::new("link/sub")).is_err());
         assert!(!outside.path().join("pwn.txt").exists());
         assert!(!outside.path().join("sub").exists());
@@ -326,7 +420,9 @@ mod tests {
         let outside = tempfile::tempdir().unwrap();
         std::os::unix::fs::symlink(outside.path().join("f"), dir.path().join("f")).unwrap();
         let mut guard = ExtractGuard::new(dir.path()).unwrap();
-        assert!(guard.create_file(Path::new("f")).unwrap().is_none());
+        let mut data: &[u8] = b"x";
+        let written = guard.write_file(Path::new("f"), &mut data, &|| false);
+        assert!(written.unwrap().is_none());
         assert!(!outside.path().join("f").exists());
     }
 }

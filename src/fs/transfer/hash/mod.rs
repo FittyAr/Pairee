@@ -52,7 +52,12 @@ pub fn hash_reader(
         if cancelled() {
             return Err(std::io::ErrorKind::Interrupted.into());
         }
-        let n = file.read(&mut buf)?;
+        let n = match file.read(&mut buf) {
+            Ok(n) => n,
+            // A signal, not the end: `Interrupted` means cancelled here.
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        };
         if n == 0 {
             return Ok(hasher.finalize());
         }

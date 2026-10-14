@@ -73,9 +73,8 @@ fn extract(parent: &ArchiveVfs, entry: &Path) -> io::Result<Extracted> {
     if size > MAX_NESTED_ARCHIVE_BYTES {
         return Err(io::Error::other(too_large(size)));
     }
-    let dir = tempfile::Builder::new()
-        .prefix("pairee-nested-")
-        .tempdir()?;
+    // Private: the shared temp folder would let other users read it.
+    let dir = crate::fs::privileges::private_temp_dir("pairee-nested-")?;
     // The file keeps the entry's name: the format is told by its extension.
     let file = dir.path().join(crate::fs::file_name_lossy(entry));
     let mut out = std::fs::File::create(&file)?;

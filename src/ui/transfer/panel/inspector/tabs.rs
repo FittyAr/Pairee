@@ -1,6 +1,6 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
 
 use crate::app::state::{TransferTab, TransferUIState};
@@ -83,6 +83,7 @@ pub(crate) fn render_options_tab(
     area: Rect,
     ts: &TransferUIState,
     job: &crate::fs::transfer::job::TransferJob,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
     let options = &job.options;
 
@@ -124,14 +125,14 @@ pub(crate) fn render_options_tab(
             lines.push(ratatui::text::Line::from(ratatui::text::Span::styled(
                 format!("  ▶  {}  ", label),
                 Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
+                    .fg(theme.ui.badge_fg)
+                    .bg(theme.ui.accent)
                     .add_modifier(Modifier::BOLD),
             )));
         } else {
             lines.push(ratatui::text::Line::from(ratatui::text::Span::styled(
                 format!("     {}  ", label),
-                Style::default().fg(Color::Gray),
+                Style::default().fg(theme.ui.secondary),
             )));
         }
         lines.push(ratatui::text::Line::from(""));
@@ -158,6 +159,7 @@ pub(crate) fn render_status_tab(
     ts: &TransferUIState,
     prog: Option<&crate::fs::transfer::job::TransferProgress>,
     res: &TransferResults,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
     let (
         files_total,
@@ -218,7 +220,7 @@ pub(crate) fn render_status_tab(
                 .title(t("transfer_stats_title"))
                 .border_type(BorderType::Rounded),
         )
-        .style(Style::default().fg(Color::Cyan));
+        .style(Style::default().fg(theme.ui.accent));
     f.render_widget(p, area);
 }
 
@@ -245,7 +247,7 @@ pub(crate) fn render_log_tab(
         .iter()
         .skip(start)
         .take(viewport)
-        .map(|line| ListItem::new(line.as_str()).style(Style::default().fg(Color::Gray)))
+        .map(|line| ListItem::new(line.as_str()).style(Style::default().fg(theme.ui.secondary)))
         .collect();
 
     let list = List::new(items).block(

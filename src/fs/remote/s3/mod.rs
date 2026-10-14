@@ -11,9 +11,9 @@
 mod listing;
 mod upload;
 
-use super::http::{self, BodyReader};
+use super::http;
 use super::{REMOTE, Remote, file_name, invalid, not_found, remote_path};
-use crate::fs::vfs::{Capabilities, Vfs, VfsEntry};
+use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name};
 use rusty_s3::{Bucket, Credentials, S3Action, UrlStyle};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -109,6 +109,13 @@ impl Store {
         let mut token: Option<String> = None;
         loop {
             let page = self.list_page(prefix, delimited, token.as_deref())?;
+            if page.next_token.is_some() && page.next_token == token {
+                // A server that hands the same page back would loop forever.
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "ListObjectsV2: repeated continuation token",
+                ));
+            }
             token = page.next_token.clone();
             each(page);
             if token.is_none() {
@@ -202,6 +209,9 @@ impl S3Vfs {
         self.store.list_all(&prefix, true, |page| {
             for folder in page.prefixes {
                 let name = file_name(&folder);
+                if !is_plain_name(&name) {
+                    continue;
+                }
                 entries.push(VfsEntry::dir(name.clone(), dir.join(name)));
             }
             for object in page.objects {
@@ -210,6 +220,9 @@ impl S3Vfs {
                     continue;
                 }
                 let name = file_name(&object.key);
+                if !is_plain_name(&name) {
+                    continue;
+                }
                 entries.push(VfsEntry {
                     hidden: name.starts_with('.'),
                     path: dir.join(&name),
@@ -289,7 +302,8 @@ impl Vfs for S3Vfs {
         if offset > 0 {
             request = request.header("Range", format!("bytes={offset}-"));
         }
-        Ok(Box::new(BodyReader::new(http::send(request, "GetObject")?)))
+        let response = http::send(request, "GetObject")?;
+        Ok(Box::new(http::body_from(response, offset)?))
     }
 
     fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {

@@ -9,14 +9,14 @@ use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::ui::popup::kit::{self, TextBox};
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{Frame, style::Color};
+use ratatui::Frame;
 
 /// A one-field prompt: `keys` are the title and text translation keys.
 fn one_field(f: &mut Frame, cx: &ViewCtx<'_>, input: &TextField, (title, text): (&str, &str)) {
     TextBox {
         size: (50, 9),
         title: t(title),
-        border: kit::fg(Color::Cyan),
+        border: kit::fg(cx.theme.ui.accent),
         body: kit::prompt_text(&t(text), input, cx.theme),
         body_style: cx.theme.popup_fg(),
     }

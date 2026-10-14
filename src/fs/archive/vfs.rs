@@ -148,12 +148,21 @@ impl ArchiveVfs {
     }
 
     /// Writes the first `max` bytes of the entry at `inner` to `out`;
-    /// returns how many were written.
+    /// returns how many were written. Of several entries with that name
+    /// the last one is read (the one listings show).
     fn copy_inner(&self, inner: &Path, out: &mut dyn Write, max: u64) -> io::Result<u64> {
+        let mut earlier = self
+            .index()?
+            .node(inner)
+            .map_or(0, |node| node.copies.saturating_sub(1));
         let mut written = None;
         self.reader
             .visit(&self.data.file()?, &mut |meta, data| {
                 if ExtractGuard::sanitize(&meta.name).ok().as_deref() != Some(inner) {
+                    return Ok(Visit::Continue);
+                }
+                if earlier > 0 {
+                    earlier -= 1;
                     return Ok(Visit::Continue);
                 }
                 written = Some(io::copy(&mut data.take(max), out)?);
@@ -271,6 +280,7 @@ impl Vfs for ArchiveVfs {
     }
 
     fn remove_dir(&self, path: &Path) -> io::Result<()> {
+        crate::fs::vfs::ensure_empty_dir(self, path)?;
         self.remove_all(path)
     }
 

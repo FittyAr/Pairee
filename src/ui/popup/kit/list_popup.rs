@@ -106,7 +106,7 @@ impl ListPopup<'_> {
             lines.push(Line::from(""));
             lines.extend(
                 hint.lines()
-                    .map(|l| Line::from(Span::styled(l.to_string(), fg(Color::DarkGray)))),
+                    .map(|l| Line::from(Span::styled(l.to_string(), fg(theme.ui.muted)))),
             );
         }
         f.render_widget(Paragraph::new(lines).style(theme.popup_fg()), inner);

@@ -11,7 +11,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
 };
 
 impl DialogView for Prompt {
@@ -32,7 +32,7 @@ fn render(
         size,
         (75, 17),
         t(labels.title),
-        Style::default().fg(Color::Yellow),
+        Style::default().fg(theme.ui.warning),
         theme,
     );
 
@@ -44,8 +44,8 @@ fn render(
         .split(inner);
 
     let styles = FocusStyles::from_theme(theme);
-    input::render_input(f, chunks[0], prompt, styles);
-    options::render_options(f, &chunks, prompt, styles, inner.width);
+    input::render_input(f, chunks[0], prompt, styles, theme);
+    options::render_options(f, &chunks, prompt, styles, (inner.width, theme));
 
     let buttons = vec![
         t(labels.button),

@@ -53,7 +53,7 @@ fn meta<R: Read>(entry: &tar::Entry<'_, R>) -> Result<EntryMeta> {
         kind,
         size: entry.size(),
         modified: header.mtime().ok().map(unix_time),
-        mode: header.mode().ok(),
+        mode: super::format::usable_mode(header.mode().ok()),
     })
 }
 

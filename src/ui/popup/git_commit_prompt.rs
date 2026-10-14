@@ -5,7 +5,6 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::Color,
     text::Line,
     widgets::Paragraph,
 };
@@ -24,8 +23,8 @@ impl DialogView for GitCommitPromptState {
             f,
             size,
             (60, 7),
-            kit::accent_title(title, Color::Green),
-            kit::fg(Color::Green),
+            kit::accent_title(title, theme.ui.success),
+            kit::fg(theme.ui.success),
             theme,
         );
         let chunks = Layout::default()
@@ -39,7 +38,7 @@ impl DialogView for GitCommitPromptState {
             chunks[0],
         );
         f.render_widget(
-            kit::separator(inner.width, kit::fg(Color::DarkGray)),
+            kit::separator(inner.width, kit::fg(theme.ui.muted)),
             chunks[1],
         );
         let cursor = theme.selection();
@@ -48,7 +47,7 @@ impl DialogView for GitCommitPromptState {
             chunks[2],
         );
         f.render_widget(
-            Paragraph::new(t("git_commit_hint")).style(kit::fg(Color::Yellow)),
+            Paragraph::new(t("git_commit_hint")).style(kit::fg(theme.ui.warning)),
             chunks[4],
         );
     }

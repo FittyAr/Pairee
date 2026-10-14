@@ -6,7 +6,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -45,7 +45,7 @@ impl DialogView for RenamePrompt {
             size,
             (60, 9),
             t("prompt_rename_title"),
-            kit::fg(Color::Yellow),
+            kit::fg(theme.ui.warning),
             theme,
         );
         let chunks = Layout::default()
@@ -74,7 +74,9 @@ impl DialogView for RenamePrompt {
             target != *src_path && is_listed(cx.state, parent_dir, &target)
         };
         if collision {
-            let warn_style = Style::default().fg(Color::Red).add_modifier(Modifier::BOLD);
+            let warn_style = Style::default()
+                .fg(theme.ui.danger)
+                .add_modifier(Modifier::BOLD);
             f.render_widget(
                 Paragraph::new(format!("[!] {}", t("prompt_rename_collision"))).style(warn_style),
                 chunks[2],
@@ -82,7 +84,7 @@ impl DialogView for RenamePrompt {
         }
 
         f.render_widget(
-            kit::separator(inner.width, kit::fg(Color::Yellow)),
+            kit::separator(inner.width, kit::fg(theme.ui.warning)),
             chunks[3],
         );
         kit::form_buttons(
@@ -95,7 +97,7 @@ impl DialogView for RenamePrompt {
         f.render_widget(
             Paragraph::new(Line::from(Span::styled(
                 t("prompt_rename_hint"),
-                kit::fg(Color::DarkGray),
+                kit::fg(theme.ui.muted),
             )))
             .alignment(Alignment::Center),
             chunks[5],

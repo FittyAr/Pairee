@@ -9,7 +9,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -50,7 +50,7 @@ impl DialogView for ConfigurationDialogState {
             ])
             .split(main_chunks[0]);
 
-        render_separators(f, body_chunks[1], main_chunks[1], inner.width);
+        render_separators(f, (body_chunks[1], main_chunks[1]), inner.width, theme);
         f.render_widget(Paragraph::new(tab_lines(dialog, theme)), body_chunks[0]);
         let content_area = body_chunks[2];
         let lines = row_lines(dialog, theme, keybindings, content_area.height as usize);
@@ -58,7 +58,7 @@ impl DialogView for ConfigurationDialogState {
         register_mouse(dialog, keybindings, body_chunks[0], content_area);
 
         let hint_widget =
-            Paragraph::new(t("config_dialog_hint")).style(Style::default().fg(Color::Yellow));
+            Paragraph::new(t("config_dialog_hint")).style(Style::default().fg(theme.ui.warning));
         f.render_widget(hint_widget, main_chunks[2]);
     }
 }
@@ -134,13 +134,18 @@ fn register_mouse(
 }
 
 /// Vertical line between tabs and rows, horizontal line above the hint.
-fn render_separators(f: &mut Frame, vertical: Rect, bottom: Rect, width: u16) {
+fn render_separators(
+    f: &mut Frame,
+    (vertical, bottom): (Rect, Rect),
+    width: u16,
+    theme: &ResolvedTheme,
+) {
     let sep_lines: Vec<Line> = (0..vertical.height)
-        .map(|_| Line::from(Span::styled("│", Style::default().fg(Color::DarkGray))))
+        .map(|_| Line::from(Span::styled("│", Style::default().fg(theme.ui.muted))))
         .collect();
     f.render_widget(Paragraph::new(sep_lines), vertical);
     f.render_widget(
-        crate::ui::popup::kit::separator(width, crate::ui::popup::kit::fg(Color::DarkGray)),
+        crate::ui::popup::kit::separator(width, crate::ui::popup::kit::fg(theme.ui.muted)),
         bottom,
     );
 }
@@ -167,9 +172,9 @@ fn tab_lines(dialog: &ConfigurationDialogState, theme: &ResolvedTheme) -> Vec<Li
                 ("  ", Style::default().fg(theme.popup_fg))
             };
             let hotkey_style = if is_active && focus_on_tabs {
-                base_style.fg(Color::Yellow)
+                base_style.fg(theme.ui.warning)
             } else {
-                base_style.fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                base_style.fg(theme.ui.warning).add_modifier(Modifier::BOLD)
             };
 
             let mut spans = vec![
@@ -223,16 +228,16 @@ fn row_lines(
                 Some(Row::Title(label)) => (
                     format!("━━━ {} ━━━", label.text()),
                     Style::default()
-                        .fg(Color::Cyan)
+                        .fg(theme.ui.accent)
                         .add_modifier(Modifier::BOLD),
                 ),
                 Some(Row::Subtitle(label)) => (
                     format!("  {}", label.text()),
-                    Style::default().fg(Color::Yellow),
+                    Style::default().fg(theme.ui.warning),
                 ),
                 Some(Row::Hint(label)) => (
                     format!("  {}  ", label.text()),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(theme.ui.muted),
                 ),
                 Some(Row::Setting(setting)) => {
                     let editing = dialog.edit.as_ref().filter(|_| is_cursor);

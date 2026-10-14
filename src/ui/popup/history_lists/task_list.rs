@@ -6,7 +6,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::text_width::pad_to_width;
 use ratatui::{
     Frame,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
 };
 
@@ -32,7 +32,7 @@ impl DialogView for TaskListDialog {
             let typing = if *is_filtering { "_" } else { "" };
             header.push(Line::from(Span::styled(
                 format!(" {}: {}{}", t("task_list_filter"), filter_query, typing),
-                Style::default().fg(Color::Yellow),
+                Style::default().fg(theme.ui.warning),
             )));
             header.push(Line::from(""));
         }
@@ -44,7 +44,7 @@ impl DialogView for TaskListDialog {
                 let style = if matches {
                     theme.popup_fg()
                 } else {
-                    Style::default().fg(Color::DarkGray)
+                    Style::default().fg(theme.ui.muted)
                 };
                 let mem_mb = (task.memory_kb as f64) / 1024.0;
                 (
@@ -68,7 +68,7 @@ impl DialogView for TaskListDialog {
         ListPopup {
             area: centered_rect_in(70, 60, size),
             title: t("task_list_title"),
-            border: Color::Cyan,
+            border: theme.ui.accent,
             empty: Some(t("task_list_empty")),
             header,
             rows,

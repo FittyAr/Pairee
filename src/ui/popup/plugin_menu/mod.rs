@@ -4,7 +4,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -43,12 +43,16 @@ fn has_input_row(menu: &crate::app::state::PluginMenuState) -> bool {
 }
 
 /// The tab bar: Installed, Search and (in developer mode) Dev.
-fn tabs_line(active_tab: usize, dev_mode: bool) -> Line<'static> {
-    let dim = Style::default().fg(Color::DarkGray);
+fn tabs_line(
+    active_tab: usize,
+    dev_mode: bool,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
+) -> Line<'static> {
+    let dim = Style::default().fg(theme.ui.muted);
     let tab_style = |idx: usize| {
         if active_tab == idx {
             Style::default()
-                .fg(Color::Yellow)
+                .fg(theme.ui.warning)
                 .add_modifier(Modifier::BOLD)
         } else {
             dim
@@ -144,7 +148,7 @@ impl DialogView for PluginMenuState {
             .title(t("plugin_manager_title"))
             .style(bg_style);
         let dev_mode = context.config.settings.plugins_developer_mode;
-        let tabs = tabs_line(menu.active_tab, dev_mode);
+        let tabs = tabs_line(menu.active_tab, dev_mode, theme);
         register_tabs(
             &tabs,
             chunks[0],
@@ -156,7 +160,7 @@ impl DialogView for PluginMenuState {
         if input {
             let (text, title) = input_row(menu);
             let input_border = if menu.editing_query {
-                Color::Yellow
+                theme.ui.warning
             } else {
                 theme.popup_border
             };
@@ -197,7 +201,7 @@ impl DialogView for PluginMenuState {
         f.render_widget(
             Paragraph::new(t(hint_key))
                 .alignment(ratatui::layout::Alignment::Center)
-                .style(Style::default().fg(Color::DarkGray)),
+                .style(Style::default().fg(theme.ui.muted)),
             legend_area,
         );
     }

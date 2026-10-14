@@ -3,10 +3,7 @@ use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{
-    Frame,
-    style::{Color, Style},
-};
+use ratatui::{Frame, style::Style};
 
 impl DialogView for TreeView {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
@@ -19,7 +16,7 @@ impl DialogView for TreeView {
             .map(|node| {
                 let prefix = if node.is_dir { "▶ " } else { "  " };
                 let style = if node.is_dir {
-                    Style::default().fg(Color::LightBlue)
+                    Style::default().fg(theme.ui.info)
                 } else {
                     theme.popup_fg()
                 };
@@ -32,7 +29,7 @@ impl DialogView for TreeView {
         ListPopup {
             area: centered_rect_in(55, 70, size),
             title: t("tree_view_title"),
-            border: Color::Green,
+            border: theme.ui.success,
             empty: None,
             header: Vec::new(),
             rows,

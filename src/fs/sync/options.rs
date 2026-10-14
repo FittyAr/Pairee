@@ -57,7 +57,8 @@ impl SyncFilter {
         if entry.summary.is_dir {
             !self.rules.excludes(&entry.name)
         } else {
-            self.rules.matches(&entry.path, entry.summary.size)
+            self.rules
+                .matches(&entry.path, entry.summary.size, entry.summary.modified)
         }
     }
 }

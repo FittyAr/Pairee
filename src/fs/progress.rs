@@ -52,10 +52,21 @@ impl ArchiveReport {
 
     /// The entry `rel` was not written: something already exists there.
     pub fn skipped(&mut self, rel: &Path) {
+        self.skipped_because(rel, "archive_entry_skipped_exists");
+    }
+
+    /// The entry `rel` is of a kind that is never extracted (hard links,
+    /// devices, symlinks where they cannot be made).
+    pub fn unsupported(&mut self, rel: &Path) {
+        self.skipped_because(rel, "archive_entry_skipped_unsupported");
+    }
+
+    /// The entry `rel` was not written, for the reason under `key`.
+    fn skipped_because(&mut self, rel: &Path, key: &str) {
         self.announce(0);
         let skipped = SkippedFile {
             src: rel.to_path_buf(),
-            reason: t("archive_entry_skipped_exists"),
+            reason: t(key),
         };
         self.ctl.file_skipped(&mut self.results, skipped);
     }

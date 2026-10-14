@@ -1,6 +1,8 @@
 //! Delete phase: every scanned entry is removed (links themselves, never
 //! what they point to), then the emptied folders, deepest first — or the
-//! sources go to the trash as a whole.
+//! sources go to the trash as a whole. With a filter mask only the entries
+//! it selects go (to the trash or for good), and a folder that still holds
+//! what the mask left out stays.
 
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
@@ -29,7 +31,11 @@ pub(super) async fn run_delete_phase(
     let deleted_bytes = Arc::new(AtomicU64::new(0));
     let _speed = SpeedReporter::spawn(ctl, Arc::clone(&deleted_bytes), scan.total_bytes);
 
-    if options.delete_to_recycle_bin {
+    let filtered = options
+        .filter_mask
+        .as_deref()
+        .is_some_and(|mask| !mask.trim().is_empty());
+    if options.delete_to_recycle_bin && !filtered {
         for (idx, src) in sources.iter().enumerate() {
             ctl.ensure_running()?;
             // Measure before trashing: the path is gone afterwards.
@@ -57,7 +63,11 @@ pub(super) async fn run_delete_phase(
             continue;
         }
         let deleted = delete_one(ctl, &mut results, (idx, &src), size, |p| {
-            remove_entry(p).map_err(|e| e.to_string())
+            if options.delete_to_recycle_bin {
+                send_to_recycle_bin_helper(p).map_err(|e| e.to_string())
+            } else {
+                remove_entry(p).map_err(|e| e.to_string())
+            }
         });
         match deleted {
             Ok(size) => deleted_bytes.fetch_add(size, Ordering::SeqCst),
@@ -73,10 +83,17 @@ pub(super) async fn run_delete_phase(
     for dir in dirs {
         match remove_entry(&dir) {
             Ok(()) => forget_description(&dir),
+            // What the mask left out stays, and so does its folder.
+            Err(_) if filtered && holds_entries(&dir) => {}
             Err(e) => ctl.file_failed(&mut results, failed(&dir, PathBuf::new(), e.to_string())),
         }
     }
     Ok(results)
+}
+
+/// `dir` is a folder with something in it.
+fn holds_entries(dir: &Path) -> bool {
+    std::fs::read_dir(dir).is_ok_and(|mut entries| entries.next().is_some())
 }
 
 /// Deletes one entry (file `index`) with `remove`, recording the outcome.

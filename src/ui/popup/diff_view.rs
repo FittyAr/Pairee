@@ -10,7 +10,7 @@ use crate::ui::text_width::{display_width, truncate_to_width};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -35,8 +35,8 @@ impl DiffBox<'_> {
         let inner = kit::frame_in(
             f,
             area,
-            kit::accent_title(self.title, Color::Cyan),
-            kit::fg(Color::Cyan),
+            kit::accent_title(self.title, theme.ui.accent),
+            kit::fg(theme.ui.accent),
             theme,
         );
         let chunks = Layout::default()
@@ -56,7 +56,7 @@ impl DiffBox<'_> {
             vec![Line::from(Span::styled(
                 format!("  {}", self.empty),
                 Style::default()
-                    .fg(Color::DarkGray)
+                    .fg(theme.ui.muted)
                     .add_modifier(Modifier::ITALIC),
             ))]
         } else {
@@ -69,7 +69,10 @@ impl DiffBox<'_> {
         };
         f.render_widget(Paragraph::new(lines), body);
         f.render_widget(
-            Paragraph::new(Span::styled(self.hint, Style::default().fg(Color::Yellow))),
+            Paragraph::new(Span::styled(
+                self.hint,
+                Style::default().fg(theme.ui.warning),
+            )),
             chunks[2],
         );
     }
@@ -116,7 +119,7 @@ fn body_lines(
                 };
                 Line::from(vec![
                     cell(left, true),
-                    Span::styled("│", Style::default().fg(Color::DarkGray)),
+                    Span::styled("│", Style::default().fg(theme.ui.muted)),
                     cell(right, false),
                 ])
             }
@@ -146,9 +149,9 @@ fn side_cell(
 
 fn kind_style(kind: DiffKind, theme: &ResolvedTheme) -> Style {
     match kind {
-        DiffKind::Added => Style::default().fg(Color::Green),
-        DiffKind::Removed => Style::default().fg(Color::Red),
-        DiffKind::Hunk => Style::default().fg(Color::Cyan),
+        DiffKind::Added => Style::default().fg(theme.ui.success),
+        DiffKind::Removed => Style::default().fg(theme.ui.danger),
+        DiffKind::Hunk => Style::default().fg(theme.ui.accent),
         DiffKind::Header | DiffKind::Context => Style::default().fg(theme.popup_fg),
     }
 }

@@ -20,9 +20,13 @@ pub fn preserve_metadata(src: &Path, dst: &Path, options: &TransferOptions) -> s
         }
         return Ok(());
     }
-    // Streams first: the attributes may make the file read-only.
+    // Streams and Unix extended attributes first: setting either needs
+    // write access, which the permissions or attributes may take away.
     if options.preserve_streams {
         platform::copy_alternate_streams(src, dst);
+    }
+    if options.preserve_attributes && platform::ATTRIBUTES_NEED_WRITE {
+        platform::copy_attributes(src, &src_meta, dst);
     }
     if options.preserve_permissions {
         platform::copy_access_mode(src, &src_meta, dst);
@@ -30,7 +34,8 @@ pub fn preserve_metadata(src: &Path, dst: &Path, options: &TransferOptions) -> s
     if options.preserve_acl {
         platform::copy_acl(src, dst);
     }
-    if options.preserve_attributes {
+    // Windows attributes (read-only among them) go last.
+    if options.preserve_attributes && !platform::ATTRIBUTES_NEED_WRITE {
         platform::copy_attributes(src, &src_meta, dst);
     }
     // Times last: writing streams or attributes may touch them.
@@ -52,6 +57,9 @@ fn times(meta: &Metadata) -> (filetime::FileTime, filetime::FileTime) {
 mod platform {
     use std::fs::Metadata;
     use std::path::Path;
+
+    /// Setting a `user.` attribute needs write permission on the file.
+    pub const ATTRIBUTES_NEED_WRITE: bool = true;
 
     /// Unix permission bits.
     pub fn copy_access_mode(_src: &Path, src_meta: &Metadata, dst: &Path) {
@@ -76,6 +84,9 @@ mod platform {
     use crate::fs::transfer::direct_io::to_long_path;
     use std::fs::Metadata;
     use std::path::Path;
+
+    /// The attributes include read-only: they are applied last.
+    pub const ATTRIBUTES_NEED_WRITE: bool = false;
 
     /// NUL-terminated UTF-16 path for Win32 calls (with the `\\?\` prefix,
     /// so long paths work).
@@ -193,6 +204,8 @@ mod platform {
     use std::fs::Metadata;
     use std::path::Path;
 
+    pub const ATTRIBUTES_NEED_WRITE: bool = false;
+
     pub fn copy_access_mode(_src: &Path, _src_meta: &Metadata, _dst: &Path) {}
     pub fn copy_acl(_src: &Path, _dst: &Path) {}
     pub fn copy_attributes(_src: &Path, _src_meta: &Metadata, _dst: &Path) {}
@@ -202,6 +215,33 @@ mod platform {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A read-only source keeps its extended attributes on the copy: they
+    /// are set before the permissions take the write bit away.
+    #[cfg(unix)]
+    #[test]
+    fn read_only_files_keep_their_extended_attributes() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        let dst = dir.path().join("dst");
+        std::fs::write(&src, b"x").unwrap();
+        std::fs::write(&dst, b"x").unwrap();
+        if xattr::set(&src, "user.pairee.test", b"value").is_err() {
+            return;
+        }
+        std::fs::set_permissions(&src, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let options = TransferOptions {
+            preserve_attributes: true,
+            preserve_permissions: true,
+            ..TransferOptions::default()
+        };
+        preserve_metadata(&src, &dst, &options).unwrap();
+        let copied = xattr::get(&dst, "user.pairee.test").unwrap();
+        assert_eq!(copied.as_deref(), Some(&b"value"[..]));
+        let mode = std::fs::metadata(&dst).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o444);
+    }
 
     /// A copied link gets its own times; the file it points to keeps its
     /// permissions and times.

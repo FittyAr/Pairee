@@ -57,7 +57,7 @@ impl AppState {
     /// The open editor of `path` (its local file).
     pub fn editor_of_mut(&mut self, path: &Path) -> Option<&mut EditorState> {
         self.screens.iter_mut().find_map(|screen| match screen {
-            Screen::Editor(ed) if ed.path == path => Some(ed),
+            Screen::Editor(ed) if ed.path == path => Some(&mut **ed),
             _ => None,
         })
     }
@@ -106,7 +106,7 @@ pub fn open_in_editor(state: &mut AppState, path: PathBuf, settings: &Settings) 
             }
             let read_only = editor.stamp.read_only;
             let locked = editor.locked;
-            state.push_screen(Screen::Editor(editor));
+            state.push_screen(Screen::Editor(Box::new(editor)));
             if read_only && (locked || settings.editor_warn_opening_readonly) {
                 let key = if locked {
                     "editor_read_only_locked"

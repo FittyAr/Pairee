@@ -5,7 +5,7 @@ use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -30,8 +30,8 @@ impl DialogView for GitConfirmCheckoutState {
         let inner = kit::frame_in(
             f,
             area,
-            kit::accent_title(title, Color::Yellow),
-            kit::fg(Color::Yellow),
+            kit::accent_title(title, theme.ui.warning),
+            kit::fg(theme.ui.warning),
             theme,
         );
 
@@ -58,7 +58,7 @@ impl DialogView for GitConfirmCheckoutState {
         f.render_widget(
             Paragraph::new(format!("  {}", target)).style(
                 Style::default()
-                    .fg(Color::Cyan)
+                    .fg(theme.ui.accent)
                     .add_modifier(Modifier::BOLD),
             ),
             chunks[1],
@@ -67,7 +67,7 @@ impl DialogView for GitConfirmCheckoutState {
         f.render_widget(
             crate::ui::popup::kit::separator(
                 inner.width,
-                crate::ui::popup::kit::fg(Color::DarkGray),
+                crate::ui::popup::kit::fg(theme.ui.muted),
             ),
             chunks[2],
         );
@@ -76,7 +76,7 @@ impl DialogView for GitConfirmCheckoutState {
             Span::styled(
                 "  [ Enter / Y ] ",
                 Style::default()
-                    .fg(Color::Green)
+                    .fg(theme.ui.success)
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
@@ -86,7 +86,9 @@ impl DialogView for GitConfirmCheckoutState {
             Span::styled("    ", Style::default()),
             Span::styled(
                 "[ Esc / N ] ",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(theme.ui.danger)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 crate::config::localization::t("git_checkout_no"),

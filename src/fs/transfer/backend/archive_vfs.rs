@@ -16,6 +16,7 @@ use crate::fs::archive::{
 };
 use crate::fs::progress::ArchiveReport;
 use crate::fs::transfer::control::JobControl;
+use crate::fs::transfer::scan::guard::is_within;
 use crate::fs::transfer::worker::is_destination_parent_dir;
 use crate::fs::vfs::{LocalVfs, Vfs};
 use crate::fs::walk::{WalkError, WalkOptions, Walker};
@@ -113,6 +114,16 @@ pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
             }))
         }
         (TransferOperation::Copy | TransferOperation::Move, false, Some((archive, inner))) => {
+            // A folder copied into an archive inside it would pack the
+            // archive into itself, and a move would then delete it.
+            if let Some(src) = job
+                .sources
+                .iter()
+                .find(|src| is_within(&LocalVfs, &archive, src))
+            {
+                let reason = t("error_copy_into_itself").replacen("{}", &src.to_string_lossy(), 1);
+                return Some(Err(reason));
+            }
             Some(Ok(ArchivePlan::Import {
                 archive,
                 inner,

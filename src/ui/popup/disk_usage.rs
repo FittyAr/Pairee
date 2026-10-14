@@ -7,14 +7,10 @@ use crate::config::localization::t;
 use crate::fs::du::DuNode;
 use crate::ui::panel::helpers::{dir_size_text, format_file_size};
 use crate::ui::popup::centered_rect_in;
-use crate::ui::popup::kit::{ListPopup, Scroll};
+use crate::ui::popup::kit::{self, ListPopup, Scroll};
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
-use ratatui::{
-    Frame,
-    style::{Color, Style},
-    text::{Line, Span},
-};
+use ratatui::{Frame, style::Style, text::Line};
 
 /// Width of the usage bar, in cells.
 const BAR_WIDTH: usize = 20;
@@ -38,9 +34,9 @@ impl DialogView for DiskUsage {
         ListPopup {
             area: centered_rect_in(80, 80, size),
             title: t("du_title").replace("{}", &du.current_path().to_string_lossy()),
-            border: Color::Cyan,
+            border: theme.ui.accent,
             empty: Some(empty_text(du)),
-            header: header(du, current),
+            header: header(du, current, theme),
             rows,
             cursor: du.cursor,
             scroll: Scroll::HalfPage,
@@ -74,12 +70,16 @@ fn row_style(node: &DuNode, theme: &ResolvedTheme) -> Style {
     if node.is_dir {
         theme.popup_fg()
     } else {
-        Style::default().fg(Color::Gray)
+        Style::default().fg(theme.ui.secondary)
     }
 }
 
 /// Totals of the folder on screen, plus the "incomplete" note.
-fn header(du: &DiskUsageState, current: Option<&DuNode>) -> Vec<Line<'static>> {
+fn header(
+    du: &DiskUsageState,
+    current: Option<&DuNode>,
+    theme: &ResolvedTheme,
+) -> Vec<Line<'static>> {
     let Some(dir) = current else {
         return Vec::new();
     };
@@ -87,16 +87,8 @@ fn header(du: &DiskUsageState, current: Option<&DuNode>) -> Vec<Line<'static>> {
         .replace("{size}", &dir_size_text(&dir.size))
         .replace("{files}", &dir.size.files.to_string())
         .replace("{dirs}", &dir.size.dirs.to_string());
-    let mut lines = vec![Line::from(Span::styled(
-        format!(" {}", totals),
-        Style::default().fg(Color::Yellow),
-    ))];
-    if dir.size.partial {
-        lines.push(Line::from(Span::styled(
-            format!(" {}", t("du_partial_note")),
-            Style::default().fg(Color::LightRed),
-        )));
-    }
+    let partial = dir.size.partial.then_some("du_partial_note");
+    let mut lines = kit::summary_lines(&totals, partial, theme);
     if du.is_scanning() {
         lines.push(Line::from(scanning_text(du)));
     }

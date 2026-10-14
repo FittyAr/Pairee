@@ -67,7 +67,7 @@ impl DialogView for EditorSearchPrompt {
             })
             .collect();
         kit::form_buttons(f, take(1), &labels, focus, styles);
-        f.render_widget(kit::hint(t("editor_find_history_hint")), take(1));
+        f.render_widget(kit::hint(t("editor_find_history_hint"), theme), take(1));
     }
 }
 

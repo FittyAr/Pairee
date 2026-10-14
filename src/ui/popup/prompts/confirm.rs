@@ -32,21 +32,42 @@ fn question(
 impl DialogView for ConfirmQuit {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let text = t("prompt_exit_text");
-        question(f, cx, (45, 7), "prompt_exit_title", Color::Yellow, text);
+        question(
+            f,
+            cx,
+            (45, 7),
+            "prompt_exit_title",
+            cx.theme.ui.warning,
+            text,
+        );
     }
 }
 
 impl DialogView for ConfirmInterrupt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let text = t("prompt_abort_text");
-        question(f, cx, (45, 7), "prompt_abort_title", Color::Red, text);
+        question(
+            f,
+            cx,
+            (45, 7),
+            "prompt_abort_title",
+            cx.theme.ui.danger,
+            text,
+        );
     }
 }
 
 impl DialogView for ConfirmReload {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let text = t("prompt_reload_text");
-        question(f, cx, (50, 8), "prompt_reload_title", Color::Yellow, text);
+        question(
+            f,
+            cx,
+            (50, 8),
+            "prompt_reload_title",
+            cx.theme.ui.warning,
+            text,
+        );
     }
 }
 
@@ -58,7 +79,7 @@ impl DialogView for SaveSetupConfirm {
             cx,
             (45, 7),
             "prompt_save_setup_title",
-            Color::Green,
+            cx.theme.ui.success,
             text,
         );
     }
@@ -79,7 +100,7 @@ impl DialogView for ConfirmClearHistory {
             cx,
             (45, 7),
             "prompt_clear_history_title",
-            Color::Yellow,
+            cx.theme.ui.warning,
             text,
         );
     }
@@ -94,7 +115,7 @@ impl DialogView for ConfirmRetryAsAdmin {
         kit::TextBox {
             size: (65, 8),
             title: t("prompt_sudo_title"),
-            border: kit::fg(Color::Yellow),
+            border: kit::fg(cx.theme.ui.warning),
             body: t(text_key).into(),
             body_style: cx.theme.popup_fg(),
         }
@@ -124,7 +145,7 @@ impl DialogView for ConfirmUndo {
         kit::TextBox {
             size: (70, height),
             title,
-            border: kit::fg(Color::Yellow),
+            border: kit::fg(cx.theme.ui.warning),
             body: body.into(),
             body_style: cx.theme.popup_fg(),
         }

@@ -45,10 +45,10 @@ pub fn accent_title(text: impl Into<String>, color: Color) -> Span<'static> {
 }
 
 /// Centered dim hint line (key help at the bottom of a dialog).
-pub fn hint<'a>(text: impl Into<Text<'a>>) -> Paragraph<'a> {
+pub fn hint<'a>(text: impl Into<Text<'a>>, theme: &ResolvedTheme) -> Paragraph<'a> {
     Paragraph::new(text)
         .alignment(Alignment::Center)
-        .style(fg(Color::DarkGray))
+        .style(fg(theme.ui.muted))
 }
 
 /// Clears `area`, draws a bordered block titled `title` and returns the
@@ -197,13 +197,13 @@ pub fn items_label(paths: &[std::path::PathBuf], single_key: &str, plural_key: &
 pub fn input_box(field: &TextField, focused: bool, theme: &ResolvedTheme) -> Paragraph<'static> {
     let (border, style) = if focused {
         (
-            Color::Yellow,
+            theme.ui.warning,
             Style::default()
-                .fg(Color::Yellow)
+                .fg(theme.ui.warning)
                 .add_modifier(Modifier::BOLD),
         )
     } else {
-        (Color::DarkGray, theme.popup_fg())
+        (theme.ui.muted, theme.popup_fg())
     };
     let spans = field_spans(field, style, theme.selection(), focused);
     Paragraph::new(Line::from(spans)).block(
@@ -211,6 +211,27 @@ pub fn input_box(field: &TextField, focused: bool, theme: &ResolvedTheme) -> Par
             .borders(Borders::ALL)
             .border_style(fg(border)),
     )
+}
+
+/// ` summary` in the warning color and, for an incomplete result, the
+/// ` note` (localization key `partial_note`) in the error color (disk usage,
+/// duplicate finder).
+pub fn summary_lines(
+    summary: &str,
+    partial_note: Option<&str>,
+    theme: &ResolvedTheme,
+) -> Vec<Line<'static>> {
+    let mut lines = vec![Line::from(Span::styled(
+        format!(" {summary}"),
+        fg(theme.ui.warning),
+    ))];
+    if let Some(key) = partial_note {
+        lines.push(Line::from(Span::styled(
+            format!(" {}", crate::config::localization::t(key)),
+            fg(theme.ui.error),
+        )));
+    }
+    lines
 }
 
 /// Style with the given foreground (borders, hints).
@@ -388,6 +409,19 @@ pub fn separator<'a>(width: u16, style: Style) -> Paragraph<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn summary_lines_follow_the_theme() {
+        let mut theme = ResolvedTheme::default();
+        theme.ui.warning = Color::Rgb(1, 1, 1);
+        theme.ui.error = Color::Rgb(2, 2, 2);
+        let done = summary_lines("3 files", None, &theme);
+        assert_eq!(done.len(), 1);
+        assert_eq!(done[0].spans[0].content, " 3 files");
+        assert_eq!(done[0].spans[0].style.fg, Some(Color::Rgb(1, 1, 1)));
+        let partial = summary_lines("3 files", Some("du_partial_note"), &theme);
+        assert_eq!(partial[1].spans[0].style.fg, Some(Color::Rgb(2, 2, 2)));
+    }
 
     #[test]
     fn form_focus_follows_the_theme_selection() {

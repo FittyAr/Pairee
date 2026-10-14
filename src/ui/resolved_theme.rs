@@ -2,17 +2,19 @@
 //! and the styles dialogs share, so renderers never parse color strings.
 
 use crate::config::theme::Theme;
+use crate::git::status::StatusKind;
 use crate::syntax::SyntaxKind;
 use crate::ui::theme_apply::parse_color;
 use ratatui::style::{Color, Modifier, Style};
 
 macro_rules! resolved_theme {
-    ([$($field:ident),* $(,)?] [$($syntax:ident),* $(,)?]) => {
+    ([$($field:ident),* $(,)?] [$($syntax:ident),* $(,)?] [$($ui:ident),* $(,)?]) => {
         /// [`Theme`] colors as Ratatui colors.
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub struct ResolvedTheme {
             $(pub $field: Color,)*
             pub syntax: SyntaxPalette,
+            pub ui: UiPalette,
         }
 
         /// [`crate::config::theme::SyntaxColors`] as Ratatui colors.
@@ -21,12 +23,21 @@ macro_rules! resolved_theme {
             $(pub $syntax: Color,)*
         }
 
+        /// [`crate::config::theme::UiColors`] as Ratatui colors.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub struct UiPalette {
+            $(pub $ui: Color,)*
+        }
+
         impl ResolvedTheme {
             pub fn new(theme: &Theme) -> Self {
                 Self {
                     $($field: parse_color(&theme.$field),)*
                     syntax: SyntaxPalette {
                         $($syntax: parse_color(&theme.syntax.$syntax),)*
+                    },
+                    ui: UiPalette {
+                        $($ui: parse_color(&theme.ui.$ui),)*
                     },
                 }
             }
@@ -84,6 +95,19 @@ impl ResolvedTheme {
         })
     }
 
+    /// Color of a Git status (panel names, Git panel).
+    pub fn git_status(&self, kind: &StatusKind) -> Color {
+        let ui = &self.ui;
+        match kind {
+            StatusKind::Modified => ui.warning,
+            StatusKind::Added => ui.success,
+            StatusKind::Deleted => ui.danger,
+            StatusKind::Untracked => ui.special,
+            StatusKind::Renamed => ui.accent,
+            StatusKind::Conflicted => ui.error,
+        }
+    }
+
     /// A search match inside text (viewer, editor).
     pub fn search_match(&self) -> Style {
         Style::default()
@@ -114,5 +138,38 @@ mod tests {
             slate.selection(),
             Style::default().bg(Color::Blue).fg(Color::White)
         );
+    }
+
+    #[test]
+    fn built_in_themes_keep_the_former_fixed_colors() {
+        for theme in [Theme::default(), Theme::classic_blue()] {
+            let ui = ResolvedTheme::new(&theme).ui;
+            assert_eq!(
+                [
+                    ui.accent, ui.warning, ui.danger, ui.error, ui.success, ui.muted
+                ],
+                [
+                    Color::Cyan,
+                    Color::Yellow,
+                    Color::Red,
+                    Color::LightRed,
+                    Color::Green,
+                    Color::DarkGray
+                ]
+            );
+            assert_eq!((ui.badge_fg, ui.alert_bg), (Color::Black, Color::Black));
+        }
+    }
+
+    #[test]
+    fn git_statuses_share_one_palette() {
+        let theme = ResolvedTheme::default();
+        for label in ["M", "A", "D", "?", "R", "!"] {
+            let kind = StatusKind::from_label(label).unwrap();
+            assert_eq!(kind.label(), label);
+        }
+        assert_eq!(StatusKind::from_label("x"), None);
+        assert_eq!(theme.git_status(&StatusKind::Untracked), Color::Magenta);
+        assert_eq!(theme.git_status(&StatusKind::Renamed), Color::Cyan);
     }
 }

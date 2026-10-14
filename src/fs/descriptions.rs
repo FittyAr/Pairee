@@ -16,7 +16,9 @@ pub fn read_description(dir: &Path, filename: &str) -> Option<String> {
 /// Whole `descript.ion` of `dir`, to look up many names with
 /// [`find_description`] after one read.
 pub(crate) fn read_descriptions_file(dir: &Path) -> Option<String> {
-    std::fs::read_to_string(dir.join(DESCRIPTIONS_FILE)).ok()
+    // Lossy: other tools write it in legacy code pages.
+    let bytes = std::fs::read(dir.join(DESCRIPTIONS_FILE)).ok()?;
+    Some(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// Description of `filename` in the `descript.ion` text `content`.
@@ -28,22 +30,43 @@ pub(crate) fn find_description<'a>(content: &'a str, filename: &str) -> Option<&
         .map(|(_, desc)| desc)
 }
 
+/// The lines of a `descript.ion` file as stored (other tools write them in
+/// legacy code pages, so they are not required to be UTF-8); none when it
+/// does not exist.
+fn read_lines(desc_path: &Path) -> std::io::Result<Vec<Vec<u8>>> {
+    let bytes = match std::fs::read(desc_path) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e),
+    };
+    let mut lines: Vec<Vec<u8>> = bytes
+        .split(|&b| b == b'\n')
+        .map(|line| line.strip_suffix(b"\r").unwrap_or(line).to_vec())
+        .collect();
+    if bytes.ends_with(b"\n") {
+        lines.pop();
+    }
+    Ok(lines)
+}
+
+/// The name a `descript.ion` line describes, matched without regard to
+/// ASCII case.
+fn describes(line: &[u8], filename: &str) -> bool {
+    parse_description_line(&String::from_utf8_lossy(line))
+        .is_some_and(|(name, _)| name.eq_ignore_ascii_case(filename))
+}
+
 /// Writes or updates the description for a specific file in the `descript.ion` file.
 /// Creates the file if it does not exist.
 pub fn write_description(dir: &Path, filename: &str, description: &str) -> Result<()> {
     let desc_path = dir.join(DESCRIPTIONS_FILE);
-    let existing = std::fs::read_to_string(&desc_path).unwrap_or_default();
-
-    // Rebuild the file, replacing or adding the entry
-    let mut lines: Vec<String> = existing
-        .lines()
-        .filter(|l| {
-            // Keep lines that do NOT belong to this file
-            parse_description_line(l)
-                .map(|(name, _)| !name.eq_ignore_ascii_case(filename))
-                .unwrap_or(true)
-        })
-        .map(|l| l.to_string())
+    // A file that cannot be read is left alone (rewriting it from nothing
+    // would lose every other description); lines of other files are kept
+    // byte for byte, whatever their encoding.
+    let mut lines: Vec<Vec<u8>> = read_lines(&desc_path)
+        .with_context(|| format!("Reading {:?}", desc_path))?
+        .into_iter()
+        .filter(|line| !describes(line, filename))
         .collect();
 
     if !description.trim().is_empty() {
@@ -61,7 +84,7 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
         } else {
             filename.to_string()
         };
-        lines.push(format!("{} {}", entry_name, description));
+        lines.push(format!("{} {}", entry_name, description).into_bytes());
     }
 
     if lines.is_empty() {
@@ -71,9 +94,9 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
         }
         Ok(())
     } else {
-        let output = lines.join("\n") + "\n";
-        write_atomic(&desc_path, output.as_bytes())
-            .with_context(|| format!("Writing {:?}", desc_path))
+        let mut output = lines.join(&b'\n');
+        output.push(b'\n');
+        write_atomic(&desc_path, &output).with_context(|| format!("Writing {:?}", desc_path))
     }
 }
 
@@ -182,6 +205,26 @@ mod tests {
         assert_eq!(
             read_description(dir.path(), "keep.rs"),
             Some("Keep this".to_string())
+        );
+    }
+
+    /// Far Manager and Total Commander write `descript.ion` in the OEM or
+    /// ANSI code page: updating one entry keeps the others, bytes intact.
+    #[test]
+    fn legacy_encoded_files_keep_their_other_entries() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join(DESCRIPTIONS_FILE);
+        std::fs::write(&path, b"old.txt caf\xe9 cr\xe8me\r\ngone.txt bye\r\n").unwrap();
+        forget_description(&dir.path().join("gone.txt"));
+        assert_eq!(std::fs::read(&path).unwrap(), b"old.txt caf\xe9 cr\xe8me\n");
+        write_description(dir.path(), "new.txt", "hello").unwrap();
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            b"old.txt caf\xe9 cr\xe8me\nnew.txt hello\n"
+        );
+        assert_eq!(
+            read_description(dir.path(), "old.txt"),
+            Some("caf\u{fffd} cr\u{fffd}me".to_string())
         );
     }
 
