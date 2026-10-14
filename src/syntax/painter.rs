@@ -1,7 +1,7 @@
 //! The searches and the paint of one line, within its search budget (see
 //! `highlight.rs` for how the line is split into stretches).
 
-use super::grammar::{Context, Grammar, Rule};
+use super::grammar::{After, Context, Grammar, Rule};
 use super::{LineTokens, SyntaxKind, Token};
 use regex::{Captures, Regex};
 use std::collections::HashMap;
@@ -112,14 +112,20 @@ impl<'a> Painter<'a> {
     }
 
     /// Whether the text before `at` satisfies `after` (always without one).
-    fn preceded(&mut self, after: Option<&Regex>, at: usize) -> bool {
+    fn preceded(&mut self, after: Option<&After>, at: usize) -> bool {
         let Some(after) = after else { return true };
         if self.spend().is_none() {
             return false;
         }
         let before = &self.line[..at];
-        let from = before.floor_char_boundary(at.saturating_sub(AFTER_WINDOW));
-        after.is_match_at(before, from)
+        // `^` only matches at the start of the haystack, so an anchored
+        // pattern must see the whole text (bounded by MAX_LINE_BYTES).
+        let from = if after.from_line_start {
+            0
+        } else {
+            before.floor_char_boundary(at.saturating_sub(AFTER_WINDOW))
+        };
+        after.regex.is_match_at(before, from)
     }
 
     /// The first sub-region of `context` starting in `pos..limit` (empty
