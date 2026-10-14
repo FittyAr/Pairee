@@ -322,3 +322,35 @@ async fn replaced_files_go_to_the_trash() {
     index.restore(&out.join("a.txt")).unwrap();
     assert_eq!(std::fs::read(out.join("a.txt")).unwrap(), b"old");
 }
+
+/// A delete with a filter mask (a sync with a mask mirrors only what it
+/// selects) removes the matching files only, and keeps the folder of
+/// what it left out without reporting it as failed.
+#[tokio::test]
+async fn a_filtered_delete_keeps_what_the_mask_leaves_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let tree = dir.path().join("tree");
+    std::fs::create_dir(&tree).unwrap();
+    std::fs::write(tree.join("a.rs"), b"a").unwrap();
+    std::fs::write(tree.join("b.md"), b"b").unwrap();
+    let options = TransferOptions {
+        filter_mask: Some("*.rs".into()),
+        delete_to_recycle_bin: false,
+        ..TransferOptions::default()
+    };
+    let results = run(job(
+        TransferOperation::Delete,
+        &[&tree],
+        std::path::Path::new(""),
+        options,
+    ))
+    .await
+    .unwrap();
+    assert!(!tree.join("a.rs").exists());
+    assert_eq!(std::fs::read(tree.join("b.md")).unwrap(), b"b");
+    assert!(
+        results.failed_files.is_empty(),
+        "{:?}",
+        results.failed_files
+    );
+}
