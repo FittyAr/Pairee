@@ -1,8 +1,7 @@
 //! Interface, Plugins, Editor/Viewer, Colors and Git tabs.
 
-use super::{
-    CycleFormat, Kind, Label, Row, RowCtx, Setting, cycle, edit, title, title_key, toggle,
-};
+use super::{CycleFormat, Kind, Label, Row, RowCtx, Setting, cycle, edit, title_key, toggle};
+use crate::app::list_nav::next_after;
 use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
 use crate::app::state::popup::ColorGroupsDialog;
@@ -22,7 +21,7 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
         Row::Subtitle(status)
     };
     vec![
-        title("General"),
+        title_key("cfg_title_general"),
         toggle!("int_clock", interface_clock),
         cycle(
             "int_mouse",
@@ -48,7 +47,7 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
         toggle!("int_key_bar", interface_show_key_bar),
         toggle!("int_menu_bar", interface_always_show_menu_bar),
         toggle!("int_restore_session", restore_session),
-        title("Keybindings"),
+        title_key("cfg_title_keybindings"),
         cycle(
             "int_keybindings",
             0,
@@ -104,13 +103,12 @@ fn keymap_report(
 /// wrapping, unknown names restart).
 fn next_preset(current: &str) -> String {
     let names = available_presets(&crate::config::paths::get_keymaps_dir());
-    let next = names.iter().position(|n| n == current).map_or(0, |i| i + 1);
-    names[next % names.len()].clone()
+    next_after(&names, |n| n == current).map_or_else(|| current.to_string(), Clone::clone)
 }
 
 pub fn plugins(settings: &Settings) -> Vec<Row> {
     let mut rows = vec![
-        title("Language"),
+        title_key("cfg_title_language"),
         cycle(
             "lang_label",
             0,
@@ -125,7 +123,7 @@ pub fn plugins(settings: &Settings) -> Vec<Row> {
     ];
     if settings.plugins_developer_mode {
         rows.push(Row::Setting(Setting {
-            label: Label::Raw("Path"),
+            label: Label::Key("cfg_title_path"),
             indent: 2,
             kind: Kind::Edit {
                 show: |s| s.plugins_dev_dir.clone(),
@@ -140,14 +138,9 @@ pub fn plugins(settings: &Settings) -> Vec<Row> {
 /// Next language among the installed translation files.
 fn next_language(s: &mut ConfigDraft) {
     let discovered = crate::config::localization::discover_languages();
-    if discovered.is_empty() {
-        return;
+    if let Some((name, _)) = next_after(&discovered, |(name, _)| name == &s.language) {
+        s.language = name.clone();
     }
-    let next = discovered
-        .iter()
-        .position(|(name, _)| name == &s.language)
-        .map_or(0, |idx| (idx + 1) % discovered.len());
-    s.language = discovered[next].0.clone();
 }
 
 /// Tab sizes offered by the dialog: 2 → 4 → 8 → 2.
@@ -223,16 +216,13 @@ fn next_syntax_limit(kb: u32) -> u32 {
 fn next_codepage(name: &str) -> String {
     use crate::fs::text::{ENCODINGS, encoding_by_name};
     let current = encoding_by_name(name);
-    let next = ENCODINGS
-        .iter()
-        .position(|e| Some(*e) == current)
-        .map_or(0, |i| (i + 1) % ENCODINGS.len());
-    ENCODINGS[next].name().to_string()
+    next_after(ENCODINGS, |e| Some(*e) == current)
+        .map_or_else(|| name.to_string(), |e| e.name().to_string())
 }
 
 pub fn colors() -> Vec<Row> {
     vec![
-        title("Appearance & Theme"),
+        title_key("cfg_title_appearance_theme"),
         cycle(
             "col_theme",
             0,

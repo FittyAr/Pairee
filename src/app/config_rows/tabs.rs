@@ -1,24 +1,24 @@
 //! System, Panel and Confirmations tabs.
 
-use super::{CycleFormat, Label, Row, cycle, title, toggle};
+use super::{CycleFormat, Label, Row, cycle, title_key, toggle};
 
 pub fn system() -> Vec<Row> {
     vec![
-        title("File Operations"),
+        title_key("cfg_title_file_operations"),
         toggle!("sys_delete_recycle", delete_to_recycle_bin),
         toggle!("sys_trash_replaced", transfer.trash_replaced),
-        title("History"),
+        title_key("cfg_title_history"),
         toggle!("sys_save_cmd_hist", save_commands_history),
         toggle!("sys_save_folder_hist", save_folders_history),
         toggle!("sys_save_view_hist", save_view_and_edit_history),
-        title("Environment"),
+        title_key("cfg_title_environment"),
         toggle!("sys_windows_types", use_windows_registered_types),
         toggle!("sys_auto_update_env", automatic_update_env_variables),
-        title("Permissions"),
+        title_key("cfg_title_permissions"),
         Row::Subtitle(Label::Key("sys_req_admin")),
         toggle!(1, "sys_admin_mod", req_admin_modification),
         toggle!(1, "sys_admin_read", req_admin_reading),
-        title("Sorting & Saving"),
+        title_key("cfg_title_sorting_saving"),
         cycle(
             "sys_sort_collation",
             0,
@@ -58,11 +58,11 @@ pub fn panel() -> Vec<Row> {
         toggle!("pan_show_hidden", show_hidden),
         toggle!("pan_highlight", highlight_files),
         toggle!("pan_select_folders", select_folders),
-        title("Sorting"),
+        title_key("cfg_title_sorting"),
         toggle!("pan_sort_folders_ext", sort_folder_names_by_extension),
         toggle!("pan_reverse_sort", sort_reverse),
         toggle!("pan_sort_letter", show_sort_mode_letter),
-        title("Updates & Information"),
+        title_key("cfg_title_updates_info"),
         toggle!("pan_auto_refresh", auto_refresh),
         cycle(
             "pan_auto_refresh_poll",
@@ -111,7 +111,7 @@ pub fn panel() -> Vec<Row> {
         ),
         toggle!("pan_total_info", show_files_total_information),
         toggle!("pan_free_size", show_free_size),
-        title("Appearance"),
+        title_key("cfg_title_appearance"),
         toggle!("pan_col_titles", show_column_titles),
         toggle!("pan_status_line", show_status_line),
         toggle!("pan_scrollbar", show_scrollbar),
@@ -122,7 +122,7 @@ pub fn panel() -> Vec<Row> {
 
 pub fn confirmations() -> Vec<Row> {
     vec![
-        title("File Operations"),
+        title_key("cfg_title_file_operations"),
         toggle!("conf_copy", confirmations.confirm_copy),
         toggle!("conf_move", confirmations.confirm_move),
         toggle!("conf_delete", confirmations.confirm_delete),
@@ -130,9 +130,9 @@ pub fn confirmations() -> Vec<Row> {
             "conf_delete_non_empty",
             confirmations.confirm_delete_non_empty_folders
         ),
-        title("Drives & System"),
+        title_key("cfg_title_drives_system"),
         toggle!("conf_interrupt", confirmations.confirm_interrupt_operation),
-        title("General"),
+        title_key("cfg_title_general"),
         toggle!("conf_reload", confirmations.confirm_reload_edited_file),
         toggle!(
             "conf_clear_history",
