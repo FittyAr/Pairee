@@ -202,7 +202,13 @@ impl TomlBase {
         let mine = parse(text);
         with_lock(path, || {
             let mut base = self.0.lock_safe();
-            let disk = std::fs::read_to_string(path).ok().and_then(|t| parse(&t));
+            let disk_text = std::fs::read_to_string(path).ok();
+            let disk = disk_text.as_deref().and_then(parse);
+            if disk_text.is_some() && disk.is_none() {
+                // Hand-edited into something unreadable: keep it before
+                // the save replaces it.
+                toml_store::set_aside(path, "not a valid TOML document");
+            }
             let merged = match (base.as_ref(), mine.as_ref(), disk) {
                 (Some(base), Some(mine), Some(disk)) if disk != *base => {
                     Some(toml::to_string_pretty(&merge_toml(base, mine, &disk))?)

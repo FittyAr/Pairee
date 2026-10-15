@@ -71,7 +71,7 @@ file_panel_filter = "Ctrl+i, Ctrl+Alt+i"
 quick_filter      = "Ctrl+Alt+f"
 
 # ── View ──────────────────────────────────────────────────────────────────────
-toggle_hidden         = "Ctrl+h"
+toggle_hidden         = "Ctrl+h, Alt+."
 toggle_long_names     = "Ctrl+n"
 refresh               = "Ctrl+r"
 video_mode            = "Alt+F9"

@@ -3,6 +3,7 @@
 //! and the key bar, move the border between the panels.
 
 use crate::app::context::AppContext;
+use crate::app::state::cli_line::quote_arg;
 use crate::app::state::{ActivePanel, AppState};
 use crate::keybindings::Action;
 use std::path::Path;
@@ -29,7 +30,7 @@ pub fn handle(state: &mut AppState, action: &Action, context: &mut AppContext) -
         Action::InsertLeftPathToCli => insert_panel_path(state, ActivePanel::Left),
         Action::InsertRightPathToCli => insert_panel_path(state, ActivePanel::Right),
         Action::ClearCli => {
-            state.cli.field.clear();
+            state.cli.set_text("");
             state.cli.history_pos = None;
         }
         Action::CliHistoryPrev => step_history(state, true),
@@ -62,14 +63,9 @@ pub fn handle(state: &mut AppState, action: &Action, context: &mut AppContext) -
     true
 }
 
-/// Appends `text` (quoted when it has spaces) and a space to the command line.
+/// Appends `text` (quoted when needed) and a space to the command line.
 fn insert(state: &mut AppState, text: &str) {
-    if text.contains(' ') {
-        state.cli.field.insert_str(&format!("\"{text}\" "));
-    } else {
-        state.cli.field.insert_str(text);
-        state.cli.field.insert_char(' ');
-    }
+    state.cli.insert_text(&format!("{} ", quote_arg(text)));
 }
 
 fn insert_panel_path(state: &mut AppState, side: ActivePanel) {
@@ -81,6 +77,9 @@ fn insert_panel_path(state: &mut AppState, side: ActivePanel) {
 /// stepping past the newest clears it.
 fn step_history(state: &mut AppState, older: bool) {
     let len = state.history.commands.len();
+    if state.cli.history_pos.is_none() && (!older || len == 0) {
+        return; // nothing to step from: keep what is typed
+    }
     let pos = match (state.cli.history_pos, older) {
         (None, true) if len > 0 => Some(0),
         (Some(i), true) => Some((i + 1).min(len.saturating_sub(1))),
@@ -121,13 +120,29 @@ mod tests {
     }
 
     #[test]
+    fn history_steps_keep_the_typed_line_without_a_position() {
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        state.cli.set_text("typing");
+        run(&mut state, Action::CliHistoryNext);
+        run(&mut state, Action::CliHistoryPrev);
+        assert_eq!(state.cli.text(), "typing", "empty history is a no-op");
+        state.history.commands = vec!["old".into()];
+        run(&mut state, Action::CliHistoryNext);
+        assert_eq!(
+            state.cli.text(),
+            "typing",
+            "next without a position is a no-op"
+        );
+    }
+
+    #[test]
     fn paths_are_quoted_when_needed() {
         let mut state = AppState::new(PathBuf::from("/a b"), PathBuf::from("/c"));
         run(&mut state, Action::InsertLeftPathToCli);
         run(&mut state, Action::InsertRightPathToCli);
-        let right = PathBuf::from("/c").to_string_lossy().into_owned();
-        let left = PathBuf::from("/a b").to_string_lossy().into_owned();
-        assert_eq!(state.cli.text(), format!("\"{left}\" {right} "));
+        let right = quote_arg(&PathBuf::from("/c").to_string_lossy());
+        let left = quote_arg(&PathBuf::from("/a b").to_string_lossy());
+        assert_eq!(state.cli.text(), format!("{left} {right} "));
         run(&mut state, Action::ClearCli);
         assert!(state.cli.field.is_empty());
     }

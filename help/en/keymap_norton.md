@@ -108,7 +108,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | :--- | :--- |
 | `Ctrl+Alt+k` | Cycle key bar modifiers |
 | `Ctrl+r` | Refresh |
-| `Ctrl+h` | Show / hide hidden files |
+| `Alt+.` · `Ctrl+h` | Show / hide hidden files |
 | `Ctrl+b` | Show / hide key bar |
 | `Ctrl+n` | Toggle long names |
 | `Alt+F9` | Video mode |

@@ -86,6 +86,17 @@ fn a_toml_save_without_a_base_writes_the_whole_document() {
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "new = 2\n");
 }
 
+#[test]
+fn saving_over_an_unparsable_file_sets_it_aside() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("k.toml");
+    std::fs::write(&path, "broken = [\n").unwrap();
+    TomlBase::default().save(&path, "new = 2\n").unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new = 2\n");
+    let bak = dir.path().join("k.toml.bak");
+    assert_eq!(std::fs::read_to_string(bak).unwrap(), "broken = [\n");
+}
+
 #[derive(Debug, Default, Serialize, serde::Deserialize)]
 struct Items {
     items: Vec<u32>,

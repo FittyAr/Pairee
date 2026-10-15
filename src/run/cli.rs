@@ -26,12 +26,10 @@ pub(super) async fn run_subcommand(args: &[String]) -> Result<bool> {
         return Ok(true);
     }
     let rest = args.get(2..).unwrap_or_default();
-    let topic = match first {
-        Some("plugin") => Topic::Plugin,
-        Some("developer") => Topic::Developer,
-        Some("keymap") => Topic::Keymap,
-        _ if help::requested(args.get(1..).unwrap_or_default()) => Topic::Main,
-        _ => return Ok(false),
+    let topic = match named_topic(args) {
+        Some(topic) => topic,
+        None if help::requested(args.get(1..).unwrap_or_default()) => Topic::Main,
+        None => return Ok(false),
     };
     crate::config::load_configured_language();
     let cmd = help::command_of(rest);
@@ -46,14 +44,29 @@ pub(super) async fn run_subcommand(args: &[String]) -> Result<bool> {
     Ok(true)
 }
 
+/// The subcommand `args` name (`plugin`, `developer`, `keymap`). A lone
+/// word that is also a folder of the current directory is the folder to
+/// open (`./plugin` and `plugin --help` still reach the subcommand).
+fn named_topic(args: &[String]) -> Option<Topic> {
+    named_topic_with(args, |name| std::path::Path::new(name).is_dir())
+}
+
+fn named_topic_with(args: &[String], is_folder: impl Fn(&str) -> bool) -> Option<Topic> {
+    let first = args.get(1)?;
+    let topic = match first.as_str() {
+        "plugin" => Topic::Plugin,
+        "developer" => Topic::Developer,
+        "keymap" => Topic::Keymap,
+        _ => return None,
+    };
+    let lone_folder = args.len() == 2 && is_folder(first);
+    (!lone_folder).then_some(topic)
+}
+
 /// Whether `--version` / `-V` is among the options (before `--`) of an
 /// interactive command line (not a `plugin`, `developer` or `keymap` one).
 fn asks_version(args: &[String]) -> bool {
-    let subcommand = matches!(
-        args.get(1).map(String::as_str),
-        Some("plugin" | "developer" | "keymap")
-    );
-    !subcommand
+    named_topic(args).is_none()
         && args
             .iter()
             .skip(1)
@@ -168,7 +181,7 @@ fn parse_install_spec(spec: &str) -> (String, Option<&str>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{asks_version, parse_install_spec};
+    use super::{Topic, asks_version, named_topic_with, parse_install_spec};
     use crate::plugin::updater::ops::validate_identifier;
 
     #[test]
@@ -185,6 +198,29 @@ mod tests {
         assert!(!asks_version(&args(&["--", "--version"])), "a folder");
         assert!(!asks_version(&args(&["plugin", "info", "--version"])));
         assert!(!asks_version(&args(&["/a"])));
+    }
+
+    #[test]
+    fn a_lone_subcommand_word_that_is_a_folder_opens_the_folder() {
+        let args = |list: &[&str]| -> Vec<String> {
+            std::iter::once("pairee")
+                .chain(list.iter().copied())
+                .map(String::from)
+                .collect()
+        };
+        let folder = |_: &str| true;
+        let none = |_: &str| false;
+        assert_eq!(
+            named_topic_with(&args(&["plugin"]), none),
+            Some(Topic::Plugin)
+        );
+        assert_eq!(named_topic_with(&args(&["plugin"]), folder), None);
+        assert_eq!(
+            named_topic_with(&args(&["plugin", "list"]), folder),
+            Some(Topic::Plugin),
+            "with arguments it is the command"
+        );
+        assert_eq!(named_topic_with(&args(&["docs"]), none), None);
     }
 
     #[test]

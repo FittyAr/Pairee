@@ -5,7 +5,8 @@ use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::fs::journal::FsCommand;
-use crate::fs::multi_rename::Step;
+use crate::fs::multi_rename::{Step, TargetFs};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Opens the rename prompt; with `basename` the cursor starts before the
 /// extension (Vim's `cW`, yazi's `r`).
@@ -43,11 +44,11 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext, basename: bool) -
     }
 }
 
-/// Characters of `.ext` in `name` (none for dot files like `.bashrc`).
+/// Graphemes (cursor steps) of `.ext` in `name` (none for dot files like `.bashrc`).
 fn extension_len(name: &str) -> usize {
     match name.rfind('.') {
         Some(0) | None => 0,
-        Some(dot) => name[dot..].chars().count(),
+        Some(dot) => name[dot..].graphemes(true).count(),
     }
 }
 
@@ -66,12 +67,22 @@ pub fn commit(
         state.dialogs.clear();
         return;
     }
+    let remote = state.get_active_panel().source.remote().cloned();
+    // A name with a separator (or `.`, `..`) would move the file elsewhere.
+    if !TargetFs::for_panel(remote.is_some()).is_valid_name(&trimmed) {
+        state.dialogs.replace(PopupType::error(format!(
+            "{} {}",
+            t("error_rename_error"),
+            t("error_rename_invalid_name")
+        )));
+        return;
+    }
     let target = parent_dir.join(&trimmed);
     if target == src_path {
         state.dialogs.clear();
         return;
     }
-    if let Some(remote) = state.get_active_panel().source.remote().cloned() {
+    if let Some(remote) = remote {
         // SFTP: renamed in the background by the rename executor, which
         // refuses an existing target and journals the step for undo.
         state.dialogs.clear();
@@ -108,7 +119,8 @@ pub fn commit(
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
         Err(e) => {
-            if !context.config.settings.req_admin_modification {
+            let denied = e.kind() == std::io::ErrorKind::PermissionDenied;
+            if denied && !context.config.settings.req_admin_modification {
                 state.dialogs.replace(ConfirmRetryAsAdmin {
                     paths: vec![src_path.clone()],
                     op_kind: crate::app::state::AdminOpKind::Rename {
@@ -162,5 +174,10 @@ mod tests {
         assert_eq!(extension_len("Makefile"), 0);
         assert_eq!(extension_len(".bashrc"), 0, "a dot file has no extension");
         assert_eq!(extension_len("año.txt"), 4);
+        assert_eq!(
+            extension_len("e\u{301}.tx\u{301}t"),
+            4,
+            "combining marks are one step"
+        );
     }
 }

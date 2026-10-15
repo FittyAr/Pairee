@@ -95,9 +95,7 @@ fn paste_links(state: &mut AppState, context: &AppContext) {
             continue;
         };
         if let Err(e) = link::make(state, src, &dest_dir.join(name), LinkKind::Symbolic) {
-            state
-                .dialogs
-                .replace(PopupType::error(format!("Link failed: {e}")));
+            state.dialogs.replace(link::failed_popup(&e));
             break;
         }
     }

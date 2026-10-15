@@ -26,35 +26,44 @@ pub async fn open_help(state: &mut AppState) {
     });
 }
 
-/// `help/` next to the sources, the executable (or a parent), in the config
-/// folder or in the system share folder, whichever exists first.
+/// The `help/` folders to try, best first: the config folder, the system
+/// share folder, then the executable's folder and its parent (a portable
+/// install or a build tree); never further up, where an unrelated `help/`
+/// (such as `~/help`) could be picked.
+fn help_candidates(
+    config_dir: &Path,
+    share_dir: Option<&Path>,
+    exe: Option<&Path>,
+) -> Vec<PathBuf> {
+    let exe_dirs = exe
+        .and_then(Path::parent)
+        .into_iter()
+        .flat_map(|dir| std::iter::once(dir).chain(dir.parent()));
+    std::iter::once(config_dir)
+        .chain(share_dir)
+        .chain(exe_dirs)
+        .map(|dir| dir.join("help"))
+        .collect()
+}
+
+/// `help/` next to the sources (development builds) or the first of
+/// [`help_candidates`] that exists.
 fn resolve_help_root() -> Option<PathBuf> {
-    let is_dir = |p: &Path| p.exists() && p.is_dir();
-    // Try CARGO_MANIFEST_DIR first
+    let is_dir = |p: &Path| p.is_dir();
     if let Some(manifest_dir) = option_env!("CARGO_MANIFEST_DIR") {
         let manifest_path = PathBuf::from(manifest_dir).join("help");
         if is_dir(&manifest_path) {
             return Some(manifest_path);
         }
     }
-    // Try current executable parents
-    if let Ok(exe) = std::env::current_exe()
-        && let Some(found) = exe
-            .ancestors()
-            .skip(1)
-            .map(|dir| dir.join("help"))
-            .find(|candidate| is_dir(candidate))
-    {
-        return Some(found);
-    }
-    // Try config dir, then the system share dir
-    let config_path = crate::config::paths::get_config_dir().join("help");
-    if is_dir(&config_path) {
-        return Some(config_path);
-    }
-    crate::config::paths::get_system_share_dir()
-        .map(|share_dir| share_dir.join("help"))
-        .filter(|share_path| is_dir(share_path))
+    let exe = std::env::current_exe().ok();
+    help_candidates(
+        &crate::config::paths::get_config_dir(),
+        crate::config::paths::get_system_share_dir().as_deref(),
+        exe.as_deref(),
+    )
+    .into_iter()
+    .find(|candidate| is_dir(candidate))
 }
 
 /// Help folder of the active language, falling back to English.
@@ -132,4 +141,23 @@ async fn plugin_docs() -> Vec<(String, PathBuf)> {
         }
     }
     plugin_docs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn help_candidates_stop_at_the_executables_parent() {
+        let found = help_candidates(
+            Path::new("cfg"),
+            Some(Path::new("share")),
+            Some(Path::new("app/bin/pairee")),
+        );
+        let expected: Vec<PathBuf> = ["cfg", "share", "app/bin", "app"]
+            .iter()
+            .map(|d| Path::new(d).join("help"))
+            .collect();
+        assert_eq!(found, expected, "no help folder further up");
+    }
 }

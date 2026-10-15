@@ -139,7 +139,7 @@ fn background_jobs_get_the_secret_typed_in_the_prompt() {
 }
 
 #[test]
-fn escape_or_a_closed_prompt_cancels_the_request() {
+fn escape_cancels_and_a_replaced_prompt_comes_back() {
     let mut h = Harness::new();
     let asker = h.state.credential_requests.asker();
     let ask = |asker: crate::credential_prompt::Asker| {
@@ -152,10 +152,13 @@ fn escape_or_a_closed_prompt_cancels_the_request() {
     h.keys("Esc");
     assert_eq!(job.join().unwrap(), None);
 
-    // Another dialog replaced the prompt: the job is not left waiting.
+    // Another dialog replaced the prompt: the request is not dropped
+    // behind the user's back, the prompt comes back to be answered.
     let job = ask(asker);
     wait_for_prompt(&mut h);
     h.state.dialogs.clear();
     h.pump();
+    wait_for_prompt(&mut h);
+    h.keys("Esc");
     assert_eq!(job.join().unwrap(), None);
 }

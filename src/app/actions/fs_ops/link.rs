@@ -1,5 +1,6 @@
 use crate::app::state::popup::CreateLinkPrompt;
-use crate::app::state::{AppState, LinkKind};
+use crate::app::state::{AppState, LinkKind, PopupType};
+use crate::config::localization::t;
 use std::path::Path;
 
 pub fn handle(state: &mut AppState) -> bool {
@@ -14,6 +15,11 @@ pub fn handle(state: &mut AppState) -> bool {
         });
     }
     true
+}
+
+/// The error dialog of a link that could not be created.
+pub fn failed_popup(error: &anyhow::Error) -> PopupType {
+    PopupType::error(t("transfer_link_failed").replacen("{}", &error.to_string(), 1))
 }
 
 /// Creates a `kind` link at `dest` to `src` and journals it for undo.

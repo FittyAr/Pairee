@@ -90,7 +90,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | Teclas | Acción |
 | :--- | :--- |
 | `Ctrl+r` | Actualizar |
-| `Ctrl+.` · `Ctrl+h` | Mostrar / ocultar archivos ocultos |
+| `Alt+.` · `Ctrl+.` · `Ctrl+h` | Mostrar / ocultar archivos ocultos |
 | `Ctrl+Alt+v` | Siguiente modo de vista |
 | `Ctrl+4` | Vista: ancha |
 | `Ctrl+1` | Vista: breve |

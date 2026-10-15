@@ -20,7 +20,7 @@ leader = "Space"
 execute         = "l, Enter"
 go_parent       = "h, -, Backspace, Ctrl+PageUp"
 history_back    = "Ctrl+o"
-history_forward = "Ctrl+i"
+history_forward = "Ctrl+i, Alt+i"
 
 # ── Panes (Vim windows) ───────────────────────────────────────────────────────
 change_panel       = "Tab, Ctrl+w w"

@@ -35,6 +35,29 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
         }
     });
 
+    let looped = main_loop(
+        &mut state,
+        &mut context,
+        &mut terminal_backend,
+        &mut event_handler,
+        &mouse_probe,
+    )
+    .await;
+    // What outlives the run is saved when the loop fails too: an error
+    // must not lose the session, the history or the setup.
+    let exit_dir = crate::app::session::persist_on_exit(&mut state, &mut context);
+    looped.map(|()| exit_dir)
+}
+
+/// Draws, takes background results and handles input until the user quits
+/// (`Ok`) or something fails (`Err`).
+async fn main_loop(
+    state: &mut AppState,
+    context: &mut AppContext,
+    terminal_backend: &mut TerminalBackend,
+    event_handler: &mut EventHandler,
+    mouse_probe: &crate::terminal::mouse::EnvProbe,
+) -> Result<()> {
     // Transfer progress redraw rate-limit (~12 Hz)
     const TRANSFER_DRAW_MIN: Duration = Duration::from_millis(80);
 
@@ -46,12 +69,12 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
         }
 
         // 1. Process background operation updates (e.g. copy progress)
-        background::process_background_updates(&mut state, &context, &mut terminal_backend);
+        background::process_background_updates(state, context, terminal_backend);
         // 1.8 Process self-update checking, progress tracking, and installer execution
-        updates::process_update_events(&mut state, &mut context);
+        updates::process_update_events(state, context);
         // 1.9 Process plugin requests
-        crate::plugin::process_plugin_requests(&mut state, &context);
-        plugin_effects::apply(&mut state, &mut context, &mut terminal_backend).await?;
+        crate::plugin::process_plugin_requests(state, context);
+        plugin_effects::apply(state, context, terminal_backend).await?;
 
         // Rate-limit transfer-driven redraws when only progress ticks changed.
         if state
@@ -82,7 +105,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
                 state.redraw.needs_clear = false;
             }
 
-            paint(&mut terminal_backend.terminal, &context, &state)?;
+            paint(&mut terminal_backend.terminal, context, state)?;
 
             let _ = execute!(stdout, EndSynchronizedUpdate);
             state.redraw.dirty = false;
@@ -90,10 +113,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
 
         // 3. Exit check
         if state.should_quit {
-            return Ok(crate::app::session::persist_on_exit(
-                &mut state,
-                &mut context,
-            ));
+            return Ok(());
         }
 
         // 4. Handle input events (or wake early when a background job finished)
@@ -114,8 +134,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
                 }
                 crate::terminal::Event::Mouse(_) | crate::terminal::Event::Tick => {}
             }
-            events::handle_input_event(&mut state, &mut context, &mut terminal_backend, event)
-                .await?;
+            events::handle_input_event(state, context, terminal_backend, event).await?;
         }
     }
 }

@@ -110,7 +110,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+n` | Alternar nombres largos |
 | `Ctrl+Alt+k` | Ciclar modificadores de la barra de teclas |
 | `Alt+F9` | Modo de vídeo |
-| `Ctrl+h` | Mostrar / ocultar archivos ocultos |
+| `Alt+.` · `Ctrl+h` | Mostrar / ocultar archivos ocultos |
 | `Ctrl+b` | Mostrar / ocultar barra de teclas |
 | `Ctrl+4` | Vista: ancha |
 | `Ctrl+1` | Vista: breve |

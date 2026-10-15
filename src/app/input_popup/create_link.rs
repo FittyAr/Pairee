@@ -2,7 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::form::{FieldKey, field_key};
 use crate::app::state::popup::CreateLinkPrompt;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, LinkKind, PopupType};
+use crate::app::state::{AppState, LinkKind};
 use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -55,7 +55,7 @@ fn create(
     match crate::app::actions::fs_ops::link::make(state, src, &dest, kind) {
         Err(e) => state
             .dialogs
-            .replace(PopupType::error(format!("Link failed: {}", e))),
+            .replace(crate::app::actions::fs_ops::link::failed_popup(&e)),
         Ok(()) => state.refresh_both_panels(context.config.settings.show_hidden),
     }
 }
@@ -72,6 +72,7 @@ impl Dialog for CreateLinkPrompt {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::PopupType;
     use crate::config::AppConfig;
     use crossterm::event::KeyModifiers;
     use std::path::PathBuf;
