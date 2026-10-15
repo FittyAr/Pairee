@@ -6,7 +6,9 @@
 # Installs pairee.exe to %LOCALAPPDATA%\Programs\FittyAr\Pairee and its resources
 # to %APPDATA%\FittyAr\Pairee\config (all FittyAr apps share the FittyAr
 # folders). Earlier layouts (Programs\pairee, %APPDATA%\pairee) are moved
-# automatically. The download is checked against its SHA-256 and
+# automatically (the settings stay in %APPDATA%\pairee while the release being
+# installed is 0.11.0 or older, which still reads them there). The download is
+# checked against its SHA-256 and
 # its minisign signature. minisign itself is downloaded from its official
 # release (jedisct1/minisign), pinned by version and SHA-256 below.
 #   -InsecureSkipSignature  skip the signature (only the checksum, served from
@@ -109,19 +111,55 @@ function Test-IsInstallDir([string]$entry) {
     return [Environment]::ExpandEnvironmentVariables($entry).TrimEnd('\') -eq $installDir.TrimEnd('\')
 }
 
-# Moves the pre-FittyAr folders into place: the settings folder is renamed
-# (only when the new one does not exist yet; nothing is deleted) and the old
-# program folder is removed, with its PATH entry.
+# Moves the pre-FittyAr settings folder into place: it is renamed only when
+# the new one does not exist yet, and nothing is deleted. If it cannot be
+# moved (a file in it is in use) it keeps being used, as Pairee does.
 function Move-PreviousSettings {
     if (-not (Test-Path $dataRoot) -and (Test-Path $previousDataRoot)) {
         Write-Host "Moving settings from $previousDataRoot to $dataRoot..."
         New-Item -ItemType Directory -Force -Path (Split-Path $dataRoot) | Out-Null
-        Move-Item -Path $previousDataRoot -Destination $dataRoot -ErrorAction SilentlyContinue
+        # A plain rename, all or nothing (Move-Item falls back to moving file
+        # by file and could leave the settings split between both folders).
+        try {
+            [System.IO.Directory]::Move($previousDataRoot, $dataRoot)
+        } catch {
+            Write-Host "$($_.Exception.Message)" -ForegroundColor Yellow
+        }
+        if (-not (Test-Path $dataRoot)) {
+            Write-Host "Could not move $previousDataRoot; it keeps being used." -ForegroundColor Yellow
+            $vendor = Split-Path $dataRoot
+            if (@(Get-ChildItem -Path $vendor -Force).Count -eq 0) {
+                Remove-Item -Force $vendor -ErrorAction SilentlyContinue
+            }
+            $script:dataRoot = $previousDataRoot
+            $script:configDir = Join-Path $previousDataRoot "config"
+        }
     }
 }
 
-function Move-PreviousLayout {
-    Move-PreviousSettings
+# Whether the Pairee being installed ($version) reads its settings from the
+# FittyAr folder. TRANSITION: 0.11.0 and older read %APPDATA%\pairee; drop
+# this (and its use in Select-SettingsFolder) once a newer release is the latest.
+function Test-UsesFittyArFolders([string]$tag) {
+    if ($tag -notmatch '^v(\d+)\.(\d+)\.(\d+)') { return $true }
+    return [version]"$($Matches[1]).$($Matches[2]).$($Matches[3])" -gt [version]"0.11.0"
+}
+
+# The settings folder the installed version uses: the FittyAr one (after
+# moving the previous folder into place) or, for 0.11.0 and older, the
+# previous one.
+function Select-SettingsFolder {
+    if (Test-UsesFittyArFolders $script:version) {
+        Move-PreviousSettings
+    } else {
+        $script:dataRoot = $previousDataRoot
+        $script:configDir = Join-Path $previousDataRoot "config"
+    }
+}
+
+# Removes the pre-FittyAr program folder and its PATH entry, once the new
+# install is in place.
+function Remove-PreviousProgram {
     if (Test-Path (Join-Path $previousDir "pairee.exe")) {
         Write-Host "Moving from $previousDir to $installDir..."
         Remove-Item -Recurse -Force $previousDir -ErrorAction SilentlyContinue
@@ -137,7 +175,12 @@ function Move-PreviousLayout {
 function Invoke-Uninstall {
     Write-Host "Pairee Uninstaller" -ForegroundColor Blue
     Write-Host "=============================="
-    Move-PreviousSettings
+    # Nothing is moved here: a cancelled uninstall must leave the settings
+    # where the installed version reads them.
+    if (-not (Test-Path $dataRoot) -and (Test-Path $previousDataRoot)) {
+        $script:dataRoot = $previousDataRoot
+        $script:configDir = Join-Path $previousDataRoot "config"
+    }
 
     $userBin = Join-Path $installDir "pairee.exe"
     $oldBin = Join-Path $previousDir "pairee.exe"
@@ -207,10 +250,10 @@ function Invoke-Uninstall {
     }
 
     if (Test-Path $configDir) {
-        $confirmConfig = Read-Host "Do you want to delete the configuration, themes, and history settings at $configDir? [y/N]"
+        $confirmConfig = Read-Host "Do you want to delete the configuration, themes, and history settings at ${configDir}? [y/N]"
         if ($confirmConfig -match "^[yY](es)?$") {
             Write-Host "Removing configuration folder: $dataRoot"
-            Remove-Item -Recurse -Force $dataRoot -ErrorAction SilentlyContinue
+            Remove-Item -Recurse -Force $dataRoot, $previousDataRoot -ErrorAction SilentlyContinue
             # Leave the shared FittyAr folder only while other apps use it.
             $dataVendor = Split-Path $dataRoot
             if ((Test-Path $dataVendor) -and @(Get-ChildItem -Path $dataVendor).Count -eq 0) {
@@ -348,7 +391,8 @@ function Get-SourceBuild([string]$tempDir) {
 # Asks before overwriting an existing installation (false: cancelled); may
 # clear its settings.
 function Confirm-Overwrite {
-    if (-not ((Test-Path $exePath) -or (Test-Path $configDir))) {
+    $previousConfig = Join-Path $previousDataRoot "config"
+    if (-not ((Test-Path $exePath) -or (Test-Path (Join-Path $previousDir "pairee.exe")) -or (Test-Path $configDir) -or (Test-Path $previousConfig))) {
         return $true
     }
     Write-Host "Warning: Pairee is already installed." -ForegroundColor Yellow
@@ -357,12 +401,12 @@ function Confirm-Overwrite {
         Write-Host "Installation cancelled."
         return $false
     }
-    if (Test-Path $configDir) {
+    if ((Test-Path $configDir) -or (Test-Path $previousConfig)) {
         $clearAnswer = Read-Host "Do you want to clear old configurations, themes, and history settings? [y/N]"
         if ($clearAnswer -match "^[yY](es)?$") {
             # Deleted by Install-Files, once the download is verified.
             $script:clearConfig = $true
-            Write-Host "Old settings in $configDir will be cleared once the download is verified."
+            Write-Host "Old settings will be cleared once the download is verified."
         } else {
             Write-Host "Keeping existing settings."
         }
@@ -373,6 +417,7 @@ function Confirm-Overwrite {
 # Copies pairee.exe and the resources of $package into place.
 function Install-Files([string]$package) {
     Write-Host "Installing files..."
+    Select-SettingsFolder
     if ($script:clearConfig) {
         Write-Host "Clearing old settings in $configDir..."
         Remove-Item -Recurse -Force $configDir -ErrorAction SilentlyContinue
@@ -409,7 +454,6 @@ function Add-ToUserPath {
 function Invoke-Install {
     Write-Host "Pairee Installer for Windows" -ForegroundColor Blue
     Write-Host "=============================="
-    if (-not $VerifyOnly) { Move-PreviousLayout }
     if (-not $VerifyOnly -and -not (Confirm-Overwrite)) {
         return
     }
@@ -422,6 +466,7 @@ function Invoke-Install {
             return
         }
         Install-Files $package
+        Remove-PreviousProgram
     } catch {
         Write-Host "Error: $($_.Exception.Message) Aborting." -ForegroundColor Red
         throw

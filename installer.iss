@@ -56,8 +56,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#SourceDir}\pairee.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "lang\*"; DestDir: "{userappdata}\FittyAr\Pairee\config\lang"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "help\*"; DestDir: "{userappdata}\FittyAr\Pairee\config\help"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "lang\*"; DestDir: "{code:ConfigDir}\lang"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "help\*"; DestDir: "{code:ConfigDir}\help"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
@@ -121,6 +121,47 @@ begin
   end;
   if Changed then
     RegWriteExpandStringValue(HKEY_CURRENT_USER, EnvKey, 'Path', Kept);
+end;
+
+{ Pairee's settings folder: %APPDATA%\FittyAr\Pairee, or the folder from
+  before the shared FittyAr layout (%APPDATA%\pairee) while it could not be
+  moved; the same rule as src/config/paths.rs. }
+function DataRoot(): string;
+begin
+  Result := ExpandConstant('{userappdata}\FittyAr\Pairee');
+  if not DirExists(Result) and DirExists(ExpandConstant('{userappdata}\pairee')) then
+    Result := ExpandConstant('{userappdata}\pairee');
+end;
+
+function ConfigDir(Param: string): string;
+begin
+  Result := DataRoot() + '\config';
+end;
+
+{ Renames %APPDATA%\pairee into place before the translations and help are
+  copied (copying them first would create the new folder and leave the
+  settings behind). Nothing is deleted; when the folder is in use it stays
+  where it is and Pairee moves it on a later start. }
+procedure MovePreviousSettings();
+var
+  OldDir, NewDir: string;
+begin
+  OldDir := ExpandConstant('{userappdata}\pairee');
+  NewDir := ExpandConstant('{userappdata}\FittyAr\Pairee');
+  if DirExists(OldDir) and not DirExists(NewDir) then
+  begin
+    ForceDirectories(ExtractFileDir(NewDir));
+    if RenameFile(OldDir, NewDir) then
+      Log('Moved ' + OldDir + ' to ' + NewDir)
+    else
+      Log('Could not move ' + OldDir + '; it keeps being used');
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssInstall then
+    MovePreviousSettings();
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
