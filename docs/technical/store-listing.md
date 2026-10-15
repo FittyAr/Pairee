@@ -5,8 +5,10 @@ shows on the Store page, kept here so every submission starts from the same
 source. The English text goes to the English listings (en-us, en-gb, en-au,
 en-ca, en-in), the Spanish text to the Spanish ones (es-es, es-mx, es-ar,
 es-co, es-cl, es-us): the languages of `lang/` and the `<Resource>` entries of
-`manifests/msix/AppxManifest.xml`. Update "What's new" from
-`docs/CHANGELOG.md` on each release. Limits: description 10,000 characters,
+`manifests/msix/AppxManifest.xml`. Before each release, add "What's new in
+X.Y.Z" and "Novedades de la X.Y.Z" (from `docs/CHANGELOG.md`): the
+Microsoft Store workflow copies them into every listing, by these exact
+headings (`microsoft-store-publishing.md`). Limits: description 10,000 characters,
 "What's new" 1,500, 20 features of 200 characters, 7 search terms of 30
 characters (21 words in all).
 

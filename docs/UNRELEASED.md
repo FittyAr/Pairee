@@ -3,6 +3,7 @@
 ### Added
 
 - Microsoft Store: the package registers the `pairee` command, so the Store installation starts from any terminal, and declares English and Spanish in their regional variants (en-GB, en-AU, en-CA, en-IN, es-MX, es-AR, es-CO, es-CL, es-US) for the Store listings.
+- Microsoft Store: every release is now submitted to the Store automatically, both architectures in one bundle with the "What's new" text of each language, so the Store version no longer falls behind GitHub and WinGet.
 
 ### Improved
 

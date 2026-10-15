@@ -140,13 +140,13 @@ Once you have validated the package locally, you are ready to upload the **unsig
 5. Click **Submit to the Store**.
 
 ### Option B — Using the Microsoft Store Developer CLI
-You can also automate the submission using the `msstore` CLI tool:
+The Release workflow does this for every release (see [Every release](#every-release)); by hand, with the `msstore` CLI:
 ```powershell
-# 1. Initialize configuration (logs you in to Partner Center via Entra ID application)
-msstore init
+# 1. Sign in to Partner Center with the Entra ID application (see One-time setup)
+msstore reconfigure --tenantId <tenant> --sellerId <seller> --clientId <client> --clientSecret <secret>
 
 # 2. Upload and submit the package
-msstore publish target\pairee_0.6.1_x64.msix
+msstore publish target\pairee_0.6.1_x64.msix --appId 9PBSDNBTP2JZ
 ```
 
 During ingestion, the Microsoft Store will verify the identity matches your account, discard the temporary signature, and **re-sign the app with the official Microsoft Store root-trusted certificate**.
@@ -155,15 +155,65 @@ During ingestion, the Microsoft Store will verify the identity matches your acco
 
 ## Every release
 
-The Release workflow builds the MSIX packages but does **not** submit them:
-the Store keeps the last version uploaded to Partner Center (it stayed on
-0.6.1 from July to October 2026 because of this). After each release:
+The Release workflow submits every published release to the Store by
+itself: after the `release` environment is approved and the release is
+public, its `msstore` job runs [`.github/workflows/msstore.yml`](../../.github/workflows/msstore.yml)
+(next to the WinGet job), which:
 
-1. Download `pairee-X.Y.Z-x64.msix` and `pairee-X.Y.Z-arm64.msix` from the
-   GitHub release (the version inside is already `X.Y.Z.0`).
-2. Partner Center → Pairee → **Start update** → **Packages**: upload both and
-   remove the previous ones.
-3. **Store listings**: paste "What's new" from [`store-listing.md`](store-listing.md)
-   into every language (update that file first from `docs/CHANGELOG.md`).
-4. **Submit to the Store**. Certification usually takes one to three days;
+1. downloads `pairee-X.Y.Z-x64.msix` and `pairee-X.Y.Z-arm64.msix` from the
+   release and bundles them into `pairee-X.Y.Z.msixbundle` (`msstore publish`
+   uploads one file);
+2. installs the Microsoft Store Developer CLI (`microsoft/microsoft-store-apppublisher`),
+   signs in with the `MSSTORE_*` secrets and uploads the bundle to a new draft
+   submission of product `9PBSDNBTP2JZ`, made from the last published one
+   (listings, screenshots, pricing and age ratings carry over);
+3. marks the packages of the previous submission for deletion and sets
+   "What's new" of every English listing from `### What's new in X.Y.Z` and of
+   every Spanish one from `### Novedades de la X.Y.Z` in
+   [`store-listing.md`](store-listing.md);
+4. commits the submission. Certification usually takes one to three days;
    installed copies then update through the Store.
+
+The script is [`.github/scripts/msstore-publish.ps1`](../../.github/scripts/msstore-publish.ps1).
+Before tagging, add both "What's new" sections for the new version to
+`store-listing.md` (at most 1,500 characters each, written from
+`docs/CHANGELOG.md`): without them the job fails before uploading anything.
+Without the secrets it is skipped with a warning and the release is not
+affected.
+
+To retry a submission, or to submit an earlier release: Actions → **Publish
+to the Microsoft Store** → **Run workflow** with the tag (`vX.Y.Z`). A retry
+replaces the pending draft. Partner Center still shows the submission under
+Pairee → **Submissions**; changes to screenshots, descriptions or features are
+made there by hand (and copied to `store-listing.md`).
+
+## One-time setup
+
+The workflow signs in to Partner Center as a Microsoft Entra ID application.
+
+1. **Register the application.** [Azure portal](https://portal.azure.com) →
+   **Microsoft Entra ID** → **App registrations** → **New registration**: name
+   it (for example `Pairee Store publishing`), single tenant, no redirect URI.
+   Note the **Application (client) ID** and the **Directory (tenant) ID**.
+2. **Create a client secret.** In the application: **Certificates & secrets** →
+   **New client secret**. Copy the **Value** at once (it is shown only once) and
+   note its expiry date: renew it and the repository secret before then.
+3. **Give it access to Partner Center.** [Partner Center](https://partner.microsoft.com/dashboard)
+   → ⚙ **Account settings** → **User management** → **Microsoft Entra
+   applications** → **Add Microsoft Entra application**: pick the application
+   and give it the **Manager** role. (If the tab asks to associate the
+   tenant first, do it in **Account settings** → **Tenants**.)
+4. **Find the seller ID.** Partner Center → ⚙ **Account settings** → **Legal
+   info** → **Developer** tab → **Seller ID**.
+5. **Add the repository secrets.** GitHub → Settings → Secrets and variables →
+   Actions → **New repository secret**:
+
+   | Secret | Value |
+   |---|---|
+   | `MSSTORE_TENANT_ID` | Directory (tenant) ID |
+   | `MSSTORE_SELLER_ID` | Seller ID |
+   | `MSSTORE_CLIENT_ID` | Application (client) ID |
+   | `MSSTORE_CLIENT_SECRET` | Client secret value |
+
+To check the setup without waiting for a release, run the workflow by hand
+with the tag of the current Store version: it submits that version again.
