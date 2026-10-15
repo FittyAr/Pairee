@@ -1,0 +1,116 @@
+name: Publish to the Microsoft Store
+
+# Called by release.yml once a release is public; run it by hand to retry a
+# submission. Bundles pairee-X.Y.Z-{x64,arm64}.msix of the release, replaces
+# the packages of Pairee (9PBSDNBTP2JZ) in a new submission, sets "What's
+# new" of every listing from docs/technical/store-listing.md and submits it
+# for certification (.github/scripts/msstore-publish.ps1).
+# docs/technical/microsoft-store-publishing.md has the one-time setup
+# (Entra ID app, Partner Center access, the MSSTORE_* secrets).
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag (vX.Y.Z)
+        required: true
+        type: string
+    secrets:
+      MSSTORE_TENANT_ID:
+        description: Microsoft Entra tenant (directory) ID
+        required: false
+      MSSTORE_SELLER_ID:
+        description: Partner Center seller ID
+        required: false
+      MSSTORE_CLIENT_ID:
+        description: Application (client) ID of the Entra ID app
+        required: false
+      MSSTORE_CLIENT_SECRET:
+        description: Client secret of the Entra ID app
+        required: false
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (vX.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  PRODUCT_ID: 9PBSDNBTP2JZ
+
+jobs:
+  publish:
+    name: Submit to the Microsoft Store
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      # Without the credentials the Store is skipped, not the release failed.
+      - name: Check the Partner Center credentials
+        id: credentials
+        shell: bash
+        env:
+          TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+        run: |
+          if [ -z "$TENANT_ID" ] || [ -z "$SELLER_ID" ] || [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
+            echo "::warning::MSSTORE_TENANT_ID, MSSTORE_SELLER_ID, MSSTORE_CLIENT_ID and MSSTORE_CLIENT_SECRET are not all set: the release was not submitted to the Microsoft Store."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout the release (scripts and Store listing)
+        if: steps.credentials.outputs.ready == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            docs/technical/store-listing.md
+          sparse-checkout-cone-mode: false
+
+      - name: Download the MSIX packages
+        if: steps.credentials.outputs.ready == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'pairee-*-x64.msix' --pattern 'pairee-*-arm64.msix' \
+            --dir "$RUNNER_TEMP/dist"
+
+      # Latest Microsoft Store Developer CLI (formerly microsoft/setup-msstore-cli).
+      - name: Install the Microsoft Store Developer CLI
+        if: steps.credentials.outputs.ready == 'true'
+        uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+
+      - name: Sign in to Partner Center
+        if: steps.credentials.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+        run: |
+          msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID `
+            --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
+          if ($LASTEXITCODE -ne 0) {
+            throw "msstore reconfigure failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Submit the release
+        if: steps.credentials.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          .github/scripts/msstore-publish.ps1 -Version $env:TAG.TrimStart('v') `
+            -Dist (Join-Path $env:RUNNER_TEMP 'dist') -ProductId $env:PRODUCT_ID

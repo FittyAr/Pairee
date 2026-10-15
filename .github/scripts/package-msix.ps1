@@ -47,14 +47,4 @@ $manifest = $manifest -creplace '\bVersion="[^"]+"', "Version=`"$Version.0`""
 $manifest = $manifest -creplace '\bProcessorArchitecture="[^"]+"', "ProcessorArchitecture=`"$Arch`""
 [System.IO.File]::WriteAllText($manifestPath, $manifest, (New-Object System.Text.UTF8Encoding($false)))
 
-$makeappx = Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse |
-    Where-Object { $_.FullName -match '\\x64\\' } |
-    Sort-Object FullName -Descending |
-    Select-Object -First 1 -ExpandProperty FullName
-if (-not $makeappx) {
-    $makeappx = 'makeappx.exe'
-}
-& $makeappx pack /o /d $staging /p $OutFile
-if ($LASTEXITCODE -ne 0) {
-    throw "makeappx failed with exit code $LASTEXITCODE"
-}
+& (Join-Path $PSScriptRoot 'makeappx.ps1') pack /o /d $staging /p $OutFile

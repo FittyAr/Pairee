@@ -3,7 +3,8 @@ name: Release
 # Started by the tag that `cargo xtask release` pushes (or by hand from the
 # Actions tab). Flow:
 #   check + release notes -> build & smoke-test every target -> signed draft
-#   release -> approval of the `release` environment -> publish -> WinGet.
+#   release -> approval of the `release` environment -> publish -> WinGet
+#   and the Microsoft Store.
 on:
   push:
     tags:
@@ -289,3 +290,17 @@ jobs:
     # release signing key.
     secrets:
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+  msstore:
+    name: Microsoft Store
+    needs: publish
+    permissions:
+      contents: read
+    uses: ./.github/workflows/msstore.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+      MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+      MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+      MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
