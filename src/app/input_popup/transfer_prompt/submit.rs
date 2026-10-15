@@ -4,7 +4,8 @@ use crate::app::context::AppContext;
 use crate::app::state::popup::CopyMoveFilterPrompt;
 use crate::app::state::types::TreeViewCaller;
 use crate::app::state::{AppState, PopupType};
-use crate::app::transfer_submit::submit_simple;
+use crate::app::transfer_submit::submit_job;
+use crate::fs::transfer::job::TransferJob;
 use crate::fs::transfer::transfer_options_from_settings;
 
 /// Closes the dialog and queues the Copy / Move job it describes.
@@ -23,15 +24,15 @@ pub fn submit(state: &mut AppState, context: &AppContext) {
     });
     // Several destinations become several jobs, run in this order.
     for (operation, destination) in prompt.jobs() {
-        submit_simple(
-            state,
+        let folder = destination == prompt.dest_dir;
+        let job = TransferJob::new(
             operation,
             prompt.src_paths.clone(),
             destination,
             options.clone(),
-            src_ssh.clone(),
-            dst_ssh.clone(),
-        );
+        )
+        .with_remotes(src_ssh.clone(), dst_ssh.clone());
+        submit_job(state, if folder { job.into_folder() } else { job });
     }
 }
 

@@ -4,7 +4,8 @@
 use crate::app::context::AppContext;
 use crate::app::state::popup::{CopyMovePromptState, TransferPromptOp};
 use crate::app::state::{AppState, PopupType};
-use crate::app::transfer_submit::submit_simple;
+use crate::app::transfer_submit::submit_job;
+use crate::fs::transfer::job::TransferJob;
 use crate::fs::transfer::transfer_options_from_settings;
 
 pub fn handle(state: &mut AppState, context: &mut AppContext, op: TransferPromptOp) -> bool {
@@ -45,15 +46,12 @@ pub fn start(
     } else {
         let options = transfer_options_from_settings(&context.config.settings);
         let (src_ssh, dst_ssh) = endpoints;
-        submit_simple(
-            state,
-            op.operation(),
-            targets,
-            dest_dir,
-            options,
-            src_ssh,
-            dst_ssh,
-        );
+        // The panel folder is where the items go, even when it shares its
+        // name with the single item copied into it.
+        let job = TransferJob::new(op.operation(), targets, dest_dir, options)
+            .with_remotes(src_ssh, dst_ssh)
+            .into_folder();
+        submit_job(state, job);
     }
 }
 
