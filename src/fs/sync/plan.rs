@@ -154,9 +154,14 @@ impl PlannedJob {
 }
 
 /// Groups the actions into Transfer Engine jobs: copies sharing source and
-/// target folders become one job, deletes become one job per side.
+/// target folders become one job, deletes become one job per side. A copy
+/// whose target is spelled differently from its source (`File.txt` onto an
+/// existing `file.txt`, paired by a case-insensitive comparison) is a job of
+/// its own onto that exact path: copying "into the folder" would name the
+/// file after the source and add a second file on a case-sensitive target.
 pub fn plan_jobs(items: &[SyncItem]) -> Vec<PlannedJob> {
     let mut copies: BTreeMap<(PathBuf, PathBuf), Vec<(PathBuf, PathBuf)>> = BTreeMap::new();
+    let mut respelled: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut deletes: [Vec<PathBuf>; 2] = Default::default();
     for item in items {
         let (src, dst) = match item.action {
@@ -172,6 +177,10 @@ pub fn plan_jobs(items: &[SyncItem]) -> Vec<PlannedJob> {
             }
             SyncAction::Skip => continue,
         };
+        if src.file_name() != dst.file_name() {
+            respelled.push((src.clone(), dst.clone()));
+            continue;
+        }
         copies
             .entry((parent(src), parent(dst)))
             .or_default()
@@ -181,6 +190,11 @@ pub fn plan_jobs(items: &[SyncItem]) -> Vec<PlannedJob> {
         .into_iter()
         .map(|((_, dst_dir), pairs)| copy_job(dst_dir, pairs))
         .collect();
+    jobs.extend(
+        respelled
+            .into_iter()
+            .map(|pair| copy_job(parent(&pair.1), vec![pair])),
+    );
     jobs.extend(
         deletes
             .into_iter()

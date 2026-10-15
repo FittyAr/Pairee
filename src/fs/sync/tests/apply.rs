@@ -169,3 +169,50 @@ async fn applying_both_directions_exchanges_new_files() {
     assert!(l.path().join("from_right/inner.txt").exists());
     assert!(r.path().join("from_left.txt").exists());
 }
+
+/// Paired by a case-insensitive comparison, `File.txt` is copied onto the
+/// existing `file.txt` by its exact path (a job of its own), not into the
+/// folder under the source's spelling, and the other copies stay grouped.
+#[test]
+fn a_respelled_target_keeps_its_own_name() {
+    let (l, r) = trees();
+    put(l.path(), "File.txt", "new", 900);
+    put(r.path(), "file.txt", "old", 0);
+    put(l.path(), "a.txt", "a", 0);
+    put(l.path(), "b.txt", "b", 0);
+    let mut options = opts(SyncDirection::LeftToRight);
+    options.compare.case_insensitive = true;
+    let jobs = plan_jobs(&diff(l.path(), r.path(), &options));
+    assert_eq!(
+        jobs,
+        [
+            PlannedJob {
+                operation: TransferOperation::Copy,
+                sources: vec![l.path().join("a.txt"), l.path().join("b.txt")],
+                destination: r.path().to_path_buf(),
+            },
+            PlannedJob {
+                operation: TransferOperation::Copy,
+                sources: vec![l.path().join("File.txt")],
+                destination: r.path().join("file.txt"),
+            },
+        ]
+    );
+}
+
+/// A mirror deletes a one-sided folder through the filter: what the mask
+/// hides in it stays, and so does the folder that still holds it.
+#[tokio::test]
+async fn a_mirror_delete_leaves_what_the_mask_hides() {
+    let (l, r) = trees();
+    put(l.path(), "same.txt", "s", 0);
+    put(r.path(), "same.txt", "s", 0);
+    put(r.path(), "extra/old.txt", "old", 0);
+    put(r.path(), "extra/keep.log", "log", 0);
+    let mut options = opts(SyncDirection::Mirror);
+    options.mask = "*.txt".into();
+    let items = diff(l.path(), r.path(), &options);
+    apply(&items, &options.effective_mask()).await;
+    assert!(!r.path().join("extra/old.txt").exists());
+    assert!(r.path().join("extra/keep.log").exists());
+}

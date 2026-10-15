@@ -392,3 +392,24 @@ async fn live_option_changes_reach_the_worker() {
     assert_eq!(results.completed_files.len(), 1, "{results:?}");
     assert_eq!(std::fs::read(dst.join("a.txt")).unwrap().len(), 64 * 1024);
 }
+
+/// Copying `/a/project` into the panel folder `/backup/project` puts it at
+/// `/backup/project/project` when the destination is declared a folder
+/// (inferred, the same path is the merge target of the dialog's pre-fill).
+#[tokio::test]
+async fn a_folder_named_like_the_destination_folder_nests_inside_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("a").join("project");
+    let panel = dir.path().join("backup").join("project");
+    std::fs::create_dir_all(&source).unwrap();
+    std::fs::create_dir_all(&panel).unwrap();
+    std::fs::write(source.join("f.txt"), b"data").unwrap();
+
+    let into_folder = job(TransferOperation::Copy, &[&source], &panel, overwrite()).into_folder();
+    run(into_folder).await.unwrap();
+    assert_eq!(
+        std::fs::read(panel.join("project").join("f.txt")).unwrap(),
+        b"data"
+    );
+    assert!(!panel.join("f.txt").exists());
+}

@@ -54,6 +54,15 @@ pub struct SshInfo {
 pub struct SharedSshClient {
     inner: Arc<Mutex<SshClient>>,
     info: Arc<SshInfo>,
+    /// What it takes to open the session again after the server dropped it.
+    login: Arc<SavedLogin>,
+}
+
+/// The parts of an [`SshLogin`] kept for [`SharedSshClient::reconnect`].
+struct SavedLogin {
+    password: Option<zeroize::Zeroizing<String>>,
+    key_path: Option<String>,
+    timeout: Duration,
 }
 
 impl std::fmt::Debug for SharedSshClient {
@@ -100,6 +109,37 @@ impl SharedSshClient {
                 port: login.port,
                 username: login.username.to_string(),
             }),
+            login: Arc::new(SavedLogin {
+                password: login
+                    .password
+                    .map(|p| zeroize::Zeroizing::new(p.to_string())),
+                key_path: login.key_path.map(str::to_string),
+                timeout: login.timeout,
+            }),
         })
+    }
+
+    /// Opens the session again in place (every clone of the client sees the
+    /// new one). Never asks the user: a login that needed a prompt (a key
+    /// passphrase typed once) fails here and the caller reports the
+    /// original error.
+    fn reconnect(&self) -> Result<()> {
+        let info = &self.info;
+        let saved = &self.login;
+        let ask = |_: crate::credential_prompt::CredentialRequest| -> Option<crate::credential_prompt::Secret> { None };
+        let session = connection::open_session(&SshLogin {
+            host: &info.host,
+            port: info.port,
+            username: &info.username,
+            password: saved.password.as_ref().map(|p| p.as_str()),
+            key_path: saved.key_path.as_deref(),
+            timeout: saved.timeout,
+            ask: &ask,
+        })?;
+        let sftp = session
+            .sftp()
+            .map_err(|e| anyhow::anyhow!("{}: {}", t("error_ssh_init_sftp"), e))?;
+        *self.lock() = SshClient { session, sftp };
+        Ok(())
     }
 }

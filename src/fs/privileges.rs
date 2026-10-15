@@ -49,7 +49,10 @@ pub fn acquire_admin_privileges() -> Result<()> {
 /// Leaves the TUI, runs `sudo args` on the user's terminal (so it can ask
 /// for the password) and restores the TUI afterwards.
 #[cfg(not(target_os = "windows"))]
-fn run_sudo(message: &str, args: &[&std::ffi::OsStr]) -> std::io::Result<std::process::ExitStatus> {
+pub(crate) fn run_sudo(
+    message: &str,
+    args: &[&std::ffi::OsStr],
+) -> std::io::Result<std::process::ExitStatus> {
     use std::process::Stdio;
 
     let suspended = crate::terminal::suspend::suspend();

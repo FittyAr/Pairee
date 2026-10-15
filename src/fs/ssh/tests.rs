@@ -25,6 +25,24 @@ fn stat(mode: u32, size: Option<u64>, mtime: Option<u64>) -> FileStat {
     }
 }
 
+/// Socket failures and hang-ups mean a dead session (reconnect); a refused
+/// request, a timeout or an SFTP status do not.
+#[test]
+fn only_socket_failures_count_as_a_lost_connection() {
+    use super::vfs::connection_lost;
+    let session = |code| ssh2::Error::new(ssh2::ErrorCode::Session(code), "x");
+    for lost in [-2, -7, -13, -43, -45] {
+        assert!(connection_lost(&session(lost)), "{lost}");
+    }
+    for kept in [-9, -30, -31, -18] {
+        assert!(!connection_lost(&session(kept)), "{kept}");
+    }
+    assert!(!connection_lost(&ssh2::Error::new(
+        ssh2::ErrorCode::SFTP(2),
+        "x"
+    )));
+}
+
 #[test]
 fn parent_entry_points_to_parent_for_nested_dirs() {
     let entry = parent_entry(Path::new("/home/user/docs"), false).unwrap();

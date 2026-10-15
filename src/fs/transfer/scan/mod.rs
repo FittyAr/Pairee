@@ -22,6 +22,7 @@ pub use pairs::scan_pairs;
 
 use super::control::JobControl;
 use super::filter::TransferFilter;
+use super::job::DestinationKind;
 use super::job::{FailedFile, SkippedFile, TransferOperation};
 use super::options::TransferOptions;
 use super::worker::is_destination_parent_dir;
@@ -70,10 +71,11 @@ pub fn top_targets(
     sources: &[PathBuf],
     destination: &Path,
     operation: TransferOperation,
+    kind: DestinationKind,
     dst_fs: &dyn Vfs,
 ) -> Vec<(PathBuf, PathBuf)> {
     let into_dir = operation != TransferOperation::Delete
-        && is_destination_parent_dir(sources, destination, |p| {
+        && is_destination_parent_dir(sources, destination, kind, |p| {
             dst_fs.metadata(p).is_ok_and(|e| e.is_dir)
         });
     sources

@@ -246,6 +246,60 @@ fn missing_root_is_an_io_error() {
     assert!(matches!(result, Err(SyncError::Io { path, .. }) if path == missing));
 }
 
+/// A local folder whose listings always report an entry they left out.
+#[derive(Debug)]
+struct LossyVfs;
+
+impl crate::fs::vfs::Vfs for LossyVfs {
+    fn capabilities(&self) -> crate::fs::vfs::Capabilities {
+        crate::fs::vfs::Capabilities::FULL
+    }
+
+    fn list(&self, dir: &Path) -> std::io::Result<Vec<crate::fs::vfs::VfsEntry>> {
+        crate::fs::vfs::Vfs::list(&crate::fs::vfs::LocalVfs, dir)
+    }
+
+    fn list_reporting(
+        &self,
+        dir: &Path,
+    ) -> std::io::Result<(Vec<crate::fs::vfs::VfsEntry>, Option<std::io::Error>)> {
+        let entries = crate::fs::vfs::Vfs::list(&crate::fs::vfs::LocalVfs, dir)?;
+        Ok((
+            entries,
+            Some(std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+        ))
+    }
+
+    fn stat(&self, path: &Path) -> std::io::Result<crate::fs::vfs::VfsEntry> {
+        crate::fs::vfs::Vfs::stat(&crate::fs::vfs::LocalVfs, path)
+    }
+}
+
+/// A folder that could not be read completely fails the comparison: the
+/// entries it dropped would look like "only on the other side", and a
+/// mirror would delete them there.
+#[test]
+fn an_incomplete_listing_fails_the_comparison() {
+    let (l, r) = trees();
+    put(l.path(), "a.txt", "x", 0);
+    put(r.path(), "a.txt", "x", 0);
+    let lossy = Side {
+        vfs: &LossyVfs,
+        root: l.path(),
+    };
+    let result = diff_trees(
+        lossy,
+        Side::local(r.path()),
+        &opts(SyncDirection::Mirror),
+        &Quiet::default(),
+    );
+    assert!(
+        matches!(&result, Err(SyncError::Io { path, source })
+            if path == l.path() && source.kind() == std::io::ErrorKind::PermissionDenied),
+        "{result:?}"
+    );
+}
+
 #[test]
 fn an_archive_compares_against_a_local_folder() {
     use crate::fs::archive::ArchiveVfs;

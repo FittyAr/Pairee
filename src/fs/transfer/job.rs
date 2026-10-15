@@ -10,12 +10,27 @@ pub struct RemoteEndpoints {
     pub dst: Option<crate::fs::remote::RemoteConn>,
 }
 
+/// What a job's `destination` path is.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum DestinationKind {
+    /// Read from the path (see [`super::worker::is_destination_parent_dir`]):
+    /// the transfer dialog pre-fills `<folder>/<name>` for a single item,
+    /// which is the target path itself.
+    #[default]
+    Inferred,
+    /// The folder the items go into, whatever its name. A folder that
+    /// shares its name with the single item copied into it (`/a/project`
+    /// into the panel at `/backup/project`) nests instead of merging.
+    Folder,
+}
+
 #[derive(Debug, Clone)]
 pub struct TransferJob {
     pub id: Uuid,
     pub operation: TransferOperation,
     pub sources: Vec<PathBuf>,
     pub destination: PathBuf,
+    pub destination_kind: DestinationKind,
     pub options: super::options::TransferOptions,
     pub status: TransferJobStatus,
     pub results: TransferResults,
@@ -54,6 +69,7 @@ impl TransferJob {
             operation,
             sources,
             destination,
+            destination_kind: DestinationKind::Inferred,
             options,
             status: TransferJobStatus::Queued,
             results: TransferResults::default(),
@@ -97,6 +113,13 @@ impl TransferJob {
         let mut job = Self::new(operation, sources, PathBuf::new(), options);
         job.pairs = Some(pairs);
         job
+    }
+
+    /// States that `destination` is the folder the items go into (a panel's
+    /// folder or an empty destination field), not a target path.
+    pub fn into_folder(mut self) -> Self {
+        self.destination_kind = DestinationKind::Folder;
+        self
     }
 
     /// Folders to remove after the job when they are empty.

@@ -57,7 +57,14 @@ pub fn scan_directory(
     keep: impl Fn(&ScannedEntry, bool) -> bool,
 ) -> std::io::Result<ScannedDir> {
     let mut map = ScannedDir::new();
-    for entry in vfs.list(dir)? {
+    // A listing that left entries out is an error: a comparison (and a
+    // mirror deleting what "only exists on the other side") must never
+    // work from a folder it could not read completely.
+    let (entries, skipped) = vfs.list_reporting(dir)?;
+    if let Some(error) = skipped {
+        return Err(error);
+    }
+    for entry in entries {
         let hidden = entry.hidden;
         let scanned = ScannedEntry::from(entry);
         if keep(&scanned, hidden) {

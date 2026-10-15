@@ -14,10 +14,10 @@
 //! | `ftps://…` | FTP with explicit TLS (`AUTH TLS`) |
 //! | `webdav://`, `dav://`, `http://` | WebDAV over HTTP |
 //! | `webdavs://`, `davs://`, `https://` | WebDAV over HTTPS |
+//! | `s3://key:secret@bucket/prefix?endpoint=…&region=…&path_style=true` | S3 and compatible stores |
 //!
 //! FTPS and HTTPS trust the system's roots plus the options `ca=<pem>`
 //! and `insecure=true` and the certificates the user pinned (see [`tls`]).
-//! | `s3://key:secret@bucket/prefix?endpoint=…&region=…&path_style=true` | S3 and compatible stores |
 //!
 //! Every call performs network I/O: like SFTP, run them from background
 //! jobs. Paths are absolute in the adapter's namespace (`/dir/file`).
@@ -147,6 +147,20 @@ pub fn remote_path(path: &Path) -> String {
     format!("/{}", parts.join("/"))
 }
 
+/// [`remote_path`] for a protocol that writes the path into a command line
+/// (FTP): a name with a line break or NUL would end the command and start
+/// another one of the attacker's choosing, so it is refused.
+pub fn command_path(path: &Path) -> io::Result<String> {
+    let full = remote_path(path);
+    if full.contains(['\r', '\n', '\0']) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            t("remote_invalid_name").replacen("{}", &full.escape_debug().to_string(), 1),
+        ));
+    }
+    Ok(full)
+}
+
 /// A TCP connection to `host:port`, trying every address the name resolves
 /// to (a host with an IPv6 address the network cannot reach still connects
 /// over IPv4), each within `timeout`. IPv6 literals work as hosts.
@@ -161,19 +175,28 @@ pub fn connect_tcp(host: &str, port: u16, timeout: Duration) -> io::Result<TcpSt
     Err(last)
 }
 
+/// `text` with its `%XX` escapes decoded (lossy UTF-8).
+fn percent_decoded(text: &str) -> String {
+    percent_encoding::percent_decode_str(text)
+        .decode_utf8_lossy()
+        .into_owned()
+}
+
 /// The user name and password of `url`, percent-decoded (`None`: none).
 fn credentials(url: &url::Url) -> Option<(String, String)> {
-    let decode = |s: &str| {
-        percent_encoding::percent_decode_str(s)
-            .decode_utf8_lossy()
-            .into_owned()
-    };
     (!url.username().is_empty()).then(|| {
         (
-            decode(url.username()),
-            decode(url.password().unwrap_or_default()),
+            percent_decoded(url.username()),
+            percent_decoded(url.password().unwrap_or_default()),
         )
     })
+}
+
+/// The path of `url` as the folder it names: percent-decoded (a saved
+/// connection's `/My Docs` travels as `/My%20Docs`) and normalized like
+/// [`remote_path`].
+fn url_path(url: &url::Url) -> String {
+    remote_path(Path::new(&percent_decoded(url.path())))
 }
 
 /// The entry name of `path` (its last component).

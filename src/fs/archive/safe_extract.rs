@@ -2,6 +2,9 @@
 //!
 //! Every extractor routes its writes through [`ExtractGuard`], which:
 //! * rejects entry names with `..`, root or drive components (Zip-Slip);
+//! * rejects names the local filesystem cannot store as they are (on
+//!   Windows: `:` alternate data streams, `CON` / `NUL` / `COM1`...
+//!   devices with or without an extension, trailing dots and spaces);
 //! * refuses to create anything beneath a pre-existing symlink/junction in
 //!   the destination, so an archive can never write through a link;
 //! * never overwrites an existing file or link — such entries are skipped
@@ -18,6 +21,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Component, Path, PathBuf};
 
+use crate::fs::multi_rename::TargetFs;
 use crate::fs::progress::ArchiveReport;
 
 /// Maximum total uncompressed bytes a single extraction may write.
@@ -127,6 +131,7 @@ impl ExtractGuard {
     pub fn create_dir(&self, rel: &Path) -> Result<PathBuf> {
         let mut current = self.root.clone();
         for part in rel.components() {
+            ensure_native_name(part)?;
             current.push(part);
             match fs::symlink_metadata(&current) {
                 Ok(meta) if meta.file_type().is_symlink() => bail!(through_link(&current)),
@@ -154,6 +159,7 @@ impl ExtractGuard {
         let file_name = rel
             .file_name()
             .ok_or_else(|| anyhow!(t("archive_entry_empty_name")))?;
+        ensure_native_name(Component::Normal(file_name))?;
         let parent = self.create_dir(rel.parent().unwrap_or(Path::new("")))?;
         let target = parent.join(file_name);
         match fs::symlink_metadata(&target) {
@@ -243,6 +249,7 @@ impl ExtractGuard {
 
         let mut current = self.root.clone();
         for part in rel.components() {
+            ensure_native_name(part)?;
             current.push(part);
             match fs::symlink_metadata(&current) {
                 Ok(meta) if meta.file_type().is_symlink() => bail!(through_link(&current)),
@@ -290,6 +297,19 @@ impl ExtractGuard {
     }
 }
 
+/// `Err` when the local filesystem cannot store the entry name `part` as it
+/// is. [`ExtractGuard::sanitize`] stays platform-neutral (browsing an
+/// archive lists every entry); the rules of the machine apply when
+/// something is about to be written.
+fn ensure_native_name(part: Component<'_>) -> Result<()> {
+    let name = part.as_os_str().to_string_lossy();
+    if TargetFs::local().is_valid_name(&name) {
+        Ok(())
+    } else {
+        bail!(t_fill("archive_unsafe_entry_name", &[&name]))
+    }
+}
+
 /// An extraction would write through the existing link `path`.
 fn through_link(path: &Path) -> String {
     t_fill(
@@ -306,6 +326,23 @@ fn file_in_the_way(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Names Windows would turn into streams or devices are refused where
+    /// they are written (other systems store them as they are).
+    #[test]
+    fn names_the_system_cannot_store_are_refused_when_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut guard = ExtractGuard::new(dir.path()).unwrap();
+        for name in ["d/a:stream", "con", "NUL.txt", "dir./x", "trail "] {
+            let rel = ExtractGuard::sanitize(name).unwrap();
+            let refused = guard.preflight(&rel, 1, false).is_err()
+                || guard.write_file(&rel, &mut &b"x"[..], &|| false).is_err();
+            assert_eq!(refused, cfg!(windows), "{name}");
+        }
+        // A plain name always goes through.
+        let ok = Path::new("fine.txt");
+        assert!(guard.write_file(ok, &mut &b"x"[..], &|| false).is_ok());
+    }
 
     #[test]
     fn sanitize_rejects_traversal() {

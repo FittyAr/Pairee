@@ -20,7 +20,7 @@ use std::sync::Arc;
 use super::control::JobControl;
 use super::copy_phase::{CopyRequest, Endpoints, cleanup_source_dirs, run_copy_phase};
 use super::events::TransferEvent;
-use super::job::{TransferJob, TransferOperation, TransferResults};
+use super::job::{DestinationKind, TransferJob, TransferOperation, TransferResults};
 use super::options::TransferOptions;
 use super::scan::{ScanOutcome, ScanRequest, scan, scan_pairs, top_targets};
 use crate::fs::vfs::LocalVfs;
@@ -32,6 +32,7 @@ pub struct TransferWorker {
     pub operation: TransferOperation,
     pub sources: Vec<PathBuf>,
     pub destination: PathBuf,
+    pub destination_kind: DestinationKind,
     pub options: TransferOptions,
     /// Explicit `(source, destination)` file pairs (see [`TransferJob::pairs`]).
     pub pairs: Option<Vec<(PathBuf, PathBuf)>>,
@@ -51,6 +52,7 @@ impl TransferWorker {
             operation: job.operation,
             sources: job.sources,
             destination: job.destination,
+            destination_kind: job.destination_kind,
             options: job.options,
             pairs: job.pairs,
             prune_dirs: job.prune_dirs,
@@ -81,7 +83,13 @@ impl TransferWorker {
     fn roots(&self) -> Vec<(PathBuf, PathBuf)> {
         match &self.pairs {
             Some(pairs) => pairs.clone(),
-            None => top_targets(&self.sources, &self.destination, self.operation, &LocalVfs),
+            None => top_targets(
+                &self.sources,
+                &self.destination,
+                self.operation,
+                self.destination_kind,
+                &LocalVfs,
+            ),
         }
     }
 

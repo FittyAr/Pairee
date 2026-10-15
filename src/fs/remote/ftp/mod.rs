@@ -4,11 +4,13 @@
 //! modes with `SITE CHMOD` where the server has them. `stat` asks `MLST`
 //! when the server answers it and reads the parent's listing otherwise.
 
+mod cache;
 mod session;
 
-use super::{REMOTE, Remote, file_name, not_found, remote_path};
+use super::{REMOTE, Remote, command_path, file_name, not_found, url_path};
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, is_plain_name};
 use crate::lock::LockExt;
+use cache::{Invalidating, StatCache};
 use session::{Config, Conn, Download, UploadStream, io_err};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -26,6 +28,8 @@ pub struct FtpVfs {
     control: Mutex<Option<Conn>>,
     /// Whether the server answers `MLST` (a [`Mlst`]).
     mlst: AtomicU8,
+    /// The parent listing `stat` reads without `MLST`.
+    listings: Arc<StatCache>,
 }
 
 /// What is known about the server's `MLST`.
@@ -50,7 +54,7 @@ impl FtpVfs {
     /// Connects to the server of `url` (`ftp://` or `ftps://`, explicit TLS).
     pub fn connect(url: &Url, secure: bool) -> io::Result<Remote> {
         let vfs = Self::open(url, secure)?;
-        let start = PathBuf::from(remote_path(Path::new(url.path())));
+        let start = PathBuf::from(url_path(url));
         Ok(Remote {
             vfs: Arc::new(vfs),
             start,
@@ -65,6 +69,7 @@ impl FtpVfs {
             config,
             control: Mutex::new(Some(conn)),
             mlst: AtomicU8::new(Mlst::Untried as u8),
+            listings: Arc::default(),
         })
     }
 
@@ -158,7 +163,7 @@ impl Vfs for FtpVfs {
 
     fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
         Ok(self
-            .listing(&remote_path(dir))?
+            .listing(&command_path(dir)?)?
             .iter()
             .filter_map(|line| ListedFile::try_from(line.as_str()).ok())
             .filter_map(|file| Self::entry(dir, &file))
@@ -168,7 +173,7 @@ impl Vfs for FtpVfs {
     /// `MLST` where the server has it (one reply about the entry), else
     /// from the listing of the parent folder (every server has one).
     fn stat(&self, path: &Path) -> io::Result<VfsEntry> {
-        let full = remote_path(path);
+        let full = command_path(path)?;
         let Some(parent) = path.parent().filter(|_| full != "/") else {
             return Ok(VfsEntry::dir(String::new(), path.to_path_buf()));
         };
@@ -181,9 +186,9 @@ impl Vfs for FtpVfs {
                 .ok_or_else(|| not_found(path));
         }
         let name = file_name(&full);
-        self.list(parent)?
-            .into_iter()
-            .find(|e| e.name == name)
+        let parent_full = command_path(parent)?;
+        self.listings
+            .find(&parent_full, &name, || self.list(parent))?
             .map(|e| VfsEntry {
                 path: path.to_path_buf(),
                 ..e
@@ -196,18 +201,24 @@ impl Vfs for FtpVfs {
     }
 
     fn open_read_at(&self, path: &Path, offset: u64) -> io::Result<Box<dyn Read + Send>> {
-        let download = Download::open(&self.config, &remote_path(path), offset)?;
+        let download = Download::open(&self.config, &command_path(path)?, offset)?;
         Ok(Box::new(download))
     }
 
     fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
-        let upload = UploadStream::open(&self.config, &remote_path(path), false)?;
-        Ok(Box::new(upload))
+        let upload = UploadStream::open(&self.config, &command_path(path)?, false)?;
+        Ok(Box::new(Invalidating::new(
+            Box::new(upload),
+            Arc::clone(&self.listings),
+        )))
     }
 
     fn append_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
-        let upload = UploadStream::open(&self.config, &remote_path(path), true)?;
-        Ok(Box::new(upload))
+        let upload = UploadStream::open(&self.config, &command_path(path)?, true)?;
+        Ok(Box::new(Invalidating::new(
+            Box::new(upload),
+            Arc::clone(&self.listings),
+        )))
     }
 
     /// Servers differ on renaming over a file: see
@@ -224,7 +235,8 @@ impl Vfs for FtpVfs {
         mode: Option<u32>,
     ) -> io::Result<()> {
         use suppaftp::Status;
-        let full = remote_path(path);
+        let full = command_path(path)?;
+        self.listings.invalidate();
         if let Some(time) = modified {
             let stamp = chrono::DateTime::<chrono::Utc>::from(time).format("%Y%m%d%H%M%S");
             self.with_conn(|conn| {
@@ -238,18 +250,26 @@ impl Vfs for FtpVfs {
     }
 
     fn mkdir(&self, path: &Path) -> io::Result<()> {
-        self.with_conn(|conn| conn.mkdir(remote_path(path)))
+        let full = command_path(path)?;
+        self.listings.invalidate();
+        self.with_conn(|conn| conn.mkdir(&full))
     }
 
     fn remove_file(&self, path: &Path) -> io::Result<()> {
-        self.with_conn(|conn| conn.rm(remote_path(path)))
+        let full = command_path(path)?;
+        self.listings.invalidate();
+        self.with_conn(|conn| conn.rm(&full))
     }
 
     fn remove_dir(&self, path: &Path) -> io::Result<()> {
-        self.with_conn(|conn| conn.rmdir(remote_path(path)))
+        let full = command_path(path)?;
+        self.listings.invalidate();
+        self.with_conn(|conn| conn.rmdir(&full))
     }
 
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
-        self.with_conn(|conn| conn.rename(remote_path(from), remote_path(to)))
+        let (from, to) = (command_path(from)?, command_path(to)?);
+        self.listings.invalidate();
+        self.with_conn(|conn| conn.rename(&from, &to))
     }
 }

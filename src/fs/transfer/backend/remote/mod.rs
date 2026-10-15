@@ -12,7 +12,9 @@ pub use copy_move::run_remote_copy_move;
 pub use delete::run_remote_delete;
 pub use rename::fast_remote_rename;
 
-use super::super::job::{RemoteEndpoints, TransferJob, TransferOperation, TransferResults};
+use super::super::job::{
+    DestinationKind, RemoteEndpoints, TransferJob, TransferOperation, TransferResults,
+};
 use super::super::options::TransferOptions;
 use crate::fs::transfer::conflict_slot::ConflictSlot;
 use crate::fs::transfer::control::JobControl;
@@ -26,6 +28,7 @@ pub struct RemoteJob {
     pub operation: TransferOperation,
     pub sources: Vec<PathBuf>,
     pub destination: PathBuf,
+    pub destination_kind: DestinationKind,
     pub remote: RemoteEndpoints,
     pub options: TransferOptions,
     pub slot: Arc<ConflictSlot>,
@@ -37,6 +40,7 @@ impl RemoteJob {
             operation: job.operation,
             sources: job.sources,
             destination: job.destination,
+            destination_kind: job.destination_kind,
             remote,
             options: job.options.for_operation(job.operation),
             slot: job.active_conflict,

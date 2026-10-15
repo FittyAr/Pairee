@@ -113,6 +113,9 @@ pub fn extract_via_external_7z(
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .spawn()?;
+    // Drained concurrently: an unread stderr pipe fills up (64 KiB) and
+    // blocks 7z on its next warning, so the extraction would never end.
+    let stderr = drain_stderr(child.stderr.take());
 
     let status = loop {
         if report.is_cancelled() {
@@ -126,12 +129,57 @@ pub fn extract_via_external_7z(
         }
     };
 
-    if !status.success() {
-        return Err(anyhow!(t("archive_7z_extract_failed")));
+    let stderr = stderr.join().unwrap_or_default();
+    match ExtractOutcome::of(status.code()) {
+        ExtractOutcome::Failed => {
+            let detail = stderr.trim();
+            if detail.is_empty() {
+                return Err(anyhow!(t("archive_7z_extract_failed")));
+            }
+            return Err(anyhow!("{}: {detail}", t("archive_7z_extract_failed")));
+        }
+        ExtractOutcome::Warnings => report.warned(archive_path, "archive_7z_warnings"),
+        ExtractOutcome::Clean => {}
     }
 
     guard.report_skipped(report);
     Ok(())
+}
+
+/// How a finished `7z x` run is read from its exit code.
+#[derive(Debug, PartialEq)]
+enum ExtractOutcome {
+    Clean,
+    /// Exit code 1: non-fatal warnings (a file was locked, a checksum of a
+    /// skipped file...). Everything else was extracted.
+    Warnings,
+    Failed,
+}
+
+impl ExtractOutcome {
+    fn of(code: Option<i32>) -> Self {
+        match code {
+            Some(0) => Self::Clean,
+            Some(1) => Self::Warnings,
+            _ => Self::Failed,
+        }
+    }
+}
+
+/// Reads the child's stderr to its end on its own thread (lossy UTF-8,
+/// capped so a chatty tool cannot grow memory).
+fn drain_stderr(pipe: Option<std::process::ChildStderr>) -> std::thread::JoinHandle<String> {
+    use std::io::Read;
+    std::thread::spawn(move || {
+        let Some(mut pipe) = pipe else {
+            return String::new();
+        };
+        let mut text = Vec::new();
+        let _ = (&mut pipe).take(16 * 1024).read_to_end(&mut text);
+        // Keep consuming so the child never blocks on a full pipe.
+        let _ = std::io::copy(&mut pipe, &mut std::io::sink());
+        String::from_utf8_lossy(&text).into_owned()
+    })
 }
 
 #[cfg(test)]
@@ -158,6 +206,14 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn exit_code_one_is_a_warning_not_a_failure() {
+        assert_eq!(ExtractOutcome::of(Some(0)), ExtractOutcome::Clean);
+        assert_eq!(ExtractOutcome::of(Some(1)), ExtractOutcome::Warnings);
+        assert_eq!(ExtractOutcome::of(Some(2)), ExtractOutcome::Failed);
+        assert_eq!(ExtractOutcome::of(None), ExtractOutcome::Failed);
     }
 
     #[test]

@@ -122,7 +122,10 @@ pub fn ensure_empty_dir(vfs: &dyn Vfs, dir: &Path) -> io::Result<()> {
 /// [`Vfs::replace`] for servers whose rename refuses an existing target
 /// (SFTP v3, some FTP servers): the old file is moved aside, the new one
 /// put in place and the old one deleted — or put back when the second
-/// rename fails, so the destination is never lost.
+/// rename fails, so the destination is never lost. The name it is moved to
+/// is never one that exists ([`free_aside_name`]): a copy left by an earlier
+/// interrupted replace may be the only one of the user's file, so it is
+/// neither overwritten nor deleted.
 pub fn replace_by_moving_aside(vfs: &dyn Vfs, from: &Path, to: &Path) -> io::Result<()> {
     let first = match vfs.rename(from, to) {
         Ok(()) => return Ok(()),
@@ -131,9 +134,7 @@ pub fn replace_by_moving_aside(vfs: &dyn Vfs, from: &Path, to: &Path) -> io::Res
     if !vfs.stat(to).is_ok_and(|e| !e.is_dir) {
         return Err(first);
     }
-    let mut aside = to.as_os_str().to_owned();
-    aside.push(".pairee-old");
-    let aside = PathBuf::from(aside);
+    let aside = free_aside_name(vfs, to)?;
     vfs.rename(to, &aside)?;
     match vfs.rename(from, to) {
         Ok(()) => {
@@ -145,6 +146,28 @@ pub fn replace_by_moving_aside(vfs: &dyn Vfs, from: &Path, to: &Path) -> io::Res
             Err(e)
         }
     }
+}
+
+/// `to` + `.pairee-old` (then `.pairee-old.1`, `.2`...): the first name
+/// nothing exists at.
+fn free_aside_name(vfs: &dyn Vfs, to: &Path) -> io::Result<PathBuf> {
+    for attempt in 0..100u32 {
+        let mut name = to.as_os_str().to_owned();
+        name.push(".pairee-old");
+        if attempt > 0 {
+            name.push(format!(".{attempt}"));
+        }
+        let candidate = PathBuf::from(name);
+        match vfs.stat(&candidate) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(candidate),
+            Err(e) => return Err(e),
+            Ok(_) => {}
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        to.to_string_lossy().into_owned(),
+    ))
 }
 
 /// A browsable filesystem (the port). Paths are absolute in the adapter's

@@ -150,7 +150,8 @@ fn parse_size(size_str: &str) -> Option<u64> {
         _ => 1,
     };
 
-    Some(num * multiplier)
+    // `99999999999GB` saturates (matches everything) instead of wrapping.
+    Some(num.saturating_mul(multiplier))
 }
 
 fn parse_date(date_str: &str) -> Option<std::time::SystemTime> {
@@ -161,7 +162,7 @@ fn parse_date(date_str: &str) -> Option<std::time::SystemTime> {
             .take_while(|c| c.is_ascii_digit())
             .collect();
         let days: u64 = days_str.parse().ok()?;
-        let duration = std::time::Duration::from_secs(days * 24 * 60 * 60);
+        let duration = std::time::Duration::from_secs(days.saturating_mul(24 * 60 * 60));
         std::time::SystemTime::now().checked_sub(duration)
     } else {
         let parts: Vec<&str> = date_str.split('-').collect();
@@ -198,6 +199,15 @@ mod tests {
 
         // Excluido porque no es ni jpg ni png
         assert!(!filter.matches(Path::new("document.pdf"), 2 * 1024 * 1024, None));
+    }
+
+    /// Absurd sizes and ages neither wrap around nor panic.
+    #[test]
+    fn huge_numbers_saturate() {
+        assert_eq!(parse_size("18446744073709551615GB"), Some(u64::MAX));
+        assert_eq!(parse_size("5KB"), Some(5 * 1024));
+        assert_eq!(parse_date("18446744073709551615d"), None);
+        assert!(parse_date("3d").is_some());
     }
 
     #[test]

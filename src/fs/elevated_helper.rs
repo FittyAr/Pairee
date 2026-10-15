@@ -1,4 +1,5 @@
 use super::privileges::FsOperation;
+use crate::fs::transfer::scan::guard::is_within;
 use crate::fs::vfs::{LocalVfs, Vfs};
 use crate::fs::walk::{WalkOptions, Walker};
 use anyhow::{Context, Result};
@@ -59,6 +60,17 @@ fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     if !src.is_dir() {
         return copy_file(src, dst);
     }
+    // A folder copied into itself would walk the copy it is making, for ever.
+    if is_within(&LocalVfs, dst, src) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            crate::config::localization::t("error_copy_into_itself").replacen(
+                "{}",
+                &src.to_string_lossy(),
+                1,
+            ),
+        ));
+    }
     std::fs::create_dir_all(dst)?;
     for item in Walker::new(&LocalVfs, src, WalkOptions::following(true)) {
         let item = item?;
@@ -105,6 +117,19 @@ fn set_mode(path: &Path, mode: u32) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_folder_is_not_copied_into_itself() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        std::fs::create_dir_all(src.join("sub")).unwrap();
+        std::fs::write(src.join("f.txt"), b"data").unwrap();
+        for dst in [src.clone(), src.join("sub").join("copy")] {
+            assert!(copy_recursive(&src, &dst).is_err(), "{dst:?}");
+        }
+        // A failed rename falls back to copying: a move into itself too.
+        assert!(!src.join("sub").join("copy").exists());
+    }
 
     #[test]
     fn copies_and_moves_whole_trees() {
