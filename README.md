@@ -1,40 +1,39 @@
 # Pairee — Official Website
 
-This repository and branch (`gh-pages`) contain the static source files for the official website of **Pairee**, a modern, dual-pane, modular terminal file manager (TUI) written in Rust.
+This branch (`gh-pages`) holds the static source of the **Pairee** website, a dual-pane file manager
+for the terminal written in Rust.
 
-The website is available at: [pairee.fitty.ar](https://pairee.fitty.ar) (or the corresponding GitHub Pages URL).
+Live at [pairee.fitty.ar](https://pairee.fitty.ar).
 
-## 🚀 Branch Contents
+## Contents
 
-This branch is exclusively dedicated to the web presentation of the project and contains:
-- `index.html`, `changelog.html`, `plugins.html`: Landing page, release history (read from `docs/CHANGELOG.md` on `master`) and community plugin store (read from the `plugin-registry` branch).
-- `css/` and `js/`: Stylesheets (dark, responsive) and scripts, including ES/EN translations in `js/translations.js`.
-- `llms.txt`, `robots.txt`, `sitemap.xml`: Crawler and AI-assistant metadata.
-- `assets/`: Screenshots and graphics used across the website (including the "Wizard" mascot assets).
-- `LICENSE`: The license file for this branch (MIT).
+- `index.html`: landing page (features, tour, screenshot gallery, install commands and the folders
+  Pairee uses).
+- `changelog.html`: release history, read at runtime from
+  [`docs/CHANGELOG.md`](https://github.com/FittyAr/Pairee/blob/master/docs/CHANGELOG.md) on `master`.
+- `plugins.html`: the community plugin catalog, read from the `plugin-registry` branch.
+- `css/`, `js/`: styles and scripts; every ES/EN string is in `js/translations.js` and
+  `js/common.js` applies them.
+- `assets/`: logo (`icon.svg`, from `img/pairee_logo.svg` on `master`), favicons, social card,
+  brand art and the screenshots in `assets/screens` (WebP, each with a `-thumb` version).
+- `tools/showcase/`: how the screenshots are made — Pairee itself, run in a pseudo-terminal over a
+  fictional home folder. See [tools/showcase/README.md](tools/showcase/README.md).
+- `llms.txt`, `robots.txt`, `sitemap.xml`, `CNAME`, `.nojekyll`.
 
-## 💻 Local Development
+## Local development
 
-To view the website locally:
-1. Clone this branch or ensure you are checked out to it:
-   ```bash
-   git checkout gh-pages
-   ```
-2. Open the `index.html` file in your preferred web browser, or spin up a simple development server:
-   ```bash
-   # Using Python
-   python3 -m http.server 8000
-   
-   # Or using Node.js (npx)
-   npx serve .
-   ```
+```bash
+git checkout gh-pages
+python -m http.server 8000
+```
 
-## 🛠️ Pairee Source Code
+Then open <http://localhost:8000>.
 
-If you are looking for the source code of the **Pairee** file manager, along with compilation, installation, and contribution guidelines, please head over to the main repository branch:
+## Pairee source code
 
-🔗 **[Pairee Main Repository (master branch)](https://github.com/FittyAr/Pairee/tree/master)**
+The app lives on the [`master` branch](https://github.com/FittyAr/Pairee/tree/master).
 
-## 📄 License
+## License
 
-Unlike the core Pairee application (which is licensed under GPL v3), the presentation files of this website and this branch are licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+Pairee is GPL-3.0; the website files on this branch are under the [MIT License](LICENSE). Manrope and
+JetBrains Mono are loaded from Google Fonts (SIL Open Font License 1.1).

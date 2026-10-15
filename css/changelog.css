@@ -1,226 +1,200 @@
-/* Changelog & Timeline Section */
-.changelog-section {
-  position: relative;
-  background: rgba(6, 7, 11, 0.2);
-}
-
 .changelog-container {
-  max-width: 850px;
-  margin: 0 auto;
   position: relative;
-  padding-left: 45px;
+  max-width: 860px;
+  margin: 0 auto;
+  padding-left: 34px;
 }
 
 .changelog-container::before {
   content: "";
   position: absolute;
-  left: 15px;
-  top: 10px;
-  bottom: 10px;
+  left: 9px;
+  top: 8px;
+  bottom: 8px;
   width: 2px;
-  background: linear-gradient(to bottom, var(--accent) 0%, rgba(26, 32, 44, 0.4) 100%);
-  border-radius: 1px;
+  background: linear-gradient(to bottom, var(--accent), rgba(26, 164, 215, 0.05));
 }
 
 .changelog-item {
   position: relative;
-  margin-bottom: 40px;
-  opacity: 1;
-  transition: all 0.3s ease;
+  margin-bottom: 28px;
 }
 
 .changelog-item.older-release {
-  display: none; /* Controlled by JS */
+  display: none;
 }
 
 .changelog-item.older-release.show {
   display: block;
-  animation: fadeIn 0.4s ease forwards;
 }
 
 .changelog-dot {
   position: absolute;
-  left: -42px;
-  top: 6px;
-  width: 24px;
-  height: 24px;
+  left: -32px;
+  top: 24px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--bg);
   border: 3px solid var(--accent);
-  box-shadow: 0 0 10px rgba(240, 100, 49, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  font-size: 0.7rem;
-}
-
-.changelog-item:nth-child(even) .changelog-dot {
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+  box-shadow: 0 0 12px rgba(26, 164, 215, 0.5);
 }
 
 .changelog-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 24px 30px;
-  box-shadow: var(--shadow);
-  transition: border-color 0.25s ease, transform 0.2s ease;
+  padding: 24px 28px;
+  transition: border-color 0.25s ease;
 }
 
 .changelog-card:hover {
   border-color: var(--border-glow);
-  transform: translateX(4px);
 }
 
 .changelog-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(26, 32, 44, 0.5);
-  padding-bottom: 12px;
-  margin-bottom: 16px;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .changelog-version {
   font-family: "JetBrains Mono", monospace;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 700;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 
-.changelog-version span {
-  font-size: 0.8rem;
-  padding: 4px 10px;
+.latest-tag {
+  margin-left: 10px;
+  padding: 2px 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-weight: 500;
+  font-size: 0.7rem;
+  background: rgba(26, 164, 215, 0.14);
+  border: 1px solid rgba(26, 164, 215, 0.4);
+  color: var(--accent-soft);
+  vertical-align: middle;
 }
 
 .changelog-date {
-  font-size: 0.9rem;
-  color: var(--text-muted);
   font-family: "JetBrains Mono", monospace;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
-.changelog-body {
-  font-size: 0.95rem;
+.changelog-intro {
+  color: var(--text-muted);
+  margin: 0 0 14px;
 }
 
 .changelog-category {
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .changelog-category-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
+  display: inline-block;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  font-family: "JetBrains Mono", monospace;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(24, 211, 220, 0.1);
+  color: var(--accent-soft);
+  border: 1px solid rgba(24, 211, 220, 0.25);
 }
 
-.changelog-category-title.added {
-  background: rgba(46, 204, 113, 0.1);
-  color: #2ecc71;
-  border: 1px solid rgba(46, 204, 113, 0.2);
+.changelog-category-title.cat-bug-fixes,
+.changelog-category-title.cat-fixes,
+.changelog-category-title.cat-fixed {
+  background: rgba(34, 197, 94, 0.1);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
-.changelog-category-title.changed {
-  background: rgba(243, 156, 18, 0.1);
-  color: #f39c12;
-  border: 1px solid rgba(243, 156, 18, 0.2);
-}
-
-.changelog-category-title.improved {
-  background: rgba(52, 152, 219, 0.1);
-  color: #3498db;
-  border: 1px solid rgba(52, 152, 219, 0.2);
-}
-
-.changelog-category-title.fixed {
-  background: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
-  border: 1px solid rgba(231, 76, 60, 0.2);
-}
-
-.changelog-category-title.removed {
-  background: rgba(149, 165, 166, 0.1);
-  color: #95a5a6;
-  border: 1px solid rgba(149, 165, 166, 0.2);
+.changelog-category-title.cat-changes,
+.changelog-category-title.cat-changed {
+  background: rgba(59, 130, 246, 0.1);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .changelog-list {
-  margin: 0;
+  margin: 10px 0 0;
   padding-left: 20px;
-  list-style-type: square;
-  color: #d1d5db;
+  color: #d5dbe6;
+  font-size: 0.95rem;
 }
 
 .changelog-list li {
   margin-bottom: 6px;
-  line-height: 1.5;
+}
+
+.changelog-list li::marker {
+  color: var(--accent);
+}
+
+.changelog-list a,
+.changelog-intro a {
+  color: var(--accent-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.changelog-list code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .changelog-footer-actions {
-  display: flex;
   justify-content: center;
-  margin-top: 30px;
+  margin-top: 12px;
 }
 
 .btn-toggle-changelog {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 12px 24px;
-  border-radius: 30px;
-  font-weight: 600;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn-toggle-changelog:hover {
-  background: var(--bg-soft);
   border-color: var(--accent);
-  box-shadow: 0 0 15px rgba(240, 100, 49, 0.2);
+  color: var(--accent-soft);
 }
 
-/* Animations helper */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .changelog-container {
-    padding-left: 30px;
-  }
-  .changelog-container::before {
-    left: 8px;
-  }
-  .changelog-dot {
-    left: -32px;
-    width: 20px;
-    height: 20px;
-    border-width: 2px;
-  }
+@media (max-width: 600px) {
   .changelog-card {
-    padding: 16px 20px;
+    padding: 18px;
   }
+}
+
+.changelog-category-title.cat-added {
+  background: rgba(24, 211, 220, 0.1);
+  color: #7ee8ee;
+  border-color: rgba(24, 211, 220, 0.3);
+}
+
+.changelog-category-title.cat-improved {
+  background: rgba(168, 85, 247, 0.1);
+  color: #d8b4fe;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.changelog-category-title.cat-removed,
+.changelog-category-title.cat-deprecated {
+  background: rgba(240, 100, 49, 0.1);
+  color: #fdba9a;
+  border-color: rgba(240, 100, 49, 0.3);
 }

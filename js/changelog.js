@@ -1,267 +1,130 @@
-let currentLang = 'es';
-let showOlderReleases = false;
-let changelogData = [];
+// Changelog page: reads CHANGELOG.md (Keep a Changelog format) from the master branch.
+const CHANGELOG_URL = 'https://raw.githubusercontent.com/FittyAr/Pairee/master/docs/CHANGELOG.md';
+const VISIBLE_RELEASES = 3;
+let showOlder = false;
+let releases = [];
 
-// i18n
-function updateLanguage(lang) {
-  if (typeof translations === 'undefined' || !translations[lang]) return;
-  currentLang = lang;
-  document.documentElement.setAttribute('lang', lang);
-
-  // Elements text
-  document.querySelectorAll('[data-i18n]').forEach(el => {
-    const key = el.getAttribute('data-i18n');
-    const value = translations[lang][key];
-    if (value !== undefined) {
-      if (value.includes('<') || value.includes('◆')) {
-        el.innerHTML = value;
-      } else {
-        el.textContent = value;
-      }
-    }
-  });
-
-  // Toggle button text
-  const btnToggleText = document.getElementById('btn-toggle-text');
-  if (btnToggleText) {
-    const key = showOlderReleases ? 'btn_hide_older' : 'btn_show_older';
-    btnToggleText.setAttribute('data-i18n', key);
-    btnToggleText.textContent = translations[lang][key];
-  }
-
-  // Title & Metatags
-  const pageTitle = translations[lang].changelog_seo_title || (translations[lang].title + " - Changelog");
-  const pageDesc = translations[lang].changelog_seo_desc || translations[lang].description;
-  
-  document.title = pageTitle;
-  const metaDesc = document.querySelector('meta[name="description"]');
-  if (metaDesc) {
-    metaDesc.setAttribute('content', pageDesc);
-  }
-
-  const ogTitle = document.querySelector('meta[property="og:title"]');
-  if (ogTitle) ogTitle.setAttribute('content', pageTitle);
-
-  const ogDesc = document.querySelector('meta[property="og:description"]');
-  if (ogDesc) ogDesc.setAttribute('content', pageDesc);
-
-  const twTitle = document.querySelector('meta[name="twitter:title"]');
-  if (twTitle) twTitle.setAttribute('content', pageTitle);
-
-  const twDesc = document.querySelector('meta[name="twitter:description"]');
-  if (twDesc) twDesc.setAttribute('content', pageDesc);
-
-  const shareImgUrl = lang === 'es' ? 'https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png' : 'https://pairee.fitty.ar/assets/Pairee_EN_2160x2160.png';
-
-  const ogImage = document.querySelector('meta[property="og:image"]');
-  if (ogImage) ogImage.setAttribute('content', shareImgUrl);
-
-  const twitterImage = document.querySelector('meta[name="twitter:image"]');
-  if (twitterImage) twitterImage.setAttribute('content', shareImgUrl);
-
-  // Active state visual language button
-  document.querySelectorAll('.lang-btn').forEach(btn => {
-    if (btn.getAttribute('data-lang') === lang) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  });
-
-  // Re-render changelog if it's already loaded to apply new translation strings
-  if (changelogData.length > 0) {
-    renderChangelog(changelogData);
-  }
+function escapeHtml(text) {
+  return (text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
-function switchLanguage(lang) {
-  localStorage.setItem('preferred-lang', lang);
-  updateLanguage(lang);
+// Inline Markdown subset: `code`, **bold**, *italic* and [links](https://…).
+function inline(text) {
+  return escapeHtml(text)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
 
-// Changelog Loading & Parsing
-async function fetchAndRenderChangelog() {
-  const statusEl = document.getElementById('changelog-status');
-  const actionsEl = document.getElementById('changelog-actions');
-  
-  try {
-    const response = await fetch('https://raw.githubusercontent.com/FittyAr/Pairee/master/docs/CHANGELOG.md');
-    if (!response.ok) throw new Error('Failed to fetch CHANGELOG.md');
-    const mdText = await response.text();
-    
-    changelogData = parseChangelogMarkdown(mdText);
-    if (changelogData.length === 0) {
-      throw new Error('No releases parsed');
+function parseChangelog(md) {
+  const out = [];
+  let release = null;
+  let category = null;
+  let last = null; // Item or intro being continued by wrapped lines.
+  for (const raw of md.split('\n')) {
+    const line = raw.trimEnd();
+    const version = line.match(/^##\s+\[([^\]]+)\](?:\s*-\s*(.+))?$/);
+    if (version) {
+      release = { version: version[1], date: (version[2] || 'Unreleased').trim(), intro: [], categories: [] };
+      out.push(release);
+      category = null;
+      last = null;
+      continue;
     }
-
-    renderChangelog(changelogData);
-
-    if (changelogData.length > 3) {
-      actionsEl.style.display = 'flex';
+    if (!release) continue;
+    const cat = line.match(/^###\s+(.+)$/);
+    if (cat) {
+      category = { name: cat[1].trim(), items: [] };
+      release.categories.push(category);
+      last = null;
+      continue;
     }
-  } catch (error) {
-    console.error('Error loading changelog:', error);
-    if (statusEl) {
-      statusEl.setAttribute('data-i18n', 'changelog_error');
-      statusEl.textContent = translations[currentLang]?.changelog_error || 'No se pudo cargar el historial de cambios.';
+    if (!line.trim()) {
+      last = null;
+      continue;
+    }
+    const item = line.match(/^\s*[-*]\s+(.+)$/);
+    if (item && category) {
+      category.items.push(item[1]);
+      last = { list: category.items, index: category.items.length - 1 };
+    } else if (last) {
+      last.list[last.index] += ' ' + line.trim();
+    } else if (!category) {
+      release.intro.push(line.trim());
+      last = { list: release.intro, index: release.intro.length - 1 };
     }
   }
+  return out;
 }
 
-function renderChangelog(releases) {
+function categoryLabel(name) {
+  const key = 'changelog_cat_' + name.toLowerCase().replace(/[^a-z]+/g, '_');
+  const value = translations[currentLang]?.[key];
+  return value || name;
+}
+
+function render() {
   const container = document.getElementById('changelog-container');
-  if (!container) return;
   container.innerHTML = '';
-
   releases.forEach((release, idx) => {
-    const isOlder = idx >= 3;
-    const itemEl = document.createElement('div');
-    itemEl.className = 'changelog-item' + (isOlder ? ' older-release' : '');
-    
-    let categoriesHtml = '';
-    for (const [catName, items] of Object.entries(release.categories)) {
-      if (items.length === 0) continue;
-      
-      let catClass = catName.toLowerCase();
-      let catTitle = catName;
-      
-      // Localize category labels dynamically
-      const translationKey = 'changelog_cat_' + catClass;
-      if (translations[currentLang] && translations[currentLang][translationKey]) {
-        catTitle = translations[currentLang][translationKey];
-      }
-
-      categoriesHtml += `
-        <div class="changelog-category">
-          <span class="changelog-category-title ${catClass}">${catTitle}</span>
-          <ul class="changelog-list">
-            ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
-          </ul>
-        </div>
-      `;
-    }
-
-    const latestLabel = translations[currentLang]?.changelog_latest || 'LATEST';
-    const dateLabel = release.date === 'Unreleased' ? (translations[currentLang]?.changelog_unreleased || 'Unreleased') : release.date;
-
-    itemEl.innerHTML = `
-      <div class="changelog-dot">${idx + 1}</div>
+    const item = document.createElement('div');
+    item.className = 'changelog-item' + (idx >= VISIBLE_RELEASES ? ' older-release' : '') + (showOlder ? ' show' : '');
+    const cats = release.categories.filter(c => c.items.length).map(c => `
+      <div class="changelog-category">
+        <span class="changelog-category-title cat-${escapeHtml(c.name.toLowerCase().replace(/[^a-z]+/g, '-'))}">${escapeHtml(categoryLabel(c.name))}</span>
+        <ul class="changelog-list">${c.items.map(i => `<li>${inline(i)}</li>`).join('')}</ul>
+      </div>`).join('');
+    const date = release.date === 'Unreleased' ? t('changelog_unreleased') : release.date;
+    item.innerHTML = `
+      <div class="changelog-dot"></div>
       <div class="changelog-card">
         <div class="changelog-header">
-          <div class="changelog-version">
-            ${escapeHtml(release.version)}
-            ${idx === 0 ? `<span style="background: rgba(0, 229, 255, 0.1); border-color: var(--accent-cyan); color: var(--accent-cyan); font-size: 0.7rem; margin-left: 10px; border-radius: 4px; padding: 2px 6px;">${latestLabel}</span>` : ''}
-          </div>
-          <div class="changelog-date">${escapeHtml(dateLabel)}</div>
+          <div class="changelog-version">${escapeHtml(release.version)}
+            ${idx === 0 ? `<span class="latest-tag">${escapeHtml(t('changelog_latest'))}</span>` : ''}</div>
+          <div class="changelog-date">${escapeHtml(date)}</div>
         </div>
-        <div class="changelog-body">
-          ${categoriesHtml}
-        </div>
-      </div>
-    `;
-    container.appendChild(itemEl);
+        ${release.intro.length ? `<p class="changelog-intro">${release.intro.map(inline).join(' ')}</p>` : ''}
+        <div class="changelog-body">${cats}</div>
+      </div>`;
+    container.appendChild(item);
   });
-
-  // Maintain toggle older state
-  const olderItems = document.querySelectorAll('.changelog-item.older-release');
-  olderItems.forEach(item => {
-    if (showOlderReleases) {
-      item.classList.add('show');
-    } else {
-      item.classList.remove('show');
-    }
-  });
+  document.getElementById('changelog-actions').style.display = releases.length > VISIBLE_RELEASES ? 'flex' : 'none';
+  updateToggle();
 }
 
-function parseChangelogMarkdown(text) {
-  const lines = text.split('\n');
-  const releases = [];
-  let currentRelease = null;
-  let currentCategory = null;
-
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) continue;
-
-    const versionMatch = line.match(/^##\s+\[([^\]]+)\](?:\s*-\s*(\d{4}-\d{2}-\d{2}))?/);
-    if (versionMatch) {
-      currentRelease = {
-        version: versionMatch[1],
-        date: versionMatch[2] || 'Unreleased',
-        categories: {
-          'Added': [],
-          'Changed': [],
-          'Improved': [],
-          'Fixed': [],
-          'Removed': []
-        }
-      };
-      releases.push(currentRelease);
-      currentCategory = null;
-      continue;
-    }
-
-    const categoryMatch = line.match(/^###\s+(\w+)/);
-    if (categoryMatch && currentRelease) {
-      const cat = categoryMatch[1];
-      if (cat === 'Added' || cat === 'Changed' || cat === 'Improved' || cat === 'Fixed' || cat === 'Removed') {
-        currentCategory = cat;
-      } else {
-        currentRelease.categories[cat] = [];
-        currentCategory = cat;
-      }
-      continue;
-    }
-
-    const itemMatch = line.match(/^-\s+(.+)$/);
-    if (itemMatch && currentRelease && currentCategory) {
-      currentRelease.categories[currentCategory].push(itemMatch[1]);
-    }
-  }
-
-  return releases;
+function updateToggle() {
+  document.getElementById('btn-toggle-text').textContent = t(showOlder ? 'btn_hide_older' : 'btn_show_older');
+  document.getElementById('btn-toggle-icon').textContent = showOlder ? '▲' : '▼';
 }
 
 function toggleOlderReleases() {
-  showOlderReleases = !showOlderReleases;
-  const olderItems = document.querySelectorAll('.changelog-item.older-release');
-  olderItems.forEach(item => {
-    if (showOlderReleases) {
-      item.classList.add('show');
-    } else {
-      item.classList.remove('show');
+  showOlder = !showOlder;
+  document.querySelectorAll('.changelog-item.older-release').forEach(el => el.classList.toggle('show', showOlder));
+  updateToggle();
+}
+
+async function loadChangelog() {
+  try {
+    const response = await fetch(CHANGELOG_URL);
+    if (!response.ok) throw new Error('Failed to fetch CHANGELOG.md');
+    releases = parseChangelog(await response.text());
+    if (releases.length === 0) throw new Error('No releases parsed');
+    render();
+  } catch (error) {
+    console.error('Error loading changelog:', error);
+    const status = document.getElementById('changelog-status');
+    if (status) {
+      status.setAttribute('data-i18n', 'changelog_error');
+      status.textContent = t('changelog_error');
     }
-  });
-
-  const btnTextEl = document.getElementById('btn-toggle-text');
-  const btnIconEl = document.getElementById('btn-toggle-icon');
-  if (btnTextEl && translations[currentLang]) {
-    const key = showOlderReleases ? 'btn_hide_older' : 'btn_show_older';
-    btnTextEl.setAttribute('data-i18n', key);
-    btnTextEl.textContent = translations[currentLang][key];
-  }
-  if (btnIconEl) {
-    btnIconEl.textContent = showOlderReleases ? '▲' : '▼';
   }
 }
 
-function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-// Init
-document.addEventListener('DOMContentLoaded', () => {
-  let lang = localStorage.getItem('preferred-lang');
-  if (!lang) {
-    const browserLang = navigator.language || navigator.userLanguage;
-    lang = (browserLang && browserLang.startsWith('en')) ? 'en' : 'es';
-  }
-  updateLanguage(lang);
-  fetchAndRenderChangelog();
-});
+onLanguageChange.push(() => { if (releases.length) render(); });
+document.addEventListener('DOMContentLoaded', loadChangelog);

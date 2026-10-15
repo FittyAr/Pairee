@@ -4,239 +4,279 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title data-i18n="title">Pairee | Gestor de archivos TUI moderno en Rust</title>
+  <title data-i18n="title">Pairee | Gestor de archivos de doble panel para la terminal</title>
   <meta name="description"
-    content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
-  <meta name="keywords" content="Pairee, file manager, terminal, TUI, Rust, Ratatui, Tokio, Norton Commander, dual pane, terminal file manager, gestor de archivos" />
+    content="Gestor de archivos de doble panel para la terminal, inspirado en Norton Commander y Far Manager. Escrito en Rust: rápido, con Git, SFTP, archivos comprimidos y plugins en Lua. Windows, Linux y macOS." />
+  <meta name="keywords" content="Pairee, file manager, terminal, TUI, Rust, Ratatui, Norton Commander, Far Manager, Midnight Commander, dual pane, gestor de archivos, doble panel, SFTP, Git, Lua plugins" />
   <link rel="canonical" href="https://pairee.fitty.ar/" />
-  
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="assets/wizard_small_image.png" />
-  
-  <!-- Open Graph / Facebook -->
+  <meta name="theme-color" content="#05070d" />
+
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png" />
+  <link rel="apple-touch-icon" href="assets/icon-180.png" />
+
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://pairee.fitty.ar/" />
-  <meta property="og:title" content="Pairee | Gestor de archivos TUI moderno en Rust" />
-  <meta property="og:description" content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
-  <meta property="og:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+  <meta property="og:title" content="Pairee | Gestor de archivos de doble panel para la terminal" />
+  <meta property="og:description" content="Gestor de archivos de doble panel para la terminal, inspirado en Norton Commander. Escrito en Rust. Windows, Linux y macOS." />
+  <meta property="og:image" content="https://pairee.fitty.ar/assets/social.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:site_name" content="Pairee" />
 
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://pairee.fitty.ar/" />
-  <meta name="twitter:title" content="Pairee | Gestor de archivos TUI moderno en Rust" />
-  <meta name="twitter:description" content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
-  <meta name="twitter:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+  <meta name="twitter:title" content="Pairee | Gestor de archivos de doble panel para la terminal" />
+  <meta name="twitter:description" content="Gestor de archivos de doble panel para la terminal, inspirado en Norton Commander. Escrito en Rust. Windows, Linux y macOS." />
+  <meta name="twitter:image" content="https://pairee.fitty.ar/assets/social.png" />
 
-  <link rel="stylesheet" href="css/base.css" />
-  <link rel="stylesheet" href="css/index.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/index.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Pairee",
+    "applicationCategory": "UtilitiesApplication",
+    "applicationSubCategory": "File manager",
+    "operatingSystem": "Windows, Linux, macOS",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "url": "https://pairee.fitty.ar/",
+    "downloadUrl": "https://github.com/FittyAr/Pairee/releases",
+    "screenshot": "https://pairee.fitty.ar/assets/screens/01-panels.webp",
+    "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+    "author": { "@type": "Person", "name": "FittyAr", "url": "https://fitty.ar/" }
+  }
+  </script>
 </head>
 
 <body>
-  <!-- Topbar/Header -->
   <header class="header">
     <div class="container nav">
       <a class="logo" href="index.html">
-        <img src="assets/wizard_small_image.png" alt="Pairee Logo" />
+        <img src="assets/icon.svg" alt="" width="36" height="26" />
         <span>Pairee</span>
       </a>
       <nav class="nav-links">
         <a href="#features" data-i18n="nav_features">Características</a>
+        <a href="#tour" data-i18n="nav_tour">Recorrido</a>
         <a href="#gallery" data-i18n="nav_gallery">Capturas</a>
         <a href="#install" data-i18n="nav_install">Instalación</a>
         <a href="changelog.html" data-i18n="nav_changelog">Cambios</a>
         <a href="plugins.html" data-i18n="nav_store">Plugins</a>
         <a href="https://fitty.ar/" data-i18n="nav_back">Volver a fitty.ar</a>
       </nav>
-
-      <!-- Language Selector -->
-      <div class="lang-selector">
-        <button class="lang-btn" data-lang="es" onclick="switchLanguage('es')">ES</button>
-        <span class="lang-separator">|</span>
-        <button class="lang-btn" data-lang="en" onclick="switchLanguage('en')">EN</button>
+      <div class="nav-right">
+        <div class="lang-selector">
+          <button class="lang-btn" data-lang="es" onclick="switchLanguage('es')">ES</button>
+          <span class="lang-separator">|</span>
+          <button class="lang-btn" data-lang="en" onclick="switchLanguage('en')">EN</button>
+        </div>
+        <a class="nav-btn" href="https://github.com/FittyAr/Pairee" target="_blank" rel="noopener">GitHub</a>
       </div>
-
-      <a class="nav-btn" href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">
-        GitHub
-      </a>
     </div>
   </header>
 
   <main>
-    <!-- Hero Section -->
+    <!-- Hero -->
     <section class="hero">
       <div class="container">
-        <a href="https://github.com/FittyAr/Pairee/releases" target="_blank" class="release-link">
+        <a href="https://github.com/FittyAr/Pairee/releases" target="_blank" rel="noopener" class="release-link">
           <span class="badge" id="release-badge">
-            <span style="color: #00e5ff;">◆</span> <span id="release-text" data-i18n="release_text_loading">Cargando versión...</span>
+            <span aria-hidden="true">◆</span> <span id="release-text" data-i18n="release_loading">Cargando versión...</span>
           </span>
         </a>
-        <h1 class="hero-title" data-i18n="hero_title">Tu mundo, en <span>dos paneles</span>.</h1>
+        <h1 class="hero-title" data-i18n="hero_title">Tu mundo,<br>en <span>dos paneles</span>.</h1>
         <p class="hero-subtitle" data-i18n="hero_subtitle">
-          Un gestor de archivos para terminal moderno, multiplataforma y altamente modular.
-          Inspirado en Norton Commander, desarrollado en Rust con Ratatui y Tokio.
+          Un gestor de archivos de doble panel para la terminal, con las teclas de Norton Commander y Far Manager.
+          Escrito en Rust: un solo ejecutable, rápido, con Git, conexiones remotas, archivos comprimidos y plugins en Lua.
         </p>
-        <div class="hero-badges" style="margin-bottom: 30px; display: flex; justify-content: center; gap: 12px;">
-          <a href="https://deepwiki.com/FittyAr/Pairee" target="_blank" style="transition: transform 0.2s; display: inline-block;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-            <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" style="height: 28px; border-radius: 4px; vertical-align: middle;" />
-          </a>
-        </div>
         <div class="hero-ctas">
-          <a class="btn-primary" href="#install" data-i18n="btn_download">
-            Descargar ahora
-          </a>
-          <a class="btn-secondary" href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="btn_source">
-            Ver Código Fuente
-          </a>
+          <a class="btn-primary" href="#install" data-i18n="btn_download">Instalar gratis</a>
+          <a class="btn-secondary" href="https://github.com/FittyAr/Pairee" target="_blank" rel="noopener" data-i18n="btn_source">Ver código fuente</a>
+        </div>
+        <p class="hero-note" data-i18n="hero_note">Windows, Linux y macOS · Código abierto (GPL-3.0) · Se actualiza solo, con firma verificada</p>
+
+        <div class="hero-shot">
+          <div class="window-frame">
+            <div class="window-bar"><span></span><span></span><span></span><em>alex@devbox: ~/Projects/aurora-web</em></div>
+            <img src="assets/screens/01-panels.webp" width="1400" height="880" data-i18n-alt="alt_hero"
+              alt="Pairee con dos paneles: un proyecto con su estado de Git a la izquierda y una carpeta de documentos a la derecha" fetchpriority="high" />
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><strong>4</strong><span data-i18n="stat_keymaps">perfiles de teclado</span></div>
+          <div class="stat"><strong>6</strong><span data-i18n="stat_platforms">plataformas compiladas</span></div>
+          <div class="stat"><strong>13</strong><span data-i18n="stat_channels">formas de instalación detectadas</span></div>
+          <div class="stat"><strong>1</strong><span data-i18n="stat_binary">ejecutable, sin dependencias</span></div>
         </div>
       </div>
     </section>
 
-    <!-- Key Features Section -->
+    <!-- Features -->
     <section class="section" id="features">
       <div class="container">
         <div class="section-header">
-          <h2 class="section-title" data-i18n="features_title">Características Clave</h2>
+          <span class="eyebrow" data-i18n="features_eyebrow">Todo desde el teclado</span>
+          <h2 class="section-title" data-i18n="features_title">Lo clásico, con lo que hoy necesitas</h2>
           <p class="section-subtitle" data-i18n="features_subtitle">
-            Pairee combina la velocidad de la línea de comandos con la comodidad visual de un gestor de archivos
-            interactivo.
+            La rapidez de los gestores de doble panel de siempre, con las herramientas que usas cada día ya integradas.
           </p>
         </div>
 
         <div class="features-grid">
           <article class="feature-card">
-            <div class="feature-icon">❖</div>
-            <h3 data-i18n="feat1_title">Interfaz de Doble Panel</h3>
-            <p data-i18n="feat1_desc">
-              El clásico diseño de paneles paralelos para moverte y gestionar directorios de manera extremadamente ágil
-              y sin perder contexto.
-            </p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/><path d="m7 10 2 2-2 2"/><path d="m17 10-2 2 2 2"/></svg></div>
+            <h3 data-i18n="f1_title">Doble panel</h3>
+            <p data-i18n="f1_desc">Dos carpetas a la vista, pestañas, vista rápida, árbol, comparación y sincronización de carpetas.</p>
           </article>
-
           <article class="feature-card">
-            <div class="feature-icon">⚙</div>
-            <h3 data-i18n="feat2_title">Operaciones Asíncronas</h3>
-            <p data-i18n="feat2_desc">
-              Copia, mueve o elimina archivos en segundo plano gracias al runtime de Tokio. La interfaz se mantiene 100%
-              fluida en todo momento.
-            </p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 15h10"/></svg></div>
+            <h3 data-i18n="f2_title">Las teclas que ya conoces</h3>
+            <p data-i18n="f2_desc">Perfiles Norton Commander / Far, Explorer / VS Code / Total Commander, Neovim y yazi. Cualquier tecla se cambia desde una lista con búsqueda.</p>
           </article>
-
           <article class="feature-card">
-            <div class="feature-icon">⌨</div>
-            <h3 data-i18n="feat3_title">Atajos Personalizables</h3>
-            <p data-i18n="feat3_desc">
-              Perfiles con las teclas que ya conoces: Norton/Far, Explorer/VS Code/Total Commander, Neovim y yazi. Cualquier tecla se puede cambiar desde una lista con búsqueda.
-            </p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></div>
+            <h3 data-i18n="f3_title">Copias en segundo plano</h3>
+            <p data-i18n="f3_desc">Copiar, mover y borrar corren aparte, con progreso, pausa y cancelación. La interfaz nunca se congela.</p>
           </article>
-
           <article class="feature-card">
-            <div class="feature-icon">🖌</div>
-            <h3 data-i18n="feat4_title">Temas y Localización</h3>
-            <p data-i18n="feat4_desc">
-              Motor dinámico para temas visuales (Slate, Blue, etc.) y soporte centralizado multilingüe para inglés y
-              español.
-            </p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 8v8"/><path d="M18 10c0 4-6 3-10 7"/></svg></div>
+            <h3 data-i18n="f4_title">Git integrado</h3>
+            <p data-i18n="f4_desc">Estado de cada archivo en los paneles y un panel de Git para preparar, confirmar, ver el historial, ramas, stash y etiquetas.</p>
           </article>
-
           <article class="feature-card">
-            <div class="feature-icon">🔍</div>
-            <h3 data-i18n="feat5_title">Herramientas Integradas</h3>
-            <p data-i18n="feat5_desc">
-              Búsqueda por nombre/contenido, buscador de duplicados, comparación de directorios, integración con Git, SSH/SFTP, archivos zip/tar/7z y administrador de procesos.
-            </p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg></div>
+            <h3 data-i18n="f5_title">Remoto como si fuera local</h3>
+            <p data-i18n="f5_desc">SFTP, FTP, S3 y WebDAV en un panel, con las contraseñas guardadas en el llavero del sistema.</p>
           </article>
-
           <article class="feature-card">
-            <div class="feature-icon">⟳</div>
-            <h3 data-i18n="feat6_title">Auto-actualizador Inteligente</h3>
-            <p data-i18n="feat6_desc">
-              Detecta tu método de instalación original (soporta hasta 13 vías distintas) y actualiza de manera segura verificando firmas minisign y sumas SHA-256.
-            </p>
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg></div>
+            <h3 data-i18n="f6_title">Archivos comprimidos</h3>
+            <p data-i18n="f6_desc">Entra en zip, tar, tar.gz, tar.xz y 7z como en una carpeta; comprime y extrae sin herramientas externas.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/><circle cx="17" cy="17" r="3"/></svg></div>
+            <h3 data-i18n="f7_title">Visor y editor</h3>
+            <p data-i18n="f7_desc">Visor y editor propios con resaltado de sintaxis, vista hexadecimal, vista previa de imágenes y detección de codificación.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+            <h3 data-i18n="f8_title">Plugins en Lua, con sandbox</h3>
+            <p data-i18n="f8_desc">Comandos, visores y hooks escritos en Lua, aislados en modo seguro, con un catálogo firmado de la comunidad.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div>
+            <h3 data-i18n="f9_title">Se actualiza solo, con firma</h3>
+            <p data-i18n="f9_desc">Reconoce cómo lo instalaste y se actualiza verificando SHA-256 y la firma minisign; si lo maneja tu gestor de paquetes, te da el comando.</p>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- Interactive Gallery Section -->
-    <section class="section" id="gallery" style="background: rgba(15, 18, 27, 0.4);">
+    <!-- Tour -->
+    <section class="section" id="tour" style="background: rgba(10, 14, 24, 0.5);">
       <div class="container">
         <div class="section-header">
-          <h2 class="section-title" data-i18n="gallery_title">El poder en acción</h2>
-          <p class="section-subtitle" data-i18n="gallery_subtitle">
-            Explora las capturas de la interfaz y las diferentes utilidades integradas en Pairee.
-          </p>
+          <span class="eyebrow" data-i18n="tour_eyebrow">Recorrido</span>
+          <h2 class="section-title" data-i18n="tour_title">Pensado para el trabajo de todos los días</h2>
         </div>
 
-        <div class="gallery-container">
-          <div class="gallery-display">
-            <!-- Slides controlled by JS -->
-            <div class="gallery-slide active" data-index="0">
-              <img src="assets/Screen1.png" data-i18n-alt="gallery_alt0"
-                alt="Panel Dual Principal" />
-            </div>
-            <div class="gallery-slide" data-index="1">
-              <img src="assets/Screen2.png" data-i18n-alt="gallery_alt1"
-                alt="Menú de Comandos de Usuario" />
-            </div>
-            <div class="gallery-slide" data-index="2">
-              <img src="assets/Screen3.png" data-i18n-alt="gallery_alt2"
-                alt="Operaciones Asíncronas" />
-            </div>
-            <div class="gallery-slide" data-index="3">
-              <img src="assets/Screen4.png" data-i18n-alt="gallery_alt3"
-                alt="Gestor de Transferencias" />
-            </div>
-            <div class="gallery-slide" data-index="4">
-              <img src="assets/Screen5.png" data-i18n-alt="gallery_alt4"
-                alt="Menú Desplegable Superior" />
-            </div>
-
-            <div class="gallery-nav">
-              <button class="gallery-btn" id="prev-btn">◀</button>
-              <button class="gallery-btn" id="next-btn">▶</button>
-            </div>
+        <div class="showcase">
+          <div class="showcase-text">
+            <h3 data-i18n="s1_title">Mira antes de abrir</h3>
+            <p data-i18n="s1_desc">La vista rápida muestra en el otro panel el archivo bajo el cursor: código, texto, carpetas o imágenes. Con <kbd>F3</kbd> y <kbd>F4</kbd> abres el visor y el editor propios.</p>
+            <ul class="check-list">
+              <li data-i18n="s1_li1">Resaltado de sintaxis configurable por lenguaje</li>
+              <li data-i18n="s1_li2">Vista previa de imágenes dentro de la terminal</li>
+              <li data-i18n="s1_li3">Vista hexadecimal y detección de codificación</li>
+            </ul>
           </div>
+          <div class="window-frame"><div class="window-bar"><span></span><span></span><span></span></div><img src="assets/screens/02-quickview.webp" width="1400" height="880" loading="lazy" data-i18n-alt="alt_quickview" alt="Vista rápida de un archivo Rust en el panel derecho" /></div>
+        </div>
 
-          <div class="gallery-caption" id="gallery-caption">
-            <!-- JS Injected Caption -->
+        <div class="showcase reverse">
+          <div class="showcase-text">
+            <h3 data-i18n="s2_title">Git sin salir del panel</h3>
+            <p data-i18n="s2_desc">Los paneles marcan lo modificado y lo nuevo. El panel de Git prepara, descarta y confirma cambios, y muestra historial, ramas, stash y etiquetas.</p>
+            <ul class="check-list">
+              <li data-i18n="s2_li1">Diferencias de cada archivo</li>
+              <li data-i18n="s2_li2">Clonar repositorios desde el menú</li>
+              <li data-i18n="s2_li3">Autor de los commits configurable</li>
+            </ul>
           </div>
+          <div class="window-frame"><div class="window-bar"><span></span><span></span><span></span></div><img src="assets/screens/04-git.webp" width="1400" height="880" loading="lazy" data-i18n-alt="alt_git" alt="Panel de Git con archivos modificados, uno preparado y uno nuevo" /></div>
+        </div>
 
-          <div class="gallery-thumbnails" id="gallery-thumbnails">
-            <div class="gallery-thumb active" data-index="0">
-              <img src="assets/Screen1.png" data-i18n-alt="gallery_thumb0"
-                alt="Vista previa 1" />
-            </div>
-            <div class="gallery-thumb" data-index="1">
-              <img src="assets/Screen2.png" data-i18n-alt="gallery_thumb1"
-                alt="Vista previa 2" />
-            </div>
-            <div class="gallery-thumb" data-index="2">
-              <img src="assets/Screen3.png" data-i18n-alt="gallery_thumb2"
-                alt="Vista previa 3" />
-            </div>
-            <div class="gallery-thumb" data-index="3">
-              <img src="assets/Screen4.png" data-i18n-alt="gallery_thumb3"
-                alt="Vista previa 4" />
-            </div>
-            <div class="gallery-thumb" data-index="4">
-              <img src="assets/Screen5.png" data-i18n-alt="gallery_thumb4"
-                alt="Vista previa 5" />
-            </div>
+        <div class="showcase">
+          <div class="showcase-text">
+            <h3 data-i18n="s3_title">Copia sin esperar</h3>
+            <p data-i18n="s3_desc">Marca archivos con <kbd>Insert</kbd>, pulsa <kbd>F5</kbd> y sigue trabajando: la copia corre en segundo plano y puedes pausarla, reanudarla o deshacerla.</p>
+            <ul class="check-list">
+              <li data-i18n="s3_li1">Qué hacer con los archivos que ya existen</li>
+              <li data-i18n="s3_li2">Filtros, enlaces simbólicos y archivos dispersos</li>
+              <li data-i18n="s3_li3">Deshacer y rehacer operaciones de archivos</li>
+            </ul>
           </div>
+          <div class="window-frame"><div class="window-bar"><span></span><span></span><span></span></div><img src="assets/screens/07-copy.webp" width="1400" height="880" loading="lazy" data-i18n-alt="alt_copy" alt="Diálogo de copia con tres fotos marcadas" /></div>
+        </div>
+
+        <div class="showcase reverse">
+          <div class="showcase-text">
+            <h3 data-i18n="s4_title">Encuentra cualquier cosa</h3>
+            <p data-i18n="s4_desc">Busca por nombre y por contenido en todo un árbol de carpetas, y salta al resultado. También encuentra duplicados y calcula el uso de disco.</p>
+            <ul class="check-list">
+              <li data-i18n="s4_li1">Filtro rápido del panel mientras escribes</li>
+              <li data-i18n="s4_li2">Historial de carpetas y de archivos vistos</li>
+              <li data-i18n="s4_li3">Paleta con todos los comandos y sus teclas</li>
+            </ul>
+          </div>
+          <div class="window-frame"><div class="window-bar"><span></span><span></span><span></span></div><img src="assets/screens/09-find.webp" width="1400" height="880" loading="lazy" data-i18n-alt="alt_find" alt="Resultados de buscar archivos Markdown en la carpeta personal" /></div>
+        </div>
+
+        <div class="showcase">
+          <div class="showcase-text">
+            <h3 data-i18n="s5_title">Habla tu idioma</h3>
+            <p data-i18n="s5_desc">Interfaz y ayuda completas en español e inglés; otros idiomas se agregan con un archivo TOML. Temas de colores también en TOML.</p>
+          </div>
+          <div class="window-frame"><div class="window-bar"><span></span><span></span><span></span></div><img src="assets/screens/12-spanish.webp" width="1400" height="880" loading="lazy" data-i18n-alt="alt_spanish" alt="Menú Comandos de Pairee en español" /></div>
         </div>
       </div>
     </section>
 
-    <!-- Terminal Install Section -->
+    <!-- Gallery -->
+    <section class="section" id="gallery">
+      <div class="container">
+        <div class="section-header">
+          <span class="eyebrow" data-i18n="gallery_eyebrow">Capturas</span>
+          <h2 class="section-title" data-i18n="gallery_title">Míralo en acción</h2>
+          <p class="section-subtitle" data-i18n="gallery_subtitle">Capturas reales de Pairee recorriendo una carpeta de ejemplo con datos ficticios.</p>
+        </div>
+        <div class="gallery-container">
+          <div class="gallery-display" id="gallery-display">
+            <div class="gallery-nav">
+              <button class="gallery-btn" id="prev-btn" aria-label="Previous">◀</button>
+              <button class="gallery-btn" id="next-btn" aria-label="Next">▶</button>
+            </div>
+          </div>
+          <div class="gallery-caption" id="gallery-caption"></div>
+          <div class="gallery-thumbnails" id="gallery-thumbnails"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Install -->
     <section class="section" id="install">
       <div class="container">
         <div class="section-header">
-          <h2 class="section-title" data-i18n="install_title">Instalación al instante</h2>
+          <span class="eyebrow" data-i18n="install_eyebrow">Instalación</span>
+          <h2 class="section-title" data-i18n="install_title">Instálalo en un minuto</h2>
           <p class="section-subtitle" data-i18n="install_subtitle">
-            Puedes descargar y compilar Pairee ejecutando este instalador directo en tu terminal.
+            El instalador descarga la última versión, verifica su SHA-256 y su firma minisign y la deja en tu carpeta de usuario. Sin permisos de administrador.
           </p>
         </div>
 
@@ -247,393 +287,145 @@
               <span class="terminal-btn minimize"></span>
               <span class="terminal-btn maximize"></span>
             </div>
-            <div class="terminal-title">instalar_pairee.sh</div>
+            <div class="terminal-title" id="terminal-title">install.ps1</div>
             <div></div>
           </div>
-          <div class="terminal-tabs">
-            <div class="terminal-tab active" id="tab-linux" onclick="switchTab('linux')" data-i18n="install_linux_mac">
-              Linux / macOS</div>
-            <div class="terminal-tab" id="tab-windows" onclick="switchTab('windows')" data-i18n="install_windows">
-              Windows (PowerShell)</div>
+          <div class="terminal-tabs" role="tablist">
+            <button class="terminal-tab active" id="tab-windows" onclick="switchTab('windows')" data-i18n="install_windows">Windows (PowerShell)</button>
+            <button class="terminal-tab" id="tab-linux" onclick="switchTab('linux')">Linux</button>
           </div>
           <div class="terminal-body">
-            <!-- Linux code -->
-            <div id="code-linux" class="code-container-tab">
+            <div id="code-windows">
+              <div class="terminal-line">
+                <span class="terminal-prompt">PS&gt;</span>
+                <span class="terminal-code" id="cmd-windows">irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex</span>
+              </div>
+              <div class="terminal-comment" data-i18n="install_win_note"># Se instala en %LOCALAPPDATA%\Programs\FittyAr\Pairee y se agrega al PATH</div>
+            </div>
+            <div id="code-linux" style="display: none;">
               <div class="terminal-line">
                 <span class="terminal-prompt">$</span>
-                <span class="terminal-code" id="cmd-linux">curl -fsSL
-                  https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh</span>
+                <span class="terminal-code" id="cmd-linux">curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh</span>
               </div>
+              <div class="terminal-comment" data-i18n="install_linux_note"># Se instala en ~/.local/lib/FittyAr/Pairee, con el comando pairee en ~/.local/bin</div>
             </div>
-            <!-- Windows code -->
-            <div id="code-windows" class="code-container-tab" style="display: none;">
-              <div class="terminal-line">
-                <span class="terminal-prompt">PS &gt;</span>
-                <span class="terminal-code" id="cmd-windows">irm
-                  https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex</span>
-              </div>
-            </div>
-
             <div class="copy-container">
-              <button class="btn-copy" id="btn-copy" onclick="copyCommand()" data-i18n="btn_copy">
-                <span>📋</span> Copiar Comando
-              </button>
+              <button class="btn-copy" id="btn-copy" onclick="copyCommand()" data-i18n="btn_copy">📋 Copiar comando</button>
             </div>
           </div>
+        </div>
+
+        <div class="install-extras">
+          <div class="install-extra">
+            <strong data-i18n="extra1_title">Paquetes</strong>
+            <span data-i18n="extra1_desc">Instalador y MSIX para Windows, .deb, .rpm y archivos para Linux y macOS (x64 y ARM64) en cada</span>
+            <a href="https://github.com/FittyAr/Pairee/releases" target="_blank" rel="noopener" data-i18n="extra1_link">release</a>.
+          </div>
+          <div class="install-extra">
+            <strong data-i18n="extra2_title">Se actualiza solo</strong>
+            <span data-i18n="extra2_desc">Descarga la nueva versión, verifica la firma y la instala desde la propia app. Para desinstalar, el mismo comando con</span>
+            <code>uninstall</code>.
+          </div>
+          <div class="install-extra">
+            <strong data-i18n="extra3_title">Firmado con minisign</strong>
+            <span data-i18n="extra3_desc">Cada archivo se puede verificar con la clave pública publicada en la</span>
+            <a href="https://github.com/FittyAr/Pairee/blob/master/docs/technical/installer_guide.md#5-release-signing-minisign" target="_blank" rel="noopener" data-i18n="extra3_link">guía de instalación</a>.
+          </div>
+        </div>
+
+        <div class="paths">
+          <h3 data-i18n="paths_title">Dónde guarda sus archivos</h3>
+          <table class="paths-table">
+            <thead>
+              <tr><th></th><th>Windows</th><th>Linux</th><th>macOS</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-i18n="paths_program">Programa</td>
+                <td data-os="Windows"><code>%LOCALAPPDATA%\Programs\FittyAr\Pairee</code></td>
+                <td data-os="Linux"><code>~/.local/lib/FittyAr/Pairee</code></td>
+                <td data-os="macOS" data-i18n="paths_mac_program">donde lo descomprimas</td>
+              </tr>
+              <tr>
+                <td data-i18n="paths_settings">Configuración</td>
+                <td data-os="Windows"><code>%APPDATA%\FittyAr\Pairee\config</code></td>
+                <td data-os="Linux"><code>~/.config/FittyAr/Pairee</code></td>
+                <td data-os="macOS"><code>~/Library/Application Support/FittyAr/Pairee</code></td>
+              </tr>
+              <tr>
+                <td data-i18n="paths_log">Registro</td>
+                <td data-os="Windows"><code>%APPDATA%\FittyAr\Pairee\cache</code></td>
+                <td data-os="Linux"><code>~/.cache/FittyAr/Pairee</code></td>
+                <td data-os="macOS"><code>~/Library/Caches/FittyAr/Pairee</code></td>
+              </tr>
+              <tr>
+                <td data-i18n="paths_data">Datos de plugins</td>
+                <td data-os="Windows"><code>%APPDATA%\FittyAr\Pairee\plugin-data</code></td>
+                <td data-os="Linux"><code>~/.local/share/FittyAr/Pairee</code></td>
+                <td data-os="macOS"><code>~/Library/Application Support/FittyAr/Pairee</code></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="paths-note" data-i18n="paths_note">En Linux se respetan <code>XDG_CONFIG_HOME</code>, <code>XDG_CACHE_HOME</code> y <code>XDG_DATA_HOME</code>. Las carpetas de versiones anteriores (<code>pairee</code>) se mueven solas al primer inicio; no se borra nada.</p>
         </div>
       </div>
     </section>
 
-    <!-- Wizard Showcase Section (Estética Mágica) -->
+    <!-- Story -->
     <section class="section">
       <div class="container">
-        <div class="wizard-showcase">
-          <div class="wizard-text">
-            <span class="badge"
-              style="background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--accent-cyan);"
-              data-i18n="wizard_badge">
-              Espíritu Retro
-            </span>
-            <h3 data-i18n="wizard_title">La magia de la terminal clásica</h3>
-            <p data-i18n="wizard_p1">
-              Pairee une la nostalgia del software TUI de finales del siglo XX con la seguridad de memoria, el
-              paralelismo sin esfuerzo y la extrema robustez de Rust.
+        <div class="story">
+          <div>
+            <span class="badge" data-i18n="story_badge">Espíritu retro</span>
+            <h3 data-i18n="story_title">La magia de la terminal clásica</h3>
+            <p data-i18n="story_p1">
+              Pairee une la comodidad de Norton Commander y Far Manager con lo que hoy se espera: seguridad de memoria,
+              operaciones en paralelo y un único ejecutable que funciona igual en Windows, Linux y macOS.
             </p>
-            <p data-i18n="wizard_p2">
-              No necesitas salir de tu consola para realizar comparaciones avanzadas de carpetas, matar procesos o
-              transferir gigabytes de información en hilos secundarios. Es el aliado definitivo para sysadmins,
-              desarrolladores e ingenieros amantes de la consola.
+            <p data-i18n="story_p2">
+              Está en beta pública y en desarrollo activo. Pruébalo, cuéntanos qué te falta o escribe tu propio plugin.
             </p>
-            <a class="btn-primary"
-              style="background: linear-gradient(135deg, var(--accent-cyan), #00a8ff); box-shadow: 0 10px 25px rgba(0, 229, 255, 0.2);"
-              href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="wizard_btn">
-              Explorar el Repositorio ↗
-            </a>
+            <a class="btn-primary" href="https://github.com/FittyAr/Pairee/issues" target="_blank" rel="noopener" data-i18n="story_btn">Enviar sugerencias ↗</a>
           </div>
-          <div class="wizard-img">
-            <img src="assets/Pairee_ES_2160x2160.png" data-i18n-alt="wizard_alt" alt="Pairee Wizard Graphic" />
+          <div class="story-art">
+            <img id="brand-art" src="assets/brand-es.webp" width="900" height="900" loading="lazy" data-i18n-alt="alt_brand" alt="Pairee: tu mundo, en dos paneles" />
           </div>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- Footer -->
   <footer class="footer">
-    <div class="container footer-grid">
-      <div>
-        <div class="logo" style="margin-bottom: 8px;">
-          <img src="assets/wizard_small_image.png" alt="Pairee Logo" style="width: 24px; height: 24px;" />
-          <span>Pairee</span>
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="logo" style="margin-bottom: 8px; font-size: 1rem;">
+            <img src="assets/icon.svg" alt="" width="28" height="20" />
+            <span>Pairee</span>
+          </div>
+          <p style="margin: 0; font-size: 0.85rem;" data-i18n="footer_text">
+            Hecho en Rust. Pairee se distribuye bajo GPL-3.0; este sitio, bajo MIT.
+          </p>
         </div>
-        <p style="margin: 0; font-size: 0.85rem; margin-bottom: 12px;" data-i18n="footer_text">
-          Desarrollado en Rust. Pairee está bajo licencia GPLv3; este sitio web bajo MIT.
-        </p>
-        <div class="footer-badges">
-          <a href="https://deepwiki.com/FittyAr/Pairee" target="_blank" style="display: inline-block; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-            <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" style="height: 24px; border-radius: 4px; vertical-align: middle;" />
-          </a>
+        <div class="footer-links">
+          <a href="https://fitty.ar/">fitty.ar</a>
+          <a href="https://fitty.ar/es/pages/projects.html" data-i18n="footer_projects">Proyectos</a>
+          <a href="changelog.html" data-i18n="nav_changelog">Cambios</a>
+          <a href="plugins.html" data-i18n="nav_store">Plugins</a>
+          <a href="https://github.com/FittyAr/Pairee/blob/master/help/en/user_guide.md" target="_blank" rel="noopener" data-i18n="footer_guide">Guía de uso</a>
+          <a href="https://github.com/FittyAr/Pairee" target="_blank" rel="noopener">GitHub</a>
         </div>
       </div>
-      <div class="footer-links">
-        <a href="https://fitty.ar/" data-i18n="footer_home">fitty.ar</a>
-        <a href="https://fitty.ar/productos.html" data-i18n="footer_projects">Proyectos</a>
-        <a href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">GitHub</a>
-      </div>
-    </div>
-    <div class="container" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
-      <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted); opacity: 0.8; line-height: 1.5;" data-i18n="footer_disclaimer">
-        Todas las marcas registradas, nombres de productos y logotipos (como Norton Commander, Vim o Rust) son propiedad de sus respectivos dueños. Su uso en este sitio es solo con fines informativos y de referencia, sin implicar patrocinio o respaldo.
+      <p class="footer-note" data-i18n="footer_disclaimer">
+        Norton Commander, Far Manager, Total Commander, Visual Studio Code, Windows y macOS son marcas de sus respectivos
+        dueños y se citan solo como referencia, sin implicar patrocinio. Las capturas usan datos ficticios.
       </p>
     </div>
   </footer>
 
-  <!-- Translations script -->
   <script src="js/translations.js"></script>
-
-  <!-- JavaScript logic -->
-  <script>
-    // Estado global del idioma y el release
-    let currentLang = 'es';
-    let latestReleaseData = null;
-
-    // Slideshow/Gallery logic
-    let currentIndex = 0;
-    const slides = document.querySelectorAll('.gallery-slide');
-    const thumbs = document.querySelectorAll('.gallery-thumb');
-    const captionEl = document.getElementById('gallery-caption');
-
-    function showSlide(index) {
-      // Wrap around
-      if (index >= slides.length) index = 0;
-      if (index < 0) index = slides.length - 1;
-
-      currentIndex = index;
-
-      // Toggle classes
-      slides.forEach((slide, i) => {
-        if (i === index) {
-          slide.classList.add('active');
-        } else {
-          slide.classList.remove('active');
-        }
-      });
-
-      thumbs.forEach((thumb, i) => {
-        if (i === index) {
-          thumb.classList.add('active');
-          // Scroll thumbnail into view if needed
-          thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        } else {
-          thumb.classList.remove('active');
-        }
-      });
-
-      // Cargar caption desde el archivo de traducciones
-      if (typeof translations !== 'undefined' && translations[currentLang] && translations[currentLang].gallery_captions) {
-        captionEl.textContent = translations[currentLang].gallery_captions[index];
-      }
-    }
-
-    document.getElementById('next-btn').addEventListener('click', () => {
-      showSlide(currentIndex + 1);
-    });
-
-    document.getElementById('prev-btn').addEventListener('click', () => {
-      showSlide(currentIndex - 1);
-    });
-
-    thumbs.forEach(thumb => {
-      thumb.addEventListener('click', () => {
-        const index = parseInt(thumb.getAttribute('data-index'));
-        showSlide(index);
-      });
-    });
-
-    // Terminal tab switching
-    let activeOS = 'linux';
-
-    function switchTab(os) {
-      activeOS = os;
-      const tabLinux = document.getElementById('tab-linux');
-      const tabWindows = document.getElementById('tab-windows');
-      const codeLinux = document.getElementById('code-linux');
-      const codeWindows = document.getElementById('code-windows');
-      const btnCopy = document.getElementById('btn-copy');
-
-      // Reset copy button
-      btnCopy.classList.remove('copied');
-      if (typeof translations !== 'undefined' && translations[currentLang]) {
-        btnCopy.innerHTML = translations[currentLang].btn_copy;
-      }
-
-      if (os === 'linux') {
-        tabLinux.classList.add('active');
-        tabWindows.classList.remove('active');
-        codeLinux.style.display = 'block';
-        codeWindows.style.display = 'none';
-      } else {
-        tabLinux.classList.remove('active');
-        tabWindows.classList.add('active');
-        codeLinux.style.display = 'none';
-        codeWindows.style.display = 'block';
-      }
-    }
-
-    // Clipboard logic
-    function copyCommand() {
-      const id = activeOS === 'linux' ? 'cmd-linux' : 'cmd-windows';
-      const cmdText = document.getElementById(id).textContent;
-      const btnCopy = document.getElementById('btn-copy');
-
-      navigator.clipboard.writeText(cmdText).then(() => {
-        btnCopy.classList.add('copied');
-        if (typeof translations !== 'undefined' && translations[currentLang]) {
-          btnCopy.innerHTML = translations[currentLang].btn_copied;
-        }
-        setTimeout(() => {
-          btnCopy.classList.remove('copied');
-          if (typeof translations !== 'undefined' && translations[currentLang]) {
-            btnCopy.innerHTML = translations[currentLang].btn_copy;
-          }
-        }, 3000);
-      }).catch(err => {
-        console.error('Error al copiar: ', err);
-      });
-    }
-
-    // Lógica de localización (i18n)
-    function updateLanguage(lang) {
-      if (typeof translations === 'undefined' || !translations[lang]) return;
-      currentLang = lang;
-      document.documentElement.setAttribute('lang', lang);
-
-      // Actualizar elementos de texto con data-i18n
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        const value = translations[lang][key];
-        if (value !== undefined) {
-          // Si tiene etiquetas HTML como <span> o ◆, inyectamos innerHTML, sino textContent
-          if (value.includes('<') || value.includes('◆')) {
-            el.innerHTML = value;
-          } else {
-            el.textContent = value;
-          }
-        }
-      });
-
-      // Actualizar textos alt con data-i18n-alt
-      document.querySelectorAll('[data-i18n-alt]').forEach(el => {
-        const key = el.getAttribute('data-i18n-alt');
-        const value = translations[lang][key];
-        if (value !== undefined) {
-          el.setAttribute('alt', value);
-        }
-      });
-
-      // Actualizar título y metatags
-      document.title = translations[lang].title;
-      const metaDesc = document.querySelector('meta[name="description"]');
-      if (metaDesc) {
-        metaDesc.setAttribute('content', translations[lang].description);
-      }
-
-      const ogTitle = document.querySelector('meta[property="og:title"]');
-      if (ogTitle) ogTitle.setAttribute('content', translations[lang].title);
-
-      const ogDesc = document.querySelector('meta[property="og:description"]');
-      if (ogDesc) ogDesc.setAttribute('content', translations[lang].description);
-
-      const twTitle = document.querySelector('meta[name="twitter:title"]');
-      if (twTitle) twTitle.setAttribute('content', translations[lang].title);
-
-      const twDesc = document.querySelector('meta[name="twitter:description"]');
-      if (twDesc) twDesc.setAttribute('content', translations[lang].description);
-
-      const shareImgUrl = lang === 'es' ? 'https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png' : 'https://pairee.fitty.ar/assets/Pairee_EN_2160x2160.png';
-
-      const ogImage = document.querySelector('meta[property="og:image"]');
-      if (ogImage) ogImage.setAttribute('content', shareImgUrl);
-
-      const twitterImage = document.querySelector('meta[name="twitter:image"]');
-      if (twitterImage) twitterImage.setAttribute('content', shareImgUrl);
-
-      // Variar la imagen final del Showcase según el idioma
-      const wizardImg = document.querySelector('.wizard-img img');
-      if (wizardImg) {
-        wizardImg.src = lang === 'es' ? 'assets/Pairee_ES_2160x2160.png' : 'assets/Pairee_EN_2160x2160.png';
-      }
-
-      // Actualizar caption actual de la galería
-      showSlide(currentIndex);
-
-      // Actualizar el estado visual del botón del selector de idioma
-      document.querySelectorAll('.lang-btn').forEach(btn => {
-        if (btn.getAttribute('data-lang') === lang) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
-        }
-      });
-
-      // Actualizar el botón de copiar si no está en estado "copiado"
-      const btnCopy = document.getElementById('btn-copy');
-      if (btnCopy && !btnCopy.classList.contains('copied')) {
-        btnCopy.innerHTML = translations[lang].btn_copy;
-      }
-
-      // Actualizar el badge del release
-      updateReleaseBadge();
-    }
-
-    function switchLanguage(lang) {
-      localStorage.setItem('preferred-lang', lang);
-      updateLanguage(lang);
-    }
-
-    // Lógica dinámica del release
-    async function fetchLatestRelease() {
-      try {
-        const response = await fetch('https://api.github.com/repos/FittyAr/Pairee/releases/latest');
-        if (!response.ok) throw new Error('API request failed');
-        const data = await response.json();
-
-        const tagName = data.tag_name;
-        const publishedAt = new Date(data.published_at);
-        const now = new Date();
-        const diffTime = Math.abs(now - publishedAt);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        latestReleaseData = {
-          tag: tagName,
-          url: data.html_url,
-          isNew: diffDays <= 30 // Consideramos nuevo si salió hace 30 días o menos
-        };
-      } catch (error) {
-        console.error('Error fetching release data:', error);
-        // Fallback por si la API falla o da error de rate limit
-        latestReleaseData = {
-          tag: 'v0.11.0', // La última versión real conocida
-          url: 'https://github.com/FittyAr/Pairee/releases',
-          isNew: false
-        };
-      }
-      updateReleaseBadge();
-    }
-
-    function updateReleaseBadge() {
-      const badgeEl = document.getElementById('release-badge');
-      const textEl = document.getElementById('release-text');
-      const linkEl = document.querySelector('.release-link');
-
-      if (!latestReleaseData || !badgeEl || !textEl) return;
-
-      if (linkEl) {
-        linkEl.href = latestReleaseData.url;
-      }
-
-      if (typeof translations === 'undefined' || !translations[currentLang]) return;
-
-      const tag = latestReleaseData.tag;
-      if (latestReleaseData.isNew) {
-        const template = translations[currentLang].release_new || 'Nueva Versión Disponible: {version}';
-        textEl.innerHTML = template.replace('{version}', tag);
-        badgeEl.style.borderColor = 'rgba(0, 229, 255, 0.35)';
-        badgeEl.style.background = 'rgba(0, 229, 255, 0.12)';
-        badgeEl.style.color = 'var(--accent-cyan)';
-
-        // Cambiar color del ◆ a cyan
-        const diamond = badgeEl.querySelector('span');
-        if (diamond) diamond.style.color = '#00e5ff';
-      } else {
-        const template = translations[currentLang].release_old || 'Versión: {version}';
-        textEl.innerHTML = template.replace('{version}', tag);
-        badgeEl.style.borderColor = 'rgba(240, 100, 49, 0.3)';
-        badgeEl.style.background = 'rgba(240, 100, 49, 0.12)';
-        badgeEl.style.color = 'var(--accent)';
-
-        // Cambiar color del ◆ a naranja
-        const diamond = badgeEl.querySelector('span');
-        if (diamond) diamond.style.color = '#ff8964';
-      }
-    }
-
-    // Inicialización al cargar la página
-    document.addEventListener('DOMContentLoaded', () => {
-      // Detectar idioma preferido
-      let lang = localStorage.getItem('preferred-lang');
-      if (!lang) {
-        const browserLang = navigator.language || navigator.userLanguage;
-        lang = (browserLang && browserLang.startsWith('en')) ? 'en' : 'es';
-      }
-
-      // Aplicar idioma
-      updateLanguage(lang);
-
-      // Buscar versión asíncronamente
-      fetchLatestRelease();
-    });
-  </script>
+  <script src="js/common.js"></script>
+  <script src="js/index.js"></script>
 </body>
 
 </html>

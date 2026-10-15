@@ -4,73 +4,60 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title data-i18n="plugins_seo_title">Pairee | Catálogo de Plugins de la Comunidad</title>
-  <meta name="description"
-    content="Explora, busca y consulta los plugins, visores y extensiones de la comunidad para Pairee." />
-  <meta name="keywords" content="Pairee, file manager, terminal, TUI, Rust, Ratatui, Tokio, Norton Commander, dual pane, terminal file manager, gestor de archivos, plugins, community, catalog" />
+  <title>Pairee | Catálogo de plugins de la comunidad</title>
+  <meta name="description" content="Explora, busca y consulta los plugins, visores y extensiones de la comunidad para Pairee." />
   <link rel="canonical" href="https://pairee.fitty.ar/plugins.html" />
-  
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="assets/wizard_small_image.png" />
-  
-  <!-- Open Graph / Facebook -->
+  <meta name="theme-color" content="#05070d" />
+
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png" />
+  <link rel="apple-touch-icon" href="assets/icon-180.png" />
+
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://pairee.fitty.ar/plugins.html" />
-  <meta property="og:title" content="Pairee | Catálogo de Plugins de la Comunidad" />
+  <meta property="og:title" content="Pairee | Catálogo de plugins de la comunidad" />
   <meta property="og:description" content="Explora, busca y consulta los plugins, visores y extensiones de la comunidad para Pairee." />
-  <meta property="og:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+  <meta property="og:image" content="https://pairee.fitty.ar/assets/social.png" />
   <meta property="og:site_name" content="Pairee" />
-
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:url" content="https://pairee.fitty.ar/plugins.html" />
-  <meta name="twitter:title" content="Pairee | Catálogo de Plugins de la Comunidad" />
+  <meta name="twitter:title" content="Pairee | Catálogo de plugins de la comunidad" />
   <meta name="twitter:description" content="Explora, busca y consulta los plugins, visores y extensiones de la comunidad para Pairee." />
-  <meta name="twitter:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+  <meta name="twitter:image" content="https://pairee.fitty.ar/assets/social.png" />
 
-  <link rel="stylesheet" href="css/base.css" />
-  <link rel="stylesheet" href="css/plugins.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <style>
-    .nav-links a.active-nav {
-      color: var(--accent-cyan);
-      font-weight: 600;
-    }
-  </style>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/plugins.css" />
 </head>
 
 <body>
-  <!-- Topbar/Header -->
   <header class="header">
     <div class="container nav">
       <a class="logo" href="index.html">
-        <img src="assets/wizard_small_image.png" alt="Pairee Logo" />
+        <img src="assets/icon.svg" alt="" width="36" height="26" />
         <span>Pairee</span>
       </a>
       <nav class="nav-links">
         <a href="index.html#features" data-i18n="nav_features">Características</a>
+        <a href="index.html#tour" data-i18n="nav_tour">Recorrido</a>
         <a href="index.html#gallery" data-i18n="nav_gallery">Capturas</a>
         <a href="index.html#install" data-i18n="nav_install">Instalación</a>
         <a href="changelog.html" data-i18n="nav_changelog">Cambios</a>
-        <a href="plugins.html" data-i18n="nav_store" class="active-nav">Plugins</a>
+        <a href="plugins.html" class="active-nav" data-i18n="nav_store">Plugins</a>
         <a href="https://fitty.ar/" data-i18n="nav_back">Volver a fitty.ar</a>
       </nav>
-
-      <!-- Language Selector -->
-      <div class="lang-selector">
-        <button class="lang-btn" data-lang="es" onclick="switchLanguage('es')">ES</button>
-        <span class="lang-separator">|</span>
-        <button class="lang-btn" data-lang="en" onclick="switchLanguage('en')">EN</button>
+      <div class="nav-right">
+        <div class="lang-selector">
+          <button class="lang-btn" data-lang="es" onclick="switchLanguage('es')">ES</button>
+          <span class="lang-separator">|</span>
+          <button class="lang-btn" data-lang="en" onclick="switchLanguage('en')">EN</button>
+        </div>
+        <a class="nav-btn" href="https://github.com/FittyAr/Pairee" target="_blank" rel="noopener">GitHub</a>
       </div>
-
-      <a class="nav-btn" href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">
-        GitHub
-      </a>
     </div>
   </header>
 
-  <main style="padding-top: 40px;">
+  <main>
     <!-- Store Title Section -->
     <section class="hero" style="padding: 60px 0 20px;">
       <div class="container">
@@ -184,28 +171,26 @@
     </div>
   </main>
 
-  <!-- Footer -->
   <footer class="footer">
-    <div class="container footer-grid">
-      <div>
-        <div class="logo" style="margin-bottom: 8px;">
-          <img src="assets/wizard_small_image.png" alt="Pairee Logo" style="width: 24px; height: 24px;" />
-          <span>Pairee</span>
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="logo" style="margin-bottom: 8px; font-size: 1rem;">
+            <img src="assets/icon.svg" alt="" width="28" height="20" />
+            <span>Pairee</span>
+          </div>
+          <p style="margin: 0; font-size: 0.85rem;" data-i18n="footer_text">
+            Hecho en Rust. Pairee se distribuye bajo GPL-3.0; este sitio, bajo MIT.
+          </p>
         </div>
-        <p style="margin: 0; font-size: 0.85rem; margin-bottom: 12px;" data-i18n="footer_text">
-          Desarrollado en Rust. Pairee está bajo licencia GPLv3; este sitio web bajo MIT.
-        </p>
+        <div class="footer-links">
+          <a href="https://fitty.ar/">fitty.ar</a>
+          <a href="https://fitty.ar/es/pages/projects.html" data-i18n="footer_projects">Proyectos</a>
+          <a href="changelog.html" data-i18n="nav_changelog">Cambios</a>
+          <a href="https://github.com/FittyAr/Pairee/blob/master/docs/plugin-dev-guide.md" target="_blank" rel="noopener">Plugin guide</a>
+          <a href="https://github.com/FittyAr/Pairee" target="_blank" rel="noopener">GitHub</a>
+        </div>
       </div>
-      <div class="footer-links">
-        <a href="https://fitty.ar/" data-i18n="footer_home">fitty.ar</a>
-        <a href="https://fitty.ar/productos.html" data-i18n="footer_projects">Proyectos</a>
-        <a href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">GitHub</a>
-      </div>
-    </div>
-    <div class="container" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
-      <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted); opacity: 0.8; line-height: 1.5;" data-i18n="footer_disclaimer">
-        Todas las marcas registradas, nombres de productos y logotipos (como Norton Commander, Vim o Rust) son propiedad de sus respectivos dueños. Su uso en este sitio es solo con fines informativos y de referencia, sin implicar patrocinio o respaldo.
-      </p>
     </div>
   </footer>
 

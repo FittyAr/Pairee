@@ -52,7 +52,7 @@ function updateLanguage(lang) {
   const twDesc = document.querySelector('meta[name="twitter:description"]');
   if (twDesc) twDesc.setAttribute('content', pageDesc);
 
-  const shareImgUrl = lang === 'es' ? 'https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png' : 'https://pairee.fitty.ar/assets/Pairee_EN_2160x2160.png';
+  const shareImgUrl = 'https://pairee.fitty.ar/assets/social.png';
 
   const ogImage = document.querySelector('meta[property="og:image"]');
   if (ogImage) ogImage.setAttribute('content', shareImgUrl);
@@ -71,7 +71,7 @@ function updateLanguage(lang) {
 }
 
 function switchLanguage(lang) {
-  localStorage.setItem('preferred-lang', lang);
+  try { localStorage.setItem('preferred-lang', lang); } catch (_) { /* storage blocked */ }
   updateLanguage(lang);
   filterPlugins();
 }
@@ -464,10 +464,11 @@ function copyCliCommand() {
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
-  let lang = localStorage.getItem('preferred-lang');
+  // Same rule as common.js: the saved choice, else Spanish for Spanish browsers.
+  let lang = null;
+  try { lang = localStorage.getItem('preferred-lang'); } catch (_) { /* storage blocked */ }
   if (!lang) {
-    const browserLang = navigator.language || navigator.userLanguage;
-    lang = (browserLang && browserLang.startsWith('en')) ? 'en' : 'es';
+    lang = (navigator.language || '').startsWith('es') ? 'es' : 'en';
   }
   updateLanguage(lang);
   fetchAndRenderPlugins();

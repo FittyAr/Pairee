@@ -1,36 +1,50 @@
 # Pairee
-> A modern, dual-pane, modular terminal file manager (TUI) written in Rust with Ratatui and Tokio.
+> A dual-pane file manager for the terminal (TUI), inspired by Norton Commander and Far Manager. Written in Rust with Ratatui and Tokio. Windows, Linux and macOS.
 
-Pairee combines the classic visual convenience of double-panel navigation (inspired by Norton Commander) with modern asynchronous operations, customizable keyboard shortcuts, dynamic themes, multi-language support, and a smart self-updater.
+Pairee is a single executable that keeps the keys of the classic two-panel file managers and adds what is needed today: background transfers, Git, remote connections, archives, a built-in viewer and editor, and sandboxed Lua plugins. It is in public beta.
 
 ## Key Resources
-- [Pairee Official Website](https://pairee.fitty.ar): Landing page and presentation.
-- [Plugin Store](https://pairee.fitty.ar/plugins.html): Community plugin catalog.
-- [Changelog](https://pairee.fitty.ar/changelog.html): Release history.
-- [GitHub Repository](https://github.com/FittyAr/Pairee): Main source code repository.
-- [Latest Releases](https://github.com/FittyAr/Pairee/releases): Release logs and precompiled binaries.
+- [Website](https://pairee.fitty.ar): Landing page, screenshots and install commands.
+- [Changelog](https://pairee.fitty.ar/changelog.html): Release history (from docs/CHANGELOG.md).
+- [Plugin catalog](https://pairee.fitty.ar/plugins.html): Community plugins (signed registry).
+- [GitHub Repository](https://github.com/FittyAr/Pairee): Source code (branch `master`).
+- [Releases](https://github.com/FittyAr/Pairee/releases): Signed binaries and packages.
+- [User guide](https://github.com/FittyAr/Pairee/blob/master/help/en/user_guide.md)
+- [Plugin developer guide](https://github.com/FittyAr/Pairee/blob/master/docs/plugin-dev-guide.md)
 
 ## Licensing
-- **Pairee Core Project**: Licensed under **GNU GPL v3**.
-- **Website presentation files**: Licensed under **MIT License**.
+- **Pairee**: GPL-3.0-only.
+- **Website**: MIT.
 
 ## Features
-- **Dual-Pane Interface**: Parallel navigation to copy/move/delete without losing context.
-- **Asynchronous Engine**: Non-blocking operations powered by Tokio runtime.
-- **Customizable Control Profiles**: Presets for Norton/Far, Explorer/VS Code/Total Commander, Neovim and yazi; any key can be changed.
-- **Dynamic Styling**: Customizable Slate, Blue, and other themes.
-- **Self-Updater**: Supports up to 13 installation channels, verifying releases with minisign signatures and SHA-256 checksums.
-- **Extra Tools**: Directory comparison, duplicate finder, Git integration, SSH/SFTP, zip/tar/7z archives, process manager, text/file finder and attribute panel.
-- **Lua Plugins**: Sandboxed Lua plugin API with a community catalog.
+- Two panels with tabs, quick view, tree, folder comparison and synchronization.
+- Keyboard presets: Norton Commander / Far, Explorer / VS Code / Total Commander, Neovim and yazi; every key can be changed.
+- Copy, move and delete in the background with progress, pause, cancel, undo and redo.
+- Git: per-file status in the panels and a Git panel (stage, commit, diff, log, branches, stash, tags, clone).
+- Remote panels: SFTP, FTP, S3 and WebDAV; passwords in the system keyring.
+- Archives: zip, tar (.gz, .bz2, .xz) and 7z, browsed and changed like folders.
+- Built-in viewer and editor with syntax highlighting, hex view, image previews and encoding detection.
+- Find files by name and content, duplicate finder, disk usage, command palette.
+- Sandboxed Lua plugins (Secure Mode) and a signed community registry.
+- English and Spanish interface and help; TOML themes and translations.
+- Self-updater that recognizes the install method and verifies SHA-256 and minisign signatures.
 
 ## Quick Installation
-
-### Linux / macOS
-```bash
-curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
-```
 
 ### Windows (PowerShell)
 ```powershell
 irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex
 ```
+Installs to `%LOCALAPPDATA%\Programs\FittyAr\Pairee` (added to the user PATH).
+
+### Linux
+```bash
+curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
+```
+Installs to `~/.local/lib/FittyAr/Pairee` with a `pairee` command in `~/.local/bin`.
+
+## Where Pairee keeps its files
+- Windows: `%APPDATA%\FittyAr\Pairee` (`config`, `cache`, `plugin-data`).
+- Linux: `~/.config/FittyAr/Pairee` (settings), `~/.cache/FittyAr/Pairee` (log), `~/.local/share/FittyAr/Pairee` (plugin data); `XDG_CONFIG_HOME`, `XDG_CACHE_HOME` and `XDG_DATA_HOME` are honored.
+- macOS: `~/Library/Application Support/FittyAr/Pairee` and `~/Library/Caches/FittyAr/Pairee`.
+- Folders of earlier versions (`pairee`, `com.pairee.Pairee`) are moved into place on the first start; nothing is deleted.

@@ -1,0 +1,71 @@
+# Screens for the website, in the order of the gallery. Keys follow the
+# default (Norton) preset; see capture/src/main.rs for the key names.
+# After a Ctrl or Alt key, "Down Up" brings the plain key bar back.
+cd /home/alex/Projects/aurora-web
+start /home/alex/Projects/aurora-web /home/alex/Documents
+
+# Two panels, git status markers on the folders.
+keys Down Down Down Down
+shot 01-panels
+
+# Quick view of a source file.
+keys Enter Down Down Down Down
+keys C-q Down Up
+shot 02-quickview
+keys C-q
+
+# The built-in editor.
+keys Up F4
+shot 03-editor
+keys Esc
+
+# Git panel of the repository.
+keys Bksp CA-g
+shot 04-git
+keys Esc
+
+# Menu bar.
+keys F9 Down
+shot 05-menu
+keys Esc Esc
+
+# Image preview in the quick view.
+keys Bksp Bksp Home Down Down Down Down Enter
+keys Down Down Enter
+keys Down Down C-q Down Up
+shot 06-image
+keys C-q
+
+# Copy dialog with three photos selected.
+keys Ins Ins Ins F5
+shot 07-copy
+keys Esc
+
+# Inside a zip archive.
+keys Bksp Bksp Home Down Down Enter
+keys Down Down C-PgDn Down Up
+shot 08-archive
+keys Home Enter
+
+# Find files: every Markdown file under the home folder.
+keys Bksp A-F7 "*.md" Enter
+wait 1500
+shot 09-find
+keys Esc Esc
+
+# Command palette.
+keys CA-p "copy"
+shot 10-palette
+keys Esc
+
+# Help.
+keys F1
+wait 500
+shot 11-help
+keys Esc
+
+# Spanish interface.
+run sed -i 's/language = "English"/language = "Español"/' /home/alex/.config/FittyAr/Pairee/config.toml
+start /home/alex/Projects/aurora-web /home/alex/Documents
+keys F9 Right Right Down
+shot 12-spanish
