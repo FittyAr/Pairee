@@ -1,0 +1,40 @@
+name: Refresh registry signature
+
+# Re-signs the plugin registry every week with a new serial and a timestamp:
+# clients refuse an index signed more than `registry_max_age_days` (30) ago.
+# `schedule` only runs from the default branch, so the signing steps live in
+# the shared action; the workflow on `plugin-registry` calls the same action
+# on every change (docs/technical/plugin-registry-spec.md, "How the registry
+# is signed").
+on:
+  schedule:
+    - cron: '17 4 * * 1' # every Monday
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One signing run at a time, shared with the workflow on plugin-registry, so
+# serials never collide; none is cancelled.
+concurrency:
+  group: sign-registry
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  refresh:
+    name: Sign index, blocklist and manifests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/actions/sign-registry
+          persist-credentials: false
+      - uses: ./.github/actions/sign-registry
+        with:
+          minisign-secret-key: ${{ secrets.MINISIGN_SECRET_KEY }}
+          minisign-password: ${{ secrets.MINISIGN_PASSWORD }}

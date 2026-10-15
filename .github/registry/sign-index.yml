@@ -42,62 +42,14 @@ jobs:
   sign:
     name: Sign index, blocklist and manifests
     runs-on: ubuntu-latest
-    # Optional: required reviewers on this environment gate every run
-    # (including the weekly refresh).
+    # Optional: required reviewers on this environment gate every run.
     # environment: registry-signing
     permissions:
       contents: write
     steps:
-      # The newest tip of the branch, not the pushed commit: a run that
-      # waited for another one signs what is there now.
-      - name: Checkout plugin-registry
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The steps are the shared action on master, which the weekly refresh
+      # (refresh-registry.yml on master) runs too.
+      - uses: FittyAr/Pairee/.github/actions/sign-registry@master
         with:
-          ref: plugin-registry
-          path: registry-branch
-
-      - name: Checkout Pairee (signing tool and pinned key)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: master
-          path: pairee
-          persist-credentials: false
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
-        with:
-          toolchain: stable
-
-      - name: Install minisign
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq minisign
-
-      - name: Sign
-        working-directory: pairee
-        env:
-          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
-          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
-        run: |
-          set -euo pipefail
-          if [ -z "$MINISIGN_SECRET_KEY" ]; then
-            echo "::error::Repository secret MINISIGN_SECRET_KEY is not set; refusing to leave the registry unsigned."
-            exit 1
-          fi
-          cargo xtask sign-registry "$GITHUB_WORKSPACE/registry-branch/registry"
-
-      # GITHUB_TOKEN pushes never start workflows, so this does not loop.
-      - name: Commit signatures
-        working-directory: registry-branch
-        run: |
-          set -euo pipefail
-          # A pathspec `*` also matches `/`: every signature in registry/.
-          git add -A -- 'registry/*.minisig'
-          if git diff --cached --quiet; then
-            echo "Signatures unchanged."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -q -m "registry: sign index, blocklist and manifests [skip ci]"
-          git push origin HEAD:plugin-registry
+          minisign-secret-key: ${{ secrets.MINISIGN_SECRET_KEY }}
+          minisign-password: ${{ secrets.MINISIGN_PASSWORD }}
