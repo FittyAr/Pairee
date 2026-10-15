@@ -316,10 +316,11 @@ function Confirm-Overwrite {
         return $false
     }
     if (Test-Path $configDir) {
-        $clearConfig = Read-Host "Do you want to clear old configurations, themes, and history settings? [y/N]"
-        if ($clearConfig -match "^[yY](es)?$") {
-            Write-Host "Clearing old settings in $configDir..."
-            Remove-Item -Recurse -Force $configDir -ErrorAction SilentlyContinue
+        $clearAnswer = Read-Host "Do you want to clear old configurations, themes, and history settings? [y/N]"
+        if ($clearAnswer -match "^[yY](es)?$") {
+            # Deleted by Install-Files, once the download is verified.
+            $script:clearConfig = $true
+            Write-Host "Old settings in $configDir will be cleared once the download is verified."
         } else {
             Write-Host "Keeping existing settings."
         }
@@ -330,7 +331,11 @@ function Confirm-Overwrite {
 # Copies pairee.exe and the resources of $package into place.
 function Install-Files([string]$package) {
     Write-Host "Installing files..."
-    foreach ($dir in $installDir, (Join-Path $configDir "lang"), (Join-Path $configDir "help"), (Join-Path $configDir "keymaps")) {
+    if ($script:clearConfig) {
+        Write-Host "Clearing old settings in $configDir..."
+        Remove-Item -Recurse -Force $configDir -ErrorAction SilentlyContinue
+    }
+    foreach ($dir in $installDir, (Join-Path $configDir "lang"), (Join-Path $configDir "help")) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
     }
     Copy-Item -Path (Join-Path $package "pairee.exe") -Destination $installDir -Force
@@ -342,15 +347,6 @@ function Install-Files([string]$package) {
     }
     if (Test-Path (Join-Path $package "help")) {
         Copy-Item -Path (Join-Path $package "help\*") -Destination (Join-Path $configDir "help") -Force -Recurse
-    }
-    if (Test-Path (Join-Path $package "keymaps")) {
-        # Only copy preset files that do not already exist, to preserve user edits
-        Get-ChildItem -Path (Join-Path $package "keymaps") -Filter "*.toml" | ForEach-Object {
-            $destFile = Join-Path $configDir "keymaps\$($_.Name)"
-            if (-not (Test-Path $destFile)) {
-                Copy-Item -Path $_.FullName -Destination $destFile -Force
-            }
-        }
     }
 }
 

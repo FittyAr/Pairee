@@ -77,14 +77,24 @@ pub fn get_status_scoped(
     opts.include_untracked(true)
         .recurse_untracked_dirs(true)
         .include_ignored(false)
-        .include_unmodified(false);
+        .include_unmodified(false)
+        .renames_head_to_index(true)
+        .renames_index_to_workdir(true);
 
     let statuses = repo.statuses(Some(&mut opts))?;
 
     Ok(statuses
         .iter()
         .filter_map(|entry| {
-            let path = entry.path().unwrap_or("").to_string();
+            // A rename's own `path()` is the old name; the file is now at
+            // the new one, which is what staging and discarding act on.
+            let path = [entry.head_to_index(), entry.index_to_workdir()]
+                .into_iter()
+                .flatten()
+                .find_map(|delta| delta.new_file().path()?.to_str())
+                .or_else(|| entry.path().ok())
+                .unwrap_or("")
+                .to_string();
             if path.is_empty() {
                 return None;
             }

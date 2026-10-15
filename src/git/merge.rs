@@ -1,5 +1,5 @@
 use crate::config::localization::t;
-use crate::git::outcome::{Outcome, commit_or_conflicts, prepared_message};
+use crate::git::outcome::{Outcome, PendingOperation, commit_or_conflicts, prepared_message};
 use crate::git::worktree::{fast_forward, local_changes_error};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -53,6 +53,11 @@ pub fn merge_annotated(
 /// and conflicts) goes back to HEAD, while local changes the user had in
 /// other files before it are kept.
 pub fn abort_merge(repo: &git2::Repository) -> anyhow::Result<()> {
+    // Without a merge/cherry-pick/revert to abort this would reset the index
+    // and delete files for nothing; a rebase has its own state to unwind.
+    if !PendingOperation::of(repo).is_some_and(PendingOperation::abortable) {
+        anyhow::bail!(t("git_error_nothing_to_abort"));
+    }
     let head = repo.head()?.peel_to_commit()?;
     let head_tree = head.tree()?;
     let touched = merge_touched_paths(repo, &head_tree)?;

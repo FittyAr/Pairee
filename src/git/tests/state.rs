@@ -331,3 +331,57 @@ fn a_broken_index_is_an_error_not_a_clean_status() {
         "the panel must not show it clean"
     );
 }
+
+#[test]
+fn test_abort_merge_without_operation_is_refused() {
+    let (_dir, repo) = setup_temp_repo();
+    write_and_commit(&repo, "a.txt", "1", "one");
+    write_file(&repo, "b.txt", "new");
+    stage_file(&repo, "b.txt").unwrap();
+
+    assert!(abort_merge(&repo).is_err());
+    // Nothing was touched.
+    assert_eq!(read_file(&repo, "b.txt"), "new");
+    assert!(
+        get_status(&repo)
+            .unwrap()
+            .iter()
+            .any(|s| s.path == "b.txt" && s.is_staged)
+    );
+}
+
+#[test]
+fn test_status_reports_a_staged_rename_and_unstages_both_sides() {
+    let (_dir, repo) = setup_temp_repo();
+    let body = "some reasonably long content\nwith several lines\nto be detected\n";
+    write_and_commit(&repo, "old.txt", body, "add");
+    std::fs::rename(
+        repo.workdir().unwrap().join("old.txt"),
+        repo.workdir().unwrap().join("new.txt"),
+    )
+    .unwrap();
+    stage_file(&repo, "new.txt").unwrap();
+    stage_file(&repo, "old.txt").unwrap();
+
+    let status = get_status(&repo).unwrap();
+    assert_eq!(status.len(), 1, "{status:?}");
+    assert_eq!(status[0].kind, StatusKind::Renamed);
+    assert_eq!(status[0].path, "new.txt");
+
+    unstage_file(&repo, "new.txt").unwrap();
+    let status = get_status(&repo).unwrap();
+    assert!(status.iter().all(|s| !s.is_staged), "{status:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_discard_removes_a_dangling_untracked_symlink() {
+    let (dir, repo) = setup_temp_repo();
+    write_and_commit(&repo, "a.txt", "1", "one");
+    let link = dir.path().join("dangling");
+    std::os::unix::fs::symlink("missing-target", &link).unwrap();
+
+    discard_file_changes(&repo, "dangling").unwrap();
+
+    assert!(link.symlink_metadata().is_err());
+}

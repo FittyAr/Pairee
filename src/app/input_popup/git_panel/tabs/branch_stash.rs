@@ -160,8 +160,10 @@ pub fn handle_stash_tab(
 ) -> bool {
     let stash = stash_entries.get(cursor_idx);
     match (code, stash) {
-        (KeyCode::Char('a' | 'A'), Some(stash)) => apply_stash(state, repo_path, stash.oid.clone()),
-        (KeyCode::Char('p' | 'P') | KeyCode::Enter, Some(stash)) => confirm_on_stash(
+        (KeyCode::Char('a' | 'A') | KeyCode::Enter, Some(stash)) => {
+            apply_stash(state, repo_path, stash.oid.clone())
+        }
+        (KeyCode::Char('p' | 'P'), Some(stash)) => confirm_on_stash(
             state,
             repo_path,
             stash.index,

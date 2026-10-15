@@ -23,6 +23,17 @@ pub fn client(timeout: Duration) -> Result<reqwest::Client> {
         .context("failed to build HTTP client")
 }
 
+/// Client for large downloads: no cap on the whole transfer (a slow link
+/// must not abort a healthy download), but a bounded connect phase and a
+/// bounded wait between body chunks so a stalled server still fails.
+pub fn streaming_client(connect: Duration, idle: Duration) -> Result<reqwest::Client> {
+    builder()
+        .connect_timeout(connect)
+        .read_timeout(idle)
+        .build()
+        .context("failed to build HTTP client")
+}
+
 /// Reads the body of `response` into memory, refusing it as soon as it
 /// grows past `max` bytes (and before reading when the declared length is
 /// already larger). `on_progress(received, total)` runs after every chunk;

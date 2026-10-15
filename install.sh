@@ -35,6 +35,9 @@ DEBUG_MODE=false
 UNINSTALL_MODE=false
 SKIP_SIGNATURE=false
 VERIFY_ONLY=false
+# Set by confirm_overwrite; the settings are deleted only once the download
+# is verified, so a failed install never costs the user their configuration.
+CLEAR_CONFIG=false
 # Removed on exit, whatever the outcome.
 TEMP_DIR=""
 STAGED_BIN=""
@@ -255,11 +258,11 @@ confirm_overwrite() {
 
     if [ -d "$CONFIG_DIR" ]; then
         printf "Do you want to clear old configurations, themes, and history settings? [y/N]: "
-        read -r CLEAR_CONFIG < /dev/tty || CLEAR_CONFIG="n"
-        case "$CLEAR_CONFIG" in
+        read -r CLEAR_ANSWER < /dev/tty || CLEAR_ANSWER="n"
+        case "$CLEAR_ANSWER" in
             [yY][eE][sS] | [yY])
-                echo "Clearing old settings in $CONFIG_DIR..."
-                rm -rf "$CONFIG_DIR"
+                CLEAR_CONFIG=true
+                echo "Old settings in $CONFIG_DIR will be cleared once the download is verified."
                 ;;
             *) echo "Keeping existing settings." ;;
         esac
@@ -354,7 +357,11 @@ build_from_source() {
 
 install_files() {
     echo "Installing files..."
-    mkdir -p "$INSTALL_DIR" "$CONFIG_DIR/lang" "$CONFIG_DIR/help" "$CONFIG_DIR/keymaps"
+    if [ "$CLEAR_CONFIG" = "true" ]; then
+        echo "Clearing old settings in $CONFIG_DIR..."
+        rm -rf "$CONFIG_DIR"
+    fi
+    mkdir -p "$INSTALL_DIR" "$CONFIG_DIR/lang" "$CONFIG_DIR/help"
 
     # Staged next to the target and renamed over it: a running pairee keeps
     # its old file (no "Text file busy"), and a failed copy changes nothing.
@@ -371,16 +378,6 @@ install_files() {
     fi
     if [ -d "${PKG_FOLDER}/help" ]; then
         cp -r "${PKG_FOLDER}/help/"* "$CONFIG_DIR/help/"
-    fi
-    # Copy keybinding preset files, but skip files already edited by the user
-    if [ -d "${PKG_FOLDER}/keymaps" ]; then
-        for preset_file in "${PKG_FOLDER}/keymaps/"*.toml; do
-            [ -f "$preset_file" ] || continue
-            dest="$CONFIG_DIR/keymaps/$(basename "$preset_file")"
-            if [ ! -f "$dest" ]; then
-                cp "$preset_file" "$dest"
-            fi
-        done
     fi
 }
 
