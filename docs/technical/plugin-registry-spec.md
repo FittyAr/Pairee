@@ -68,13 +68,16 @@ version     = "1.1.0"
 description = "Git status integration for file panels"
 author      = "contributor-handle"
 languages   = ["en", "es"]
-hooks       = ["on_cd"]
 min_pairee  = "0.7.0"
 ```
 
+`hooks` is an optional index field the client can display, but the packager never writes it (a manifest does not declare the events a plugin handles), and `tags` is not an index field at all.
+
 ### 3.2 Plugin `manifest.toml`
 
-Located inside the plugin workspace directory and at `registry/plugins/<initial>/<author>/<name>/manifest.toml`. During packaging, the file list with SHA-256 hashes is automatically appended to the end of the registry's copy under the `[files]` table. The manifest itself is not listed (a file cannot contain its own hash; it is covered by its `.minisig`), nor are hidden files or symbolic links; keys always use `/`. `name` and `author` must be `[A-Za-z0-9_-]`:
+Located inside the plugin workspace directory and at `registry/plugins/<initial>/<author>/<name>/manifest.toml`. During packaging, the registry's copy is written from the author's manifest with `license` set and its `[files]` table **replaced** by the file list with SHA-256 hashes (the author's own folder and manifest are never modified). The manifest itself is not listed (a file cannot contain its own hash; it is covered by its `.minisig`), nor are hidden files or symbolic links; keys always use `/`. `name` and `author` must be `[A-Za-z0-9_-]`.
+
+Pairee reads these keys of the manifest (`PluginManifest`, `src/plugin/loader.rs`): `name`, `version`, `description`, `author`, `license`, `min_pairee`, `requires_trust`, `default_language`, `languages`, `icon`, `screenshots`, `[keybindings]` (legacy), `[[commands]]`, `[settings_schema]` and `[permissions]`. Any other key (`homepage`, `tags`, `type`, `hooks`, ...) is accepted and **ignored**: it has no effect on loading, the index or the CLI output, and nothing is auto-detected from the plugin folder. A manifest may also nest all keys under a `[plugin]` table.
 
 ```toml
 name         = "git"
@@ -82,8 +85,8 @@ version      = "1.1.0"
 description  = "Git status integration for file panels"
 author       = "contributor-handle"
 license      = "MIT"
-homepage     = "https://github.com/contributor/git"
-tags         = ["git", "vcs"]
+icon         = "icon.png"                       # 256x256 or 512x512, inside the plugin folder
+screenshots  = ["screenshots/screenshot1.png"]  # at least one, 640x480 or larger
 
 # Language integration support
 default_language = "en"
@@ -102,18 +105,19 @@ min_pairee   = "0.7.0"
 # Set to true if the plugin uses pairee.fs.spawn or needs os/io access
 requires_trust = false
 
-# Declared event subscriptions (informational, also used by CI)
-hooks        = ["on_cd"]
+# Commands the plugin adds to the keymap and the palette
+[[commands]]
+id    = "run"
+title = "Run"
+[commands.keys]
+default = "Ctrl+Alt+g"
 
-# Plugin functional category
-# Options: "previewer" | "preloader" | "hook" | "command" | "mixed"
-type         = "hook"
+# Programs it may spawn in Secure Mode (the user sees them before trusting it)
+[permissions]
+commands = ["git"]
 
-# Default Keyboard Shortcuts
-[keybindings]
-"ctrl+g" = "entry"          # Overlays Ctrl+G to run the plugin's entry() function
-
-# Appended automatically by the packaging tool inside the registry:
+# Set by the packaging tool in the registry's copy (replacing any [files]
+# table of the author's manifest):
 [files]
 "main.lua" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 "utils.lua" = "c081d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -141,31 +145,20 @@ f081d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  lang/es.toml
 
 ## 4. `plugins.lock` — User-Side Lock File
 
-Stored at `~/.config/pairee/plugins.lock` (Linux/macOS) or `%APPDATA%\pairee\config\plugins.lock` (Windows).
+Stored as `plugins.lock` in Pairee's config folder (`~/.config/pairee/plugins.lock` on Linux/macOS, `%APPDATA%\pairee\config\plugins.lock` on Windows). It is a TOML table `plugins` with one sub-table per installed plugin (`src/plugin/updater/lockfile.rs`, `types.rs`): the installed `version`, whether it is `pinned`, and a `files` table of relative path (`/` separated) to the lowercase SHA-256 of that file, `manifest.toml` included:
 
 ```toml
-# Managed by Pairee — do not edit manually.
-# Commit this file to version-control your plugin configuration.
-
-lock_version = "1"
-
-[[plugin]]
-name    = "git"
+[plugins.git]
 version = "1.1.0"
-source  = "registry"
+pinned = false
 
-[[plugin.files]]
-path   = "main.lua"
-sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-
-[[plugin.files]]
-path   = "manifest.toml"
-sha256 = "fa25d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-
-[[plugin.files]]
-path   = "utils.lua"
-sha256 = "c081d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+[plugins.git.files]
+"main.lua" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"manifest.toml" = "fa25d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+"utils.lua" = "c081d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 ```
+
+A missing file is an empty lock. A file that exists but cannot be parsed is an **error** (`pairee plugin verify` fails, installs and pins stop): it is never read as empty, and when a write has to replace an unreadable lock it is first moved to `plugins.lock.bak`. Plugins installed with "Install Local" from the Developer Tools are recorded the same way, with the hashes of the copied files.
 
 ---
 
@@ -175,33 +168,26 @@ All plugin management commands run through `pairee plugin <subcommand>`.
 
 | Command | Description |
 |---------|-------------|
-| `pairee plugin list` | List all installed plugins, their versions, trusted status, and if updates are available |
-| `pairee plugin search <query>` | Search the locally cached registry index (`index.toml`) by name, author, or tags |
-| `pairee plugin info <name>` | Show metadata, version history, trust requirements, and declared keybindings |
-| `pairee plugin install <name>` | Download, verify SHA-256 for each file, and write/install the latest version |
-| `pairee plugin install <name>@<ver>` | Install a specific version |
-| `pairee plugin check-updates` | Contacts the remote registry branch, compares installed versions, and lists available updates |
-| `pairee plugin update` | Update all installed registry plugins to their latest compatible SemVer version |
-| `pairee plugin remove <name>` | Uninstall the plugin directory and clean up entries from `plugins.lock` |
-| `pairee plugin pin <name>@<ver>` | Pin a plugin to a specific version in `plugins.lock` |
-| `pairee plugin verify` | Re-verify SHA-256 of all installed files against `plugins.lock` |
+| `pairee plugin list` | List the installed plugins with their version, `[PINNED]`, `[TRUSTED]`/`[UNTRUSTED]`, `[DISABLED]`, `[BLOCKED]` and, when the registry lists a newer version, `(Update available: vX)`. Works offline (the badges are then missing) |
+| `pairee plugin search <query>` | Search the **remote** registry index (fetched and signature-checked) for plugins whose name or description contains the text, ignoring case. Author and tags are not searched; blocked plugins are left out |
+| `pairee plugin info <name>` | Show the index metadata (version, author, description, `min_pairee`, languages, hooks if listed) and the file list of the signed manifest. A blocked plugin is an error. There is no version history, trust or keybinding summary |
+| `pairee plugin install <name>` (alias `add`) | Download, verify the SHA-256 of each file and install the version the registry lists |
+| `pairee plugin install <name>@<ver>` | Only accepted when `<ver>` is the version the registry lists (the registry keeps the latest version only); anything else is refused |
+| `pairee plugin check-updates` | Contacts the registry and lists installed plugins with a newer registry version and blocked ones. A lower registry version is never offered |
+| `pairee plugin update [<name>]` | Update one plugin, or every non-pinned one with a newer version (removing blocked ones). It runs the same install, so a plugin whose `min_pairee` or `--- @since` is too new for this Pairee is refused |
+| `pairee plugin remove <name>` | Uninstall: the plugin folder, its `plugins.lock` entry, its data folder and its `config.toml` entries (trust, enabled flag, settings) |
+| `pairee plugin pin <name>` / `unpin <name>` | Pin or unpin the installed version in `plugins.lock` (no version argument: the pin keeps the version installed now) |
+| `pairee plugin verify` | Re-hash every installed file against `plugins.lock`, fail on blocked plugins, and report files in a plugin folder that the lock does not list and `.pairee` folders it does not know |
 
-### 5.1 Visual Badges and Tags in Search/List Results
+### 5.1 Badges in Search/List Results
 
-When listing or searching plugins via the CLI (`pairee plugin search` / `pairee plugin list`) or the TUI, the interface highlights:
-1. **Type/Category Badge:** Colored labels indicating plugin roles:
-   * `[Hook]` (Green) - Event-driven hooks.
-   * `[Previewer]` (Cyan) - Custom file panel previewers.
-   * `[Command]` (Yellow) - Custom commands/utilities.
-   * `[Mixed]` (Magenta) - Plugins implementing multiple functions.
-2. **Languages Badge:** A list of supported language locales, showing at a glance if translations exist:
-   * `[EN]` `[ES]` `[FR]` (Dim white/gray text).
-3. **Tags:** Hash-prefixed descriptive topics.
+`pairee plugin search` prints one block per match: `* <name> v<version> by <author>`, followed by `[Hook]` when the index entry lists hooks and one `[EN]`-style badge per language of the index entry, then the description on a second line. There are no plugin-type, colour or tag badges. `pairee plugin list` uses the status badges listed in section 5.
 
 **Example CLI Search Output:**
 ```bash
 $ pairee plugin search git
-git  [Hook] [EN] [ES]  Git status integration for file panels  #git #vcs
+* git v1.1.0 by contributor-handle [EN] [ES]
+  Description: Git status integration for file panels
 ```
 
 ---
@@ -211,23 +197,37 @@ git  [Hook] [EN] [ES]  Git status integration for file panels  #git #vcs
 ```
 pairee plugin install <name>        (TUI: Plugin Manager → Search → i)
   │
+  ├─ 0. Read plugins.lock (a corrupt lock aborts here)
   ├─ 1. Fetch registry/blocklist.toml (+ .minisig)      ≤ 4 MiB
-  │       blocked → abort
+  │       blocked → abort; unreachable → abort (see "Blocklist" below)
   ├─ 2. Fetch registry/index.toml (+ .minisig)          ≤ 4 MiB
   │       signed: serial not below the last accepted one, not older than
   │       registry_max_age_days (6.1); resolve the latest version and author
   ├─ 3. Fetch plugins/<shard>/<author>/<name>/manifest.toml (+ .minisig)  ≤ 1 MiB
   │       its [files] table pins the SHA-256 of every file; its name and
   │       version must match the index entry (an older signed manifest is
-  │       refused); it is installed from this signed text
-  ├─ 4. Validate every [files] key (no "..", absolute, drive, "\" or ":")
-  │       at most 1000 files
+  │       refused); it is installed from this signed text. Its (and the
+  │       index's) min_pairee must not be above this Pairee
+  ├─ 4. Validate every [files] key (no "..", absolute, drive, "\" or ":", no
+  │       Windows device name, no trailing "." or space, no characters
+  │       <>"|?*, no two keys equal ignoring case, no key that is both a file
+  │       and a folder); at most 1000 files
   ├─ 5. Download each file into memory                  ≤ 16 MiB each, ≤ 64 MiB total
-  │       compare its SHA-256 with [files] → any mismatch aborts, nothing written
-  ├─ 6. Write every file atomically; remove the files the previous version
-  │       listed in plugins.lock that this version no longer ships
-  └─ 7. Update plugins.lock (atomic write; the pin flag is kept)
+  │       compare its SHA-256 with [files] → any mismatch aborts, nothing written;
+  │       main.lua's `--- @since` must not exceed this Pairee's plugin API
+  ├─ 6. Stage: copy the current plugin folder to <name>.pairee.staging, write
+  │       every file, remove the files the previous version listed in
+  │       plugins.lock that this version no longer ships (a path that is the
+  │       very file just written, e.g. a case-only rename on a
+  │       case-insensitive file system, is kept), then swap the staging
+  │       folder in with two renames. A failure or a crash before the swap
+  │       leaves the working install untouched. Files you added to the
+  │       folder yourself are kept
+  └─ 7. Update plugins.lock (read again after the download so pins changed
+          meanwhile are kept; atomic write; the pin flag is kept)
 ```
+
+**Blocklist.** The blocklist is the kill switch, so it fails **closed**: if it cannot be fetched (network error, HTTP error) install, update, search, info, `check-updates` and `verify` fail instead of continuing without it (`list` only warns and shows no `[BLOCKED]` badges). A 404 for `blocklist.toml` is an error once the registry is expected to be signed (`registry_require_signature` with `REGISTRY_SIGNED`, or after this installation has verified a signed file with the configured key); only an unsigned registry may lack the file, which then means nothing is blocked. An invalid signature always fails. A blocked plugin that is already installed is removed by `pairee plugin update`.
 
 Every limit is enforced while streaming: a response is refused as soon as it
 grows past its limit (and up front when `Content-Length` already exceeds it).
@@ -398,34 +398,38 @@ With `pairee developer` (CLI) or the Developer Tools tab, shown when `plugins_de
    pairee developer package
    ```
    This generates `sha256.sum` containing hashes of every file in the directory. Nothing is signed locally: the registry signs after the merge (section 10).
-3. Accesses the **PR Submission TUI** inside Pairee.
-4. Inputs GitHub personal access token (PAT), developer fork URL, and commit details.
-5. Chooses "Submit Pull Request". The Rust engine:
-   * Copies the local directory assets into the correct folder structure under `registry/plugins/<shard>/<author>/<name>/` in the developer's cloned registry workspace.
-   * Auto-commits changes to a new Git branch.
-   * Pushes the branch to the developer's GitHub fork.
-   * Dispatches a GitHub API request to create the Pull Request targeting the official `plugin-registry` branch.
+3. Runs the submit wizard (`pairee developer submit`, or **Submit Plugin** in the Developer Tools tab). It packages the plugin, asks for a commit description and commits the staged registry copy on the `plugin-registry` branch of the local registry clone (`<cache>/temp_registry`); no other branch is created. A clone that still holds packaged but unsubmitted work is kept as it is, offline or not, instead of being reset to the registry.
+4. Optionally gives a GitHub personal access token (typed without echo in the CLI). There is no fork URL to enter: the fork is the token owner's. With a token the Rust engine:
+   * reads the account's login from the token (`GET /user`) and forks `FittyAr/Pairee` into it (`POST /repos/FittyAr/Pairee/forks`);
+   * waits until the fork exists (polls for up to a minute; forking is asynchronous);
+   * force-pushes `plugin-registry` to `https://github.com/<login>/Pairee.git` (refspec `+refs/heads/plugin-registry:refs/heads/plugin-registry`, the token goes through the credentials callback, at most one attempt, and a ref the server rejects is an error);
+   * opens a Pull Request from `<login>:plugin-registry` to the official `plugin-registry` branch.
+
+   Without a token the wizard prints the manual commands (add your fork as a remote, push `plugin-registry`, open the PR).
 
 ---
 
 ## 9. Publication Checks
 
-There is no standalone validation script. `pairee developer package`, `pairee developer submit` and the TUI Package / Submit options run these checks and stop at the first failure (`plugin::developer_tool::validate_for_publish`, plus the name check in `registry_plugin_dir`):
+There is no standalone validation script. `pairee developer package`, `pairee developer submit` and the TUI Package / Submit options run these checks and stop at the first failure (`plugin::developer_tool::validate_for_publish`, then the name check in `registry_plugin_dir`). In this order:
 
 1. `manifest.toml` exists in the current directory and parses as a `PluginManifest`.
-2. `name` and `author` only use `[A-Za-z0-9_-]` (they become the registry path `plugins/<shard>/<author>/<name>/`).
-3. **Icon:** `icon` is set, the file exists and is a readable image of exactly 256x256 or 512x512 pixels.
-4. **Screenshots:** `screenshots` lists at least one file; every listed file exists and is a readable image of at least 640x480 pixels.
+2. **Icon:** `icon` is set; the file is among the files that would be published (a regular, non-hidden file inside the plugin folder: `../x.png`, absolute paths, links and hidden files are refused) and exists; it is a readable image of exactly 256x256 or 512x512 pixels.
+3. **Screenshots:** `screenshots` lists at least one file; each is published the same way, a readable image of at least 640x480 pixels.
+4. **Entry point and files:** `main.lua` exists; every file name is accepted by the installer (no Windows device name, trailing dot or space, characters `<>"|?*`, names equal ignoring case); at most 1000 files, each at most 16 MiB, at most 64 MiB in total (the generated manifest and `sha256.sum` are not counted).
+5. `name` and `author` only use `[A-Za-z0-9_-]` (they become the registry path `plugins/<shard>/<author>/<name>/`). This runs **before** anything is fetched, written or deleted.
 
-The packager then resolves the license (MIT plus a generated `LICENSE` when the plugin has none), copies the plugin files, writes `sha256.sum` and the `[files]` table of the copied `manifest.toml`, and updates `registry/index.toml`.
+The packager then resolves the license, clones or refreshes the registry, copies the plugin files into `registry/plugins/<shard>/<author>/<name>/`, writes `sha256.sum`, the manifest (license set, `[files]` replaced by the checksums) and, when the plugin has no license file, a generated MIT `LICENSE` there, and updates `registry/index.toml`. The author's own folder is not modified at any step.
 
-Lua syntax, file naming, translation coverage, key alignment and encoding are **not** checked at packaging time. `pairee developer lint` covers part of it (manifest and `default_language`, `main.lua` present, unsafe calls in untrusted plugins, suggested keys per preset); the rest is up to the reviewer of the pull request.
+Lua syntax, translation coverage, key alignment and encoding are **not** checked at packaging time. `pairee developer lint` covers part of it (manifest and `default_language`, `main.lua` present, unsafe calls in untrusted plugins, suggested keys per preset; it leaves the keymap's plugin commands as they were); the rest is up to the reviewer of the pull request.
 
 ---
 
 ## 10. CI on the `plugin-registry` Branch
 
-The branch has a single workflow, `.github/workflows/sign-registry.yml`. On every push that touches `registry/index.toml`, `registry/blocklist.toml` or a plugin `manifest.toml`, it signs them with the Pairee release key (minisign, through master's `.github/scripts/sign.sh`), verifies each signature against the key embedded in Pairee and commits the `.minisig` files that changed (`[skip ci]`). Signing runs in the `registry-signing` environment, so required reviewers can approve each run.
+**Target.** The branch signs through one workflow, `sign-index.yml`, whose template lives on master at `.github/registry/sign-index.yml` (installation steps in 6.1). On every push that changes a `.toml` under `registry/`, and when started by hand or by the weekly refresh workflow on master, it runs `cargo xtask sign-registry`: `index.toml` and `blocklist.toml` are signed with `file:<name> serial:<N> timestamp:<now>` (the serial is one more than the published one, runs are serialized), every plugin `manifest.toml` with `file:<path>`, each signature is verified against the key embedded in Pairee, and the `.minisig` files are committed with `GITHUB_TOKEN` (`[skip ci]`). Signing can run in the `registry-signing` environment, so required reviewers can approve each run.
+
+**Current state of the branch.** Until the maintainer installs `sign-index.yml` (6.1), the branch still carries the older `.github/workflows/sign-registry.yml`: it signs the same files with the release key through master's `.github/scripts/sign.sh`, but **without** `serial:` and `timestamp:`. Pairee refuses an `index.toml` or `blocklist.toml` signature without them, so a registry signed only by the old workflow is not installable by a client that enforces signatures; install the new workflow (and remove the old one) before `REGISTRY_SIGNED` is switched on.
 
 No workflow validates pull requests or regenerates `index.toml`: the index is written by the packager (section 9) and reviewed in the pull request. Because anything merged is signed with the release key, keep the branch protected (pull requests with review).
 

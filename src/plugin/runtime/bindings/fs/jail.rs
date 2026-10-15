@@ -159,15 +159,20 @@ impl FsPolicy {
 /// Creates the per-plugin data folder (owner-only on Unix) so a jail rooted
 /// there can always be opened, even before the plugin writes anything.
 fn ensure_private_dir(dir: &Path) {
-    if std::fs::create_dir_all(dir).is_err() {
-        return;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
+    if std::fs::create_dir_all(dir).is_ok() {
+        restrict_to_owner(dir);
     }
 }
+
+#[cfg(unix)]
+fn restrict_to_owner(dir: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
+}
+
+/// Windows folders under the user's profile are already private to them.
+#[cfg(not(unix))]
+fn restrict_to_owner(_dir: &Path) {}
 
 /// Earlier versions kept the data in `<name>.pairee`; the data folder is now
 /// the plain plugin name (as documented). Moves the old one over when the

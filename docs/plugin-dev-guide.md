@@ -207,7 +207,13 @@ In Secure Mode (13.3) `:env(name, value)` only accepts locale, terminal and
 colour variables (`LANG`, `LANGUAGE`, `LC_*`, `TERM`, `COLORTERM`, `NO_COLOR`,
 `CLICOLOR`, `CLICOLOR_FORCE`, `FORCE_COLOR`, `TZ`, `COLUMNS`, `LINES`); any
 other name raises a security violation. `:cwd(path)` must name an existing
-folder inside the plugin's `pairee.fs` read jail.
+folder inside the plugin's `pairee.fs` **write** jail (so a tool can never be
+run inside Pairee's config folder). A child's stdin is closed unless you ask
+for `:stdin(pairee.Command.INHERIT)` or `PIPED`; `:output()` and
+`:wait_with_output()` fail past 16 MiB of output, `:output()` is killed after
+5 minutes and `:status()` after an hour unless `:timeout(seconds)` says
+otherwise, and children are killed when their handle is dropped.
+`child:read(len)` returns at most 1 MiB and never splits a UTF-8 character.
 
 ### `pairee.ui` — Widgets
 
@@ -627,7 +633,7 @@ By default, all plugins run in **Untrusted Mode** (`trusted = false`), which iso
 * **Banned Runtimes:** Global functions capable of dynamic script evaluation (`load`, `loadstring`, `dofile`, `loadfile`) are disabled.
 * **Require Isolation:** `require("lib.util")` loads `lib/util.lua` (or `lib/util/init.lua`) from the plugin's own folder, runs it once and caches the result in a table private to the plugin. It works for untrusted and trusted plugins alike (it does not need the `package` library). Module names are plain dotted identifiers (letters, digits, `_`, `-`); `..`, separators, symlinks and junctions cannot reach files outside the plugin folder.
 * **No Commands:** Any call to `pairee.fs.spawn()` will immediately throw a runtime error.
-* **Filesystem Jail:** `pairee.fs` can only read inside the plugin's own directory and its private data directory (`pairee.fs.data_dir()`), and can only write inside the data directory. This applies whether or not Secure Mode is enabled; `..` segments and symlinks cannot escape it.
+* **Filesystem Jail:** `pairee.fs` can only read inside the plugin's own directory and its private data directory (`pairee.fs.data_dir()`: `<data>/pairee/plugin-data/<plugin name>`, created for you; data that older versions kept under `<name>.pairee` is moved there), and can only write inside the data directory. This applies whether or not Secure Mode is enabled; `..` segments and symlinks cannot escape it.
 * **Preview exception:** `pairee.image.show`, `pairee.image.info` and `pairee.preview_code` also accept the file being previewed; they hand it to the host and return an opaque widget (or the image size), never its content. `pairee.image.precache` decodes pixels the plugin can read back, so it only takes sources inside the jail.
 * **Clipboard:** an untrusted plugin may write the clipboard but not read it (reading needs a trusted plugin outside Secure Mode).
 
@@ -658,18 +664,18 @@ To prevent data exfiltration, users can enable a global **Secure Mode** in their
   commands = ["git", "rg"]
   ```
   * The program must be given by **bare name** (no absolute/relative path); it is resolved through the absolute entries of `PATH` and that absolute path is executed. On Windows only `.exe` / `.com` are resolved (never `.bat` / `.cmd`).
-  * Shells, interpreters, network utilities and command wrappers (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) are **always** refused, even if declared, and also when a declared name is a symlink to one of them.
+  * Shells, interpreters, network utilities and command wrappers (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) are **always** refused, even if declared, and also when a declared name is a symlink to one of them. So are build tools and package managers (`cargo`, `make`, `cmake`, `npm`, `npx`, `pip`, `go`, `dotnet`, `gcc`, `clang`, ...: they run project code), containers (`docker`, `podman`), debuggers and tracers (`gdb`, `strace`, ...), launchers (`xdg-open`, `open`, `mpv`, `wsl`, `start`) and tools that overwrite whatever path they are given (`cp`, `mv`, `dd`, `tee`, `rm`, `ln`, `install`, `rsync`, `scp`, `sftp`).
   * Undeclared commands fail with `Security violation: ... is not declared in the plugin manifest`. The Plugin Manager shows the declared commands in the plugin details so the user can review them before trusting the plugin.
-* **Environment and working directory:** `Command:env` is limited to locale/terminal/colour variables and `Command:cwd` to folders inside the jail (see `pairee.Command`), so a declared tool cannot be turned into a code runner through `GIT_SSH_COMMAND`, `LD_PRELOAD`, `PAGER` and similar variables.
+* **Environment and working directory:** `Command:env` is limited to locale/terminal/colour variables and `Command:cwd` to folders inside the **write** jail (see `pairee.Command`), so a declared tool cannot be turned into a code runner through `GIT_SSH_COMMAND`, `LD_PRELOAD`, `PAGER` and similar variables, nor run inside Pairee's config folder. The paths the common options of `tar` (`-C`, `-f` when creating), `git` (`-C`, `--work-tree`, the `clone`/`init`/`worktree add` destination) and `zip` (the archive, `-b`) make the tool write are checked against the same jail. This is a best-effort list for those three tools: Pairee does not parse the paths of other declared tools (their read paths included), so declare only tools you need and keep them to the workspace.
 * **Arguments:** options that make a declared tool run another program are refused (Git config keys naming programs via `-c` or `git config`, `--upload-pack`, `--exec`, `--git-dir`, `rebase -x`, `difftool -x`, `grep -O`, `submodule foreach`, `bisect run`, `filter-branch`, `send-email`; `tar --to-command` / `-I`; `rg --pre`; `fd --exec`; `fzf --preview`; ...). `git` always runs with `-c safe.bareRepository=explicit` before the plugin's arguments.
-* **FS Sandboxing:** For trusted plugins, file **reads** (`pairee.fs`) are locked to the active workspace folder, the user's config and cache directories, and the plugin's own and data directories. **Writes** are limited to the workspace, the cache and the plugin's data directory: Pairee's config directory (`config.toml`, `keybindings.toml`, associations, the user menu, `plugins/`, `plugins.lock`) is read-only, so a plugin cannot switch Secure Mode off or trust itself. Nothing inside a `.git` folder is writable (its `config` and hooks run programs). Untrusted plugins keep their stricter jail (13.1).
+* **FS Sandboxing:** For trusted plugins, file **reads** (`pairee.fs`) are locked to the workspace, the user's config and cache directories, and the plugin's own and data directories. The workspace is the **local folder of the active panel** (it follows the user as they navigate), not the folder Pairee was launched from; the user's home folder and a filesystem root are never a workspace, so while the panel stands there a plugin only reaches its own, data and cache folders (and reads the config folder). **Writes** are limited to the workspace, the cache and the plugin's data directory: Pairee's config directory (`config.toml`, `keybindings.toml`, associations, the user menu, `plugins/`, `plugins.lock`) is read-only, so a plugin cannot switch Secure Mode off or trust itself. Nothing inside a `.git` folder is writable (its `config` and hooks run programs). Untrusted plugins keep their stricter jail (13.1).
 * **Fails closed:** if `config.toml` cannot be parsed, plugins run in Secure Mode until it is fixed (the startup error says so).
 
 ### 13.4 Resource limits
 Every plugin has a memory cap (128 MiB untrusted, 512 MiB trusted) and a CPU watchdog: each call Pairee makes into the plugin (`main.lua`, `setup`, `entry`, `peek`, hook callbacks) may run for at most 10 seconds, time spent inside C functions such as `string.rep` included. The clock only runs while the plugin is executing: while a call waits for a dialog, `pairee.sync`, a sleep or a child process it is paused. A call over budget is aborted with `plugin aborted: exceeded its execution time limit`, and `pcall` cannot catch it; the next call starts with a fresh budget.
 
 ### 13.5 Managing plugins
-In the Plugin Manager (Installed tab) `c` or Enter opens the plugin's settings (section 18), `t` toggles a plugin's trust, `e` enables or disables it and `s` toggles the global Secure Mode. Changes are saved and applied at once: all plugins are reloaded with the new settings. Disabled plugins are not loaded at all, so none of their code or hooks run.
+In the Plugin Manager (Installed tab) `c` or Enter opens the plugin's settings (section 18), `t` toggles a plugin's trust, `e` enables or disables it and `s` toggles the global Secure Mode. Changes are saved and applied at once: all plugins are reloaded with the new settings. Disabled plugins are not loaded at all, so none of their code or hooks run. Uninstalling (`d`) removes the plugin's folder, its `plugins.lock` entry, its data folder and its `[plugins.<name>]` and settings entries in `config.toml`, so a later install of the same name starts untrusted and fresh. Installs from the registry are staged in a sibling folder and swapped in only when complete, and refuse a plugin whose `min_pairee` or `--- @since` needs a newer Pairee. `pairee plugin verify` also reports files in a plugin folder that `plugins.lock` does not list and `.pairee` folders it does not know.
 
 ---
 
@@ -697,11 +703,12 @@ Run them from inside the plugin folder (they act on the current directory):
 * `pairee developer init <name>`: Creates a new plugin from the `plugin-template` branch (15.4), asking for a description and an author.
 * `pairee developer lint`: Checks that `manifest.toml` parses and sets `default_language`, that `main.lua` exists, warns about `os.execute`, `io.open`, `os.system`, `dofile` and `loadfile` in a plugin that does not set `requires_trust = true`, and reports invalid or conflicting suggested keys per preset.
 * `pairee developer package`: Runs the publication checks (15.3) and packages the plugin into a local clone of the `plugin-registry` branch:
-  * **Generates Hashes:** Automatically generates/updates the version-specific `sha256.sum` file containing SHA-256 hashes of every file in the directory. (Note: this does not create a compressed archive; Pairee registry plugins are distributed as raw folders).
+  * **Generates Hashes:** Generates `sha256.sum` (SHA-256 of every file) and the `[files]` table in the **registry copy** of the plugin; your own folder and `manifest.toml` are never modified (a `[files]` table you wrote yourself is replaced in the copy). (Note: this does not create a compressed archive; Pairee registry plugins are distributed as raw folders).
   * **License Detection & Generation:**
     - Checks for an existing `LICENSE` file (case-insensitive) in the plugin directory.
     - If a license file exists but the manifest `license` field is empty, the tool prompts you to specify the license name (or defaults to `"Custom"` if non-interactive).
-    - If no license file is found, the tool automatically assigns the `"MIT"` license to your manifest and writes a standard MIT `LICENSE` file containing your copyright details in the plugin workspace.
+    - If no license file is found, the tool publishes the plugin as `"MIT"` and adds a standard MIT `LICENSE` file with your copyright details to the registry copy only; nothing is written to your plugin folder.
+  * **Order:** the plugin `name` and `author` are checked before anything is fetched, written or deleted.
 
 ### 15.2 TUI Developer Tools & PR Submission Wizard
 The interactive TUI developer tools (accessible via **Top Menu Bar (F9) → Files → Plugin commands** → `Developer Tools` tab when developer mode is enabled) provide the following suite of utilities:
@@ -721,13 +728,17 @@ The interactive TUI developer tools (accessible via **Top Menu Bar (F9) → File
 | `No manifest.toml found in current directory...` | The command was run outside the plugin folder. | `cd` into the plugin folder first. |
 | `Error reading manifest.toml` / `Error parsing manifest.toml` | The manifest cannot be read or is not valid TOML / misses required fields. | Fix the TOML syntax and the fields listed in section 20. |
 | `Invalid plugin name or author '...'` | `name` or `author` contains a character other than letters, digits, `_` and `-`. | Rename it; the registry folder is `plugins/<shard>/<author>/<name>/`. |
-| `icon.png not found in the plugin root...` | `icon` is missing from the manifest or the file does not exist. | Add a PNG and point `icon` at it. |
+| `icon.png not found in the plugin root...` | `icon` is missing from the manifest or the file does not exist. The check is on the manifest's `icon` field (any file name works; `icon.png` is only the convention). | Add a PNG and point `icon` at it. |
+| `'...' must be a regular file inside the plugin folder...` | The `icon` or a screenshot is outside the plugin folder (`../x.png`, an absolute path), a link, or a hidden file: it would not be published. | Put the file inside the plugin folder. |
 | `icon size must be either 256x256 or 512x512 pixels` | The icon has another size. | Resize it to exactly 256x256 or 512x512. |
 | `icon image format is invalid or corrupt` | The file is not a readable image. | Re-export it as PNG. |
 | `screenshots/ directory does not contain any screenshots...` | The `screenshots` array is missing or empty. | List at least one PNG/JPG/JPEG. |
 | `screenshot '...' not found` | A listed screenshot does not exist. | Fix the path (relative to the plugin root). |
 | `screenshot '...' size must be at least 640x480 pixels` | A screenshot is too small. | Use a capture of at least 640x480. |
 | `screenshot '...' image format is invalid or corrupt` | The file is not a readable image. | Re-export it. |
+| `main.lua not found in the plugin root...` | The entry point is missing. | Add `main.lua`. |
+| `file '...' cannot be published: ...` | A file name the installer would refuse: a Windows device name (`con`, `aux`, `nul`, `com1`...), a trailing dot or space, characters `<>"|?*`, or two names that differ only in case. | Rename the file. |
+| `the plugin is too large to publish: ...` | More than 1000 files, a file over 16 MiB, or more than 64 MiB in total. | Remove or shrink files. |
 
 Lua syntax, translation coverage and key alignment are not checked at packaging time: run `pairee developer lint` and test the plugin locally (section 14). `scripts/check_translations.py` only covers Pairee's own `lang/` files.
 
@@ -739,13 +750,13 @@ Pairee maintains a dedicated orphan git branch called **`plugin-template`** in i
 
 When a developer uses the **Initialize New Plugin** wizard (either via the TUI Developer Tools tab or `pairee developer init`), the tool:
 
-1. **Locates the Pairee repository** on disk by walking up from the running binary's location until a `.git` directory is found. Alternatively, the `PAIREE_REPO_DIR` environment variable can be set to point to the repository explicitly.
+1. **Locates the Pairee repository** on disk by walking up from the running binary's location to a folder that is a git repository with a `FittyAr/Pairee` remote and the `plugin-template` branch (a `.git` folder elsewhere, such as one in your home, is ignored). Alternatively, the `PAIREE_REPO_DIR` environment variable can be set to point to the repository explicitly; it is checked the same way.
 2. **Extracts files** directly from the `plugin-template` branch using `libgit2` (no external `git` binary needed). Every file in the branch is written to the new plugin's target directory.
 3. **Substitutes placeholders** in `manifest.toml` and `help/en.md`:
    - `PLUGIN_NAME` → the name entered by the developer
    - `PLUGIN_DESCRIPTION` → the description entered by the developer
    - `PLUGIN_AUTHOR` → the author entered by the developer
-4. If the branch or repository is **not available** (e.g., installed as a standalone binary without the source repo), it gracefully falls back to generating files from the built-in localization strings — guaranteeing that plugin initialization always works.
+4. If no such local checkout exists (e.g., installed as a standalone binary without the source repo), it clones the `plugin-template` branch from GitHub (`https://github.com/FittyAr/Pairee.git`) instead. If that fails too (offline), initialization stops with *"Failed to initialize plugin: template branch unavailable (check your internet connection or git status)."*: there are no built-in template files. A file that cannot be written while copying the template is an error, not a silent gap.
 
 #### Template Branch File Structure
 
@@ -790,14 +801,15 @@ git checkout master
 ## 16. Registry Submission Flow
 
 1. **Enable Developer Mode** (`plugins_developer_mode = true` in `config.toml`).
-2. Open the **Metadata Wizard TUI** or run `pairee developer package` from inside the plugin folder to validate your files, copy them to a local checkout of the `plugin-registry` branch, and update the central `registry/index.toml` catalog file.
-3. Ensure the plugin meets the following mandatory publication requirements:
-   - **Icon:** A PNG icon named `icon.png` must be located in the plugin's root directory (recommended sizes: `512x512` or `256x256` pixels).
-   - **Screenshots:** A `screenshots/` directory must exist in the plugin's root containing at least one screenshot (PNG, JPG, or JPEG).
-4. Run the packaging option to clone and prepare the `plugin-registry` branch locally, verify all signatures, copy code files, and build the checksums/index entries.
+2. Use the **Package** option of the Plugin Manager's *Developer Tools* tab (15.2) or run `pairee developer package` from inside the plugin folder to validate your files, copy them to a local checkout of the `plugin-registry` branch, and update the central `registry/index.toml` catalog file.
+3. Ensure the plugin meets the following mandatory publication requirements (15.3):
+   - **Icon:** the manifest's `icon` field names an image inside the plugin folder of exactly `512x512` or `256x256` pixels (by convention `icon.png`).
+   - **Screenshots:** the manifest's `screenshots` field lists at least one image (PNG, JPG, or JPEG) of at least `640x480` pixels, inside the plugin folder.
+   - `main.lua` exists, file names are portable and the size limits hold.
+4. Packaging clones (or refreshes) the `plugin-registry` branch in a local cache, copies the code files, and builds the checksums/index entries. It does not verify signatures: the registry signs after the merge. A clone that still holds work you packaged and have not submitted is kept, not reset.
 5. Execute the "Submit" option. The wizard will prompt you for:
-   - **Commit Description:** A detailed description of the changes or features.
-   - **GitHub Token (Optional):** If supplied, Pairee will automatically fork the repository, push the branch, and create a Pull Request. If skipped, Pairee will perform a local git commit and print the manual commands for you to copy and run to push your branch and open the PR yourself.
+   - **Commit Description:** A detailed description of the changes or features. Pairee commits the staged registry copy on the clone's `plugin-registry` branch (no separate branch is created).
+   - **GitHub Token (Optional, typed without echo in the CLI):** If supplied, Pairee reads your login from the token, forks `FittyAr/Pairee` into your account (there is no fork URL to enter), waits until the fork exists, force-pushes `plugin-registry` to `<your login>/Pairee`, checks that GitHub accepted the ref, and opens a Pull Request from `<your login>:plugin-registry` to `FittyAr/Pairee:plugin-registry`. If skipped, Pairee keeps the local commit and prints the manual commands for you to copy and run to push your branch and open the PR yourself.
 6. **Signatures are added by the registry, not by you.** Do not include `.minisig` files in your pull request. Once it is merged, the registry's signing workflow signs your `manifest.toml` and a new `index.toml` (with a serial and a timestamp that Pairee checks to refuse old or frozen copies of the index) with the Pairee key. Users can install your plugin once that signed index is published.
 
 ---
@@ -919,13 +931,12 @@ version       = "1.0.0"
 description   = "My plugin description"
 author        = "your-github-handle"
 license       = "MIT"
-type          = "hook"               # Auto-detected by developer tool
 min_pairee    = "0.7.0"
 requires_trust = false
 
 # Language integration support
 default_language = "en"
-languages     = ["en", "es"]         # Auto-detected from lang/ directory
+languages     = ["en", "es"]         # listed by hand (not detected); shown as badges in the registry
 
 # Custom settings schema
 [settings_schema]
@@ -942,6 +953,12 @@ default = "Ctrl+Alt+r"
 [permissions]
 commands = ["git"]
 ```
+
+Pairee reads the keys above plus `icon`, `screenshots` and the legacy
+`[keybindings]` table. Other keys (`homepage`, `tags`, `type`, `hooks`, ...) are
+accepted and ignored: they have no effect, and the packager does not copy them
+into the registry index. Nothing in the manifest is auto-detected: not the
+type, not the languages.
 
 ---
 

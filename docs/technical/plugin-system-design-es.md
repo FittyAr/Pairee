@@ -319,11 +319,9 @@ Para evitar que incluso los complementos marcados como de confianza recopilen si
 * **Activación:** Se habilita en el archivo de configuración principal (`secure_mode = true` en la raíz de `config.toml`).
 * **Inmutabilidad:** El objeto de configuración principal se carga como de solo lectura por el núcleo de Rust; los scripts de Lua no tienen acceso de escritura a este espacio de memoria y no pueden desactivar el Modo Seguro.
 * **Intercepción de Red y Sockets:** Incluso si un complemento está configurado con `trusted = true`, el runtime de Rust bloquea cualquier creación de sockets TCP/UDP o llamadas HTTP desde el entorno de la VM.
-* **Lista Negra de Ejecución de Procesos:** El ejecutor de procesos de Rust intercepta todas las llamadas a `pairee.fs.spawn()`. Si el binario coincide con alguna herramienta de red o intérprete de comandos prohibido, la ejecución se bloquea inmediatamente:
-  * **Herramientas de Red y Egreso:** `curl`, `wget`, `nc`, `netcat`, `ssh`, `scp`, `sftp`, `telnet`, `ftp`, `rsync`, `nmap`.
-  * **Intérpretes de Comandos y Shells:** `sh`, `bash`, `zsh`, `csh`, `tcsh`, `powershell`, `pwsh`, `cmd`, `cmd.exe`.
-  * **Runtimes e Intérpretes de Lenguajes:** `python`, `python3`, `perl`, `ruby`, `node`, `php`, `lua`, `luajit`.
-* **Aislamiento del Límite del Sistema de Archivos:** Bajo el Modo Seguro, las operaciones de lectura/escritura de archivos a través de `pairee.fs` se restringen al directorio de trabajo activo y a las carpetas de configuración del usuario, impidiendo el acceso a rutas raíz o directorios del sistema.
+* **Lista Permitida de Procesos:** `pairee.Command` y `pairee.fs.spawn()` pasan por `plugin::command_policy::CommandPolicy`. Un programa solo se ejecuta si es un nombre simple declarado en el manifiesto (`[permissions] commands`), no es un shell / intérprete / herramienta de red / envoltorio de comandos (lista de denegación fija, que también se comprueba en el destino de un enlace simbólico) y se resuelve a través de una entrada absoluta de `PATH` (Windows: solo `.exe` / `.com`). Se ejecuta la ruta absoluta resuelta. La lista de denegación cubre también herramientas de compilación y gestores de paquetes (`cargo`, `make`, `npm`, `pip`, `go`, `gcc`, ...), contenedores, depuradores y trazadores, lanzadores (`xdg-open`, `open`, `wsl`) y herramientas que sobrescriben cualquier ruta que se les dé (`cp`, `mv`, `dd`, `tee`, `rm`, `ln`, `install`, `rsync`, `scp`, `sftp`). `Command:cwd` debe estar en la jaula de **escritura** del complemento, y las rutas que las opciones habituales de `tar`, `git` y `zip` hacen escribir (`-C`, un archivo creado, un destino de clone, ...) también están enjauladas (`command_policy::args::path_arguments`; mejor esfuerzo para esas tres herramientas). Los hijos reciben un stdin nulo salvo que se pida otra cosa, `output()` se limita a 16 MiB por flujo y tiene tiempo máximo, y los hijos se matan cuando se suelta su handle.
+* **Aislamiento del Límite del Sistema de Archivos:** Bajo el Modo Seguro, las operaciones de lectura/escritura de `pairee.fs` se restringen al espacio de trabajo del complemento y a las carpetas de configuración, caché y de complementos del usuario. El espacio de trabajo es la carpeta local del panel activo (`plugin::workspace`, actualizada en cada tick), nunca la carpeta desde la que se lanzó el proceso; la carpeta personal del usuario y las raíces de sistema de archivos no son espacios de trabajo. La carpeta de configuración de Pairee es de solo lectura salvo la carpeta de datos del propio complemento, `<datos>/pairee/plugin-data/<nombre del complemento>`, que existe desde que se enlaza el runtime.
+* **Recargas:** cada recarga incrementa un contador de generación y una carga iniciada antes se rechaza al registrarse (`registry::register_plugin`), de modo que una carga lenta y obsoleta no puede resucitar un complemento que el usuario acaba de desactivar.
 
 ---
 
@@ -424,22 +422,23 @@ Con `plugins_developer_mode = true` en `config.toml` aparece la pestaña Develop
 `pairee developer <cmd>` (`src/run/dev_cli.rs`) actúa sobre el directorio actual y no requiere el modo desarrollador:
 * `init <nombre>`: Crea un complemento a partir de la rama `plugin-template`.
 * `lint`: Comprueba el manifiesto y `default_language`, que exista `main.lua`, las llamadas inseguras (`os.execute`, `io.open`, `os.system`, `dofile`, `loadfile`) en un complemento sin `requires_trust` y las teclas sugeridas en cada preset.
-* `package`: Ejecuta las comprobaciones de publicación (14.2), resuelve la licencia, copia el complemento a un clon local de `plugin-registry`, escribe `sha256.sum` y la tabla `[files]` del manifiesto y actualiza `registry/index.toml`. No detecta idiomas ni el tipo de complemento: `languages` y `type` se toman del manifiesto tal como están.
-* `submit`: `package`, luego un commit local y, con un token de GitHub, push a un fork y una pull request.
+* `package`: Ejecuta las comprobaciones de publicación (14.2), resuelve la licencia, copia el complemento a un clon local de `plugin-registry`, escribe allí `sha256.sum` y la tabla `[files]` del manifiesto (la carpeta y el manifiesto del autor nunca se modifican; un `LICENSE` MIT generado también va solo a la copia) y actualiza `registry/index.toml`. No detecta idiomas ni el tipo de complemento: `languages` y `type` se toman del manifiesto tal como están (Pairee ignora `type`).
+* `submit`: `package`, luego un commit local en la rama `plugin-registry` del clon y, con un token de GitHub (escrito sin eco), push a un fork y una pull request.
 
 ### 14.2 Comprobaciones de Publicación
 `validate_for_publish` (`src/plugin/developer_tool/package/validate.rs`) se detiene en el primer fallo:
 1. `manifest.toml` existe y se puede analizar.
-2. `name` y `author` solo usan `[A-Za-z0-9_-]` (lo comprueba `registry_plugin_dir` al copiar los archivos).
-3. El icono existe y es una imagen legible de 256x256 o 512x512.
-4. Hay al menos una captura listada; cada una existe y es una imagen legible de al menos 640x480.
+2. El `icon` del manifiesto es un archivo que se publicaría (dentro de la carpeta del complemento, no oculto, no un enlace) y una imagen legible de 256x256 o 512x512.
+3. Hay al menos una captura listada; cada una es un archivo publicado y una imagen legible de al menos 640x480.
+4. Existe `main.lua`, cada nombre de archivo es uno que `safe_join` del instalador acepta (sin nombres de dispositivo de Windows, puntos o espacios finales, ni nombres iguales sin distinguir mayúsculas) y se respetan los límites del registro (1000 archivos, 16 MiB por archivo, 64 MiB en total).
+5. Después, antes de descargar o escribir nada, `name` y `author` solo usan `[A-Za-z0-9_-]` (lo comprueba `registry_plugin_dir`).
 
-Al empaquetar no se validan los nombres de archivo, la cobertura de traducciones, la alineación de claves, la sintaxis Lua ni la codificación UTF-8.
+Al empaquetar no se validan la cobertura de traducciones, la alineación de claves, la sintaxis Lua ni la codificación UTF-8.
 
-### 14.3 Asistente TUI de Metadatos y Envío Automático de PR
-Se añade una pantalla interactiva TUI exclusiva para desarrolladores que actúa como asistente paso a paso de metadatos y envío de complementos:
-1. **Asistente de Metadatos:** Guía al desarrollador para completar campos faltantes del manifiesto (autor, descripción, licencia), muestra los idiomas y categorías detectados automáticamente y valida el paquete.
-2. **Automatización de PR:** Recopila tokens de GitHub (PATs), repositorios de forks y descripciones de commit, empaqueta el directorio (actualizando `sha256.sum`), crea una rama Git local, realiza el commit, hace push a su fork y abre automáticamente la Pull Request en GitHub.
+### 14.3 Envío de la PR
+No hay asistente de metadatos: el manifiesto se toma tal como está y nada (archivos de idioma, categoría) se autodetecta. El flujo de envío (`submit.rs`):
+1. **Commit:** la copia preparada del registro se confirma en la rama `plugin-registry` del clon local. Un clon con trabajo sin enviar nunca se reinicia ni se borra en un empaquetado posterior, con o sin conexión.
+2. **Automatización de la PR (con token de GitHub):** el dueño del fork es la cuenta del token (no se pide URL de fork); Pairee hace fork de `FittyAr/Pairee`, espera a que el fork exista, sube a la fuerza `plugin-registry` (un solo intento de credenciales; una referencia que el servidor rechace es un error) y abre una pull request de `<usuario>:plugin-registry` a la rama oficial `plugin-registry`. Sin token imprime los comandos manuales.
 
 ---
 
@@ -447,13 +446,14 @@ Se añade una pantalla interactiva TUI exclusiva para desarrolladores que actúa
 
 Para facilitar la distribución, el registro distribuye estructuras de directorios abiertas con comprobaciones de hash por cada archivo:
 
-* **Estructura del Registro:** Los complementos se almacenan como carpetas sueltas en la rama de registro bajo `registry/plugins/<nombre>/<version>/`.
-* **Verificación de Integridad:** Un archivo `sha256.sum` dentro de la carpeta de versión detalla el hash SHA-256 de cada archivo del complemento. El cliente descarga cada archivo individualmente y valida su hash correspondiente.
-* **Comandos de Gestión de la CLI:**
-  * `pairee plugin search <query>`: Búsqueda local en el catálogo de complementos. Los resultados de búsqueda muestran etiquetas coloreadas indicando la categoría (p. ej., `[Hook]`) y los idiomas soportados (p. ej., `[EN] [ES]`).
+* **Estructura del Registro:** Los complementos se almacenan como carpetas sueltas en la rama de registro bajo `registry/plugins/<shard>/<autor>/<nombre>/` (`<shard>` es la primera letra del autor en minúscula, `_` si no es una letra). Solo se conserva la **última** versión; no hay carpeta por versión.
+* **Verificación de Integridad:** El `manifest.toml` firmado de esa carpeta lleva una tabla `[files]` con el SHA-256 de cada otro archivo. El cliente descarga cada archivo individualmente, valida su hash en memoria y solo entonces prepara la instalación (`sha256.sum` se escribe para las personas; el instalador no lo usa).
+* **Comandos de Gestión de la CLI** (detalle en `plugin-registry-spec.md`, sección 5):
+  * `pairee plugin search <query>`: Busca en el `index.toml` remoto por nombre y descripción; los complementos bloqueados se omiten. Los resultados muestran `[Hook]` si el índice lista hooks y los idiomas soportados (p. ej., `[EN] [ES]`).
   * `pairee plugin list`: Lista los complementos instalados, configuraciones de confianza e indica si hay actualizaciones.
-  * `pairee plugin check-updates`: Consulta la rama remota del registro para ver si existen nuevas versiones compatibles en SemVer.
-  * `pairee plugin update`: Actualiza y valida los hashes archivo por archivo de forma automatizada.
+  * `pairee plugin check-updates`: Consulta la rama remota del registro para ver si existen versiones más nuevas (nunca una más baja).
+  * `pairee plugin update`: Reinstala los complementos con una versión más nueva mediante la misma instalación comprobada y atómica (incluidas las comprobaciones de `min_pairee` / `@since`).
+  * `pairee plugin remove`: Elimina la carpeta, la entrada de `plugins.lock`, la carpeta de datos y las entradas de `config.toml`.
 
 ---
 

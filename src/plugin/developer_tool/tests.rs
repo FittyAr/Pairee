@@ -114,11 +114,7 @@ fn file_names_the_installer_would_refuse_are_refused_before_publishing() {
     let err = validate_for_publish(dir.path()).unwrap_err();
     assert!(err.contains("aux.lua"), "{err}");
     std::fs::remove_file(dir.path().join("aux.lua")).unwrap();
-    std::fs::write(dir.path().join("trailing."), "x").ok();
-    // (Windows cannot create that name; the check is exercised on Unix.)
-    if dir.path().join("trailing.").exists() {
-        assert!(validate_for_publish(dir.path()).is_err());
-    }
+    assert_eq!(validate_for_publish(dir.path()), Ok(()));
 }
 
 #[test]

@@ -92,7 +92,7 @@ mod tests {
 
     #[tokio::test]
     async fn output_past_the_limit_is_an_error() {
-        let data = vec![b'x'; 11];
+        let data = [b'x'; 11];
         assert!(read_limited(Some(&data[..]), 10).await.is_err());
         assert_eq!(read_limited(Some(&data[..]), 11).await.unwrap().len(), 11);
         assert!(read_limited(None::<&[u8]>, 1).await.unwrap().is_empty());
