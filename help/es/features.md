@@ -158,7 +158,7 @@ Pairee cuenta con una arquitectura de entornos de trabajo concurrentes (por ejem
 * **Buscar duplicados:** `Ctrl+Alt+U` / **Comandos → Buscar duplicados** busca en la selección (o en la carpeta actual) archivos con el mismo contenido: elija el tamaño mínimo, el algoritmo de hash y si se siguen los enlaces simbólicos (desactivado por omisión; si se activa, un archivo alcanzado por un enlace y por su propia ruta cuenta una vez y los enlaces que vuelven atrás se omiten); los enlaces duros cuentan una vez. La búsqueda corre en segundo plano con su progreso; los resultados se agrupan con el tamaño de cada grupo y el espacio desperdiciado. `Espacio` marca un archivo, `n` / `o` / `f` marcan todas las copias menos la más nueva / más antigua / primera de cada grupo, `u` desmarca todo, `Supr`/`F8` elimina los marcados y `t` los envía a la papelera (con la confirmación habitual; los archivos eliminados salen de la lista), `Enter` muestra el archivo en el panel.
 * **Administrador de Procesos:** Muestra la lista de procesos activos con sus PIDs, nombres y uso de memoria, permitiendo finalizarlos con `Suprimir` o `Alt+Suprimir`.
 * **Vista de Árbol de Directorios:** Recorre la estructura del disco y muestra el árbol de directorios de forma gráfica.
-* **Descripciones de Archivos:** Visualiza y edita descripciones presionando `Ctrl+D` sobre cualquier archivo, guardándolas en archivos ocultos `Descript.ion`.
+* **Descripciones de Archivos:** Visualiza y edita descripciones con `Ctrl+Z` sobre cualquier archivo en el preset Norton (y en Neovim y yazi, que lo heredan; en el preset Standard la acción "Describir archivo" no tiene tecla hasta que le asignes una en la lista de atajos), guardándolas en archivos ocultos `Descript.ion`.
 * **Asociaciones de Archivos:** Mapea extensiones de archivos a comandos de ejecución personalizados.
 * **Menú de Comandos del Usuario:** Define accesos directos para ejecutar scripts o comandos personalizados sobre los archivos seleccionados. La ventana emergente se abre con `F2` e incluye un conjunto predeterminado de accesos directos (Actualizar, Mostrar/ocultar archivos ocultos, Intercambiar paneles, Lista de tareas, Panel de Git, **Crear carpeta**, nueva pestaña, abrir en una pestaña nueva, cerrar pestaña, Filtro rápido, Ayuda, Editar).
 * **Menú de Selección de Unidad:** Muestra las unidades de almacenamiento locales y de red para cambiar de panel rápidamente.
@@ -178,13 +178,13 @@ Pairee incorpora un sistema de actualización inteligente integrado que identifi
 ### 6.2 Comportamiento según el Método de Instalación
 Pairee analiza 13 métodos de instalación diferentes para aplicar la actualización de forma correcta:
 * **Binarios Directos:**
-  - **Linux (tar.gz):** Descarga el binario y realiza un reemplazo atómico en la ruta actual de ejecución. Solicita reiniciar para aplicar.
-  - **Windows (ZIP):** Descarga la actualización, crea un script `.bat` temporal de auto-eliminación y reemplaza el ejecutable una vez que Pairee se cierra de forma limpia.
+  - **Linux / macOS (tar.gz):** Descarga el binario y realiza un reemplazo atómico en la ruta actual de ejecución. Solicita reiniciar para aplicar.
+  - **Windows (ZIP):** Descarga la actualización y reemplaza el ejecutable en el sitio: Windows no permite sobrescribir un programa en ejecución, pero sí renombrarlo; así, el `pairee.exe` en ejecución se renombra aparte, el nuevo toma su nombre (si falla se restaura el anterior) y el sobrante se elimina en un inicio posterior. Solicita reiniciar.
   - **Windows (Inno Setup):** Descarga el archivo ejecutable del instalador y lo lanza de forma silenciosa en segundo plano (`/VERYSILENT`).
-* **Gestores de Paquetes:** Si detecta que Pairee fue instalado mediante un gestor de paquetes (como `apt`, `dnf`/`rpm`, `pacman`, `nix`, `snap`, `flatpak` en Linux, o `winget`, `scoop`, `chocolatey` en Windows), la ventana mostrará el comando exacto de terminal necesario para actualizar (ej. `winget upgrade Pairee` o `sudo apt update && sudo apt install pairee`) para que puedas ejecutarlo tú mismo en la consola.
+* **Gestores de Paquetes:** Si detecta que Pairee fue instalado mediante un gestor de paquetes (como `apt`, `dnf`/`rpm`, `pacman`, `nix`, `snap`, `flatpak` en Linux, o `winget`, `scoop`, `chocolatey` en Windows), la ventana mostrará el comando exacto de terminal necesario para actualizar (ej. `winget upgrade FittyAr.Pairee` o `sudo apt-get install --only-upgrade pairee`) para que puedas ejecutarlo tú mismo en la consola.
 
 ### 6.3 Verificación de Firma Segura
-Para evitar la ejecución de binarios corruptos o comprometidos, el descargador de Pairee obtiene automáticamente el hash `.sha256` provisto en GitHub Releases y verifica la integridad del archivo descargado antes de proceder con cualquier paso de instalación.
+Para evitar la ejecución de binarios corruptos o comprometidos, el descargador de Pairee obtiene el asset de la release en memoria y lo comprueba dos veces antes de instalar nada a partir de ese mismo búfer: el hash SHA-256 contra el archivo `.sha256` de la release, y la firma minisign (archivo `.minisig`) contra la clave de release de Pairee fijada en el binario, cuyo comentario firmado debe nombrar ese mismo archivo. Ambas comprobaciones son obligatorias: si falta alguno de los archivos o no coincide, la actualización se rechaza.
 
 ---
 

@@ -23,28 +23,58 @@ El archivo ejecutable compilado estará ubicado en:
 Puedes copiar el ejecutable a una ruta del sistema (ej. `/usr/local/bin/` o `C:\Windows\System32\`) o ejecutarlo directamente desde la carpeta compilada.
 Asegúrate de colocar los directorios `lang/` y `help/` junto al ejecutable o en el directorio de recursos compartidos del sistema (`/usr/share/pairee/` en Linux) para que las traducciones y los manuales se carguen correctamente.
 
-En el **primer arranque** (config nueva) Pairee pregunta el preset de teclado: **Norton Commander**, **Neovim** o **VS Code**. Enter elige; Esc deja Norton. Luego se cambia en Ajustes → Interfaz → preset de teclas.
+En el **primer arranque** (config nueva) Pairee pregunta el preset de teclado: **Norton Commander**, **Standard** (teclas del Explorador de Windows / VS Code / Total Commander), **Neovim** o **yazi**. Enter elige; Esc deja Norton. Luego se cambia en Ajustes → Interfaz → preset de teclas.
 
 ---
 
 ## 🎨 2. Temas de Color Personalizados (TOML)
 
-Los archivos de tema se cargan desde `%APPDATA%/pairee/config/themes/` (Windows) o `~/.config/pairee/themes/` (Linux/macOS) en formato TOML.
+Los archivos de tema se cargan desde `%APPDATA%/pairee/config/themes/` (Windows) o `~/.config/pairee/themes/` (Linux/macOS) en formato TOML, un archivo por tema: `themes/<nombre>.toml` es el tema que se elige por nombre en los ajustes. Hay dos temas integrados, `slate` (el predeterminado) y `classic_blue`; un archivo con el mismo nombre reemplaza al integrado.
 
 ### Estructura de Propiedades de Tema
+Los colores son claves planas al principio del archivo. `name` y todos los colores siguientes son **obligatorios**: un archivo al que le falta alguno (o con un error de sintaxis) se ignora, se usa el tema integrado y se informa del error. Solo `[syntax]` y `[ui]` son opcionales, y cualquier entrada que falte dentro de ellas conserva su valor por defecto.
 ```toml
-[panel]
-border = "Blue"              # Color del borde del panel
-background = "Black"          # Fondo interno del panel
-file_selected = "Yellow"      # Color de elementos marcados
-file_directory = "Cyan"       # Color de carpetas
-file_executable = "Green"     # Color de binarios y scripts
+name = "mi_tema"
 
-[menu]
-background = "Blue"          # Fondo del menú superior
-selected = "White"            # Color del texto seleccionado
+panel_bg = "Reset"          # Fondo del panel
+panel_fg = "White"          # Texto del panel
+panel_border = "DarkGray"   # Borde del panel
+selection_bg = "Blue"       # Fondo de la línea del cursor
+selection_fg = "White"      # Texto de la línea del cursor
+marked_fg = "Yellow"        # Elementos marcados
+header_bg = "Reset"         # Fondo del encabezado de ruta
+header_fg = "Cyan"          # Texto del encabezado de ruta
+cli_bg = "Reset"            # Fondo de la línea de comandos
+cli_fg = "White"            # Texto de la línea de comandos
+fkey_num_fg = "White"       # Barra de teclas F: número
+fkey_text_fg = "Black"      # Barra de teclas F: etiqueta
+fkey_bg = "Cyan"            # Fondo de la barra de teclas F
+popup_bg = "Black"          # Fondo de los diálogos
+popup_fg = "White"          # Texto de los diálogos
+popup_border = "DarkGray"   # Borde de los diálogos
+
+[syntax]                    # Resaltado del editor y del visor (opcional)
+comment = "DarkGray"
+string = "Green"
+keyword = "LightMagenta"
+constant = "LightRed"       # Números, true / false, escapes
+function = "LightYellow"
+type_name = "LightCyan"
+operator = "Gray"
+tag = "LightBlue"           # Etiquetas de marcado, títulos, enlaces
+
+[ui]                        # Colores semánticos de diálogos, etiquetas y barras de progreso (opcional)
+accent = "Cyan"
+warning = "Yellow"
+danger = "Red"
+error = "LightRed"
+success = "Green"
+muted = "DarkGray"
+# también: accent_alt, warning_alt, success_alt, secondary, info, link, special, strong, badge_fg, alert_bg
 ```
-Colores soportados: `Black`, `Red`, `Green`, `Yellow`, `Blue`, `Magenta`, `Cyan`, `White`, `Gray`, `DarkGray`, `Reset`, o valores hexadecimales personalizados (`#RRGGBB`).
+Los valores mostrados son los del tema integrado `slate`. El significado de cada entrada de `[ui]` está en *Grupos de color* en la referencia de configuración, donde esos mismos colores también se editan desde Pairee.
+
+Colores soportados: `Black`, `Red`, `Green`, `Yellow`, `Blue`, `Magenta`, `Cyan`, `Gray`, `DarkGray`, `White`, las variantes `Light` (`LightRed`, `LightGreen`, `LightYellow`, `LightBlue`, `LightMagenta`, `LightCyan`), `Reset` (el color propio del terminal) y hexadecimal `#RRGGBB`. Los nombres no distinguen mayúsculas; un nombre desconocido se muestra como `Reset`.
 
 ---
 
@@ -55,7 +85,7 @@ Al usar **Pairee** de forma remota a través de conexiones SSH, notarás que man
 Para solventar esta limitación, se han implementado diferentes alternativas:
 
 ### 3.1 Rotación Manual de Modificadores (Sin Software de Terceros)
-Dentro de **Pairee**, puedes presionar la combinación **`Ctrl+p`** (o `Ctrl+P`) para rotar visualmente los estados de la barra de teclas F inferior:
+Puedes presionar **`Ctrl+Alt+k`** (acción "Ciclar modificadores de la barra de teclas", `cycle_fkeys_modifiers`; asignada en el preset Norton y en los presets Neovim y yazi, que heredan sus teclas, y sin tecla en Standard, donde puedes asignarla en la lista de atajos) para rotar visualmente los estados de la barra de teclas F inferior (`Ctrl+p` no hace esto: en Norton cambia al panel inactivo, y `Ctrl+P` abre la paleta de comandos):
 * **Primera pulsación**: Bloquea la barra en la vista de **CONTROL** (ej. F3: Nombre, F4: Extensión).
 * **Segunda pulsación**: Bloquea la barra en la vista de **ALT** (ej. F3: Ver, F4: Editar).
 * **Tercera pulsación**: Bloquea la barra en la vista de **SHIFT** (ej. F1: Comprimir, F6: renombrado múltiple).
@@ -184,12 +214,13 @@ Con **Restaurar la última sesión** (`restore_session`, **Opciones → Configur
 
 ### Argumentos de línea de comandos
 ```
-pairee [--cwd-file <archivo>] [--print-cwd] [--no-mouse] [<carpeta izquierda> [<carpeta derecha>]]
+pairee [--cwd-file <archivo>] [--print-cwd] [--no-mouse] [--standalone] [<carpeta izquierda> [<carpeta derecha>]]
 ```
 * `<carpeta izquierda>` / `<carpeta derecha>` se abren en la pestaña visible de cada panel y tienen prioridad sobre las carpetas restauradas (las demás pestañas se conservan). Un archivo abre su carpeta con el cursor sobre él.
 * `--cwd-file <archivo>` escribe al salir la carpeta del panel activo en `<archivo>` (vacío en paneles SFTP), para que una función de la shell haga `cd` allí.
 * `--print-cwd` imprime esa carpeta por la salida estándar al salir.
 * `--no-mouse` arranca sin capturar el ratón, diga lo que diga la configuración.
+* `--standalone` abre Pairee en una ventana de consola nueva y dedicada.
 * `--version` (`-V`) muestra la versión instalada y termina.
 * `--help` (`-h`) muestra las opciones y los subcomandos (`plugin`, `developer`, `keymap`); `pairee <subcomando> --help` muestra los comandos de cada uno.
 

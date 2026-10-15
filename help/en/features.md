@@ -158,7 +158,7 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
 * **Find duplicates:** `Ctrl+Alt+U` / **Commands → Find duplicates** searches the selection (or the current folder) for files with the same contents: choose the smallest size, the hash algorithm and whether to follow symbolic links (off by default; when on, a file reached through a link and its own path counts once and links looping back are skipped); hard links count once. The search runs in the background with its progress; results are grouped with each group's size and wasted space. `Space` marks a file, `n` / `o` / `f` mark every copy but the newest / oldest / first of each group, `u` unmarks all, `Del`/`F8` deletes the marked files and `t` sends them to the trash (through the usual confirmation; deleted files leave the list), `Enter` shows the file in the panel.
 * **OS Task Manager:** Displays a table of active system processes with PIDs, names, and memory consumption. Allows process termination using `Delete` or `Alt+Delete`.
 * **Directory Tree View:** Traverses the directory structure and displays a graph-like tree layout.
-* **File Descriptions:** Supports editing and saving file description tags to hidden `Descript.ion` lists.
+* **File Descriptions:** Supports editing and saving file description tags to hidden `Descript.ion` lists (`Ctrl+Z` in the Norton preset and in the Neovim and yazi presets that inherit it; in the Standard preset the action "Describe file" has no key until you assign one in the shortcuts list).
 * **File Associations:** Map file extensions (e.g., `*.py`) to custom launch commands.
 * **Custom User Commands Menu:** Define custom shell commands or script execution shortcuts to run on highlighted or tagged files. The popup is bound to `F2` and ships with a small set of built-in shortcuts (Refresh, Toggle hidden, Swap panels, Task list, Git panel, **Create folder**, new tab, open in a new tab, close tab, Quick filter, Help, Edit).
 * **Drive Select Panel:** Displays removable disks, external USB drives, and mounted network drives to switch panel paths.
@@ -178,13 +178,13 @@ Pairee features a fully integrated auto-update system that determines how your a
 ### 6.2 Platform & Package-Manager Actions
 Pairee checks 13 different installation paths to apply updates correctly:
 * **Direct Binaries:**
-  - **Linux (tar.gz):** Downloads and performs an atomic binary replacement in the active run path. A restart is prompted.
-  - **Windows (ZIP):** Downloads the release, writes a temporary self-destructing batch script helper, and updates the executable cleanly after Pairee exits.
+  - **Linux / macOS (tar.gz):** Downloads and performs an atomic binary replacement in the active run path. A restart is prompted.
+  - **Windows (ZIP):** Downloads the release and replaces the executable in place: Windows cannot overwrite a running program but can rename it, so the running `pairee.exe` is renamed aside, the new one takes its name (the old one is put back if that fails) and the leftover is removed on a later start. A restart is prompted.
   - **Windows (Inno Setup):** Downloads the installer and executes it silently in the background (`/VERYSILENT`).
-* **Package Managers:** If Pairee detects it was installed via a package manager (e.g., `apt`, `dnf`/`rpm`, `pacman`, `nix`, `snap`, `flatpak` on Linux, or `winget`, `scoop`, `chocolatey` on Windows), it displays the exact console command required to update Pairee (e.g., `winget upgrade Pairee` or `sudo apt update && sudo apt install pairee`). You can easily view this command to run it in your shell.
+* **Package Managers:** If Pairee detects it was installed via a package manager (e.g., `apt`, `dnf`/`rpm`, `pacman`, `nix`, `snap`, `flatpak` on Linux, or `winget`, `scoop`, `chocolatey` on Windows), it displays the exact console command required to update Pairee (e.g., `winget upgrade FittyAr.Pairee` or `sudo apt-get install --only-upgrade pairee`). You can easily view this command to run it in your shell.
 
 ### 6.3 Secure Signature Verification
-To prevent running compromised binaries, Pairee's built-in downloader automatically fetches the corresponding `.sha256` hash from GitHub Releases and validates the downloaded payload's integrity before initiating any installation.
+To prevent running compromised binaries, Pairee's built-in downloader fetches the release asset into memory and checks it twice before installing anything from that same buffer: the SHA-256 hash against the release's `.sha256` file, and the minisign signature (`.minisig` file) against the Pairee release key pinned in the binary, whose signed comment must name that very file. Both checks are mandatory: if either file is missing or does not match, the update is refused.
 
 ---
 

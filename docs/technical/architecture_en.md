@@ -110,8 +110,8 @@ sequenceDiagram
 ## 🌐 4. Centralized Localization & Translations
 
 Translations are handled systematically to prevent code redundancy and hardcoded UI string issues.
-* **English Strings:** All default English UI text labels are defined centrally in the embedded [en.toml](file:///d:/GitHub/NCRust/lang/en.toml) file, resolved via `get_default_english_translation(key)`.
-* **External & Embedded Translations:** Non-English languages (like Spanish) are compiled directly into the binary ([es.toml](file:///d:/GitHub/NCRust/lang/es.toml)) for portability, and can be overridden dynamically by external TOML files in the `lang/` directory at startup.
+* **English Strings:** All default English UI text labels are defined centrally in the embedded [en.toml](../../lang/en.toml) file, resolved via `get_default_english_translation(key)`.
+* **External & Embedded Translations:** Non-English languages (like Spanish) are compiled directly into the binary ([es.toml](../../lang/es.toml)) for portability, and can be overridden dynamically by external TOML files in the `lang/` directory at startup.
 * **Translation Helper:** Code files utilize `t("translation_key")` to resolve messages. If a localized file is missing, the engine falls back to default English definitions.
 
 ---
@@ -140,10 +140,13 @@ Pairee features a non-blocking, smart software update mechanism designed to quer
 
 ### 7.1 Module Architecture (`src/update/`)
 The module is decomposed into focused subcomponents:
-* **Installation Method Detector (`detect.rs`):** Determines the method used to install Pairee (e.g., native Linux package managers, Windows installers, manual zip, or manual tarball extract) out of 13 supported profiles.
+* **Installation Method Detector (`detect/`):** `os.rs` determines the method used to install Pairee (e.g., native Linux package managers, Windows installers, manual zip, or manual tarball extract) out of 13 supported profiles; `types.rs` holds `InstallMethod` with its label and, for package-manager installs, the upgrade command to show (e.g. `winget upgrade FittyAr.Pairee`).
 * **GitHub Release Checker (`checker.rs`):** Queries the GitHub Releases API asynchronously, matching version tags against the current build using semantic versioning (`semver`). A local file-based cache (`update_cache.json`) expires after 1 hour to prevent hitting API rate limits.
-* **Streaming Downloader (`downloader.rs`):** Performs segment-by-segment streaming downloads of release assets with live progress report callbacks. It secures the download by computing the SHA-256 hash of the received file and comparing it against the remote release's `.sha256` sidecar asset.
-* **Installer Execution Engine (`installer.rs`):** Applies the downloaded update. It performs an atomic binary swap for manual Linux installs, executes Windows Inno Setup packages silently, or creates a self-cleaning helper batch script to replace manual Windows ZIP binaries. For package-manager-tracked environments, it renders copy-to-clipboard terminal update commands.
+* **Streaming Downloader (`downloader.rs`):** Performs segment-by-segment streaming downloads of release assets into memory (bounded size, only from the official Pairee releases URL) with live progress report callbacks. It computes the SHA-256 hash of the received bytes and compares it against the release's `.sha256` sidecar asset.
+* **Signature Verifier (`signature.rs`):** Mandatory minisign check of the downloaded bytes against the release's `.minisig` asset, using the Pairee public key pinned in the binary; the trusted comment must name the asset (`file:<asset>`), so a validly signed file from another release or platform is refused. The plugin registry client reuses it.
+* **Release Assets (`assets.rs`):** The single table from Rust target triple to platform name used in release file names (`pairee-X.Y.Z-linux-x64-musl.tar.gz`); also compiled by `xtask` for the packaging scripts.
+* **HTTP & Versions (`http.rs`, `version.rs`):** `http.rs` is the client builder and bounded body reader shared with the plugin registry; `version.rs` parses versions leniently (semver, `X`, `X.Y`) and decides whether a release is newer (also used for plugin `min_pairee`).
+* **Installer Execution Engine (`installer/`):** `mod.rs` verifies the asset (SHA-256 and minisign, both mandatory) in memory and hands the same buffer to the platform code. `unix.rs` replaces the running binary with an atomic rename; `windows.rs` runs the Inno Setup installer or, for the manual ZIP, renames the running `pairee.exe` aside and renames the new one into its place (restoring the old one if that fails); `extract.rs` reads the binary out of the verified archive in memory; `cleanup.rs` removes leftovers of earlier updates (the moved-aside exe, staged files). For package-manager-tracked environments, it renders copy-to-clipboard terminal update commands.
 
 ### 7.2 Event Flow & Background Tasks
 1. **Startup Check:** If `auto_update_check` is enabled, a Tokio background worker is spawned at boot to query release APIs.

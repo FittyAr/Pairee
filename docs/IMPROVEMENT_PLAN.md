@@ -1,6 +1,6 @@
 # Pairee — Plan de Mejora y Seguimiento
 
-> **Versión base:** 0.7.2  
+> **Versión base:** 0.7.2 (indicadores actualizados a 0.11.0)  
 > **Fecha de inicio:** 2026-08-12  
 > **Rama de trabajo:** `master`  
 > **Objetivo:** elevar calidad, arquitectura, CI, tests y DX sin archivos monolíticos, usando patrones de diseño modernos.
@@ -22,8 +22,8 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
-| Fuentes Rust | ~316 archivos, ~44 700 LOC | **701 archivos, ~80 900 LOC** (`src` + `tests`, 2026-10-08) |
-| Tests | 115 unitarios; `tests/` vacío | **948 unit (incl. smoke TUI) + 15 integration** |
+| Fuentes Rust | ~316 archivos, ~44 700 LOC | **1006 archivos, ~138 800 LOC** (`src` + `tests`, 2026-10-14, v0.11.0) |
+| Tests | 115 unitarios; `tests/` vacío | **1949 tests** (1890 unitarios, incl. smoke TUI, + 59 de integración y xtask; `cargo test --workspace -- --list`, 2026-10-14) |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
