@@ -70,7 +70,7 @@ graph TD
         LUA --> BIND_SYNC[pairee.sync]
     end
 
-    subgraph "Plugin Code — ~/.config/pairee/plugins/"
+    subgraph "Plugin Code — ~/.config/FittyAr/Pairee/plugins/"
         LOADER --> P1[git.pairee/main.lua]
         LOADER --> P2[fzf.pairee/main.lua]
         LOADER --> P3[custom/main.lua]
@@ -286,7 +286,7 @@ Main thread (60 fps render loop)
 
 To allow robust plugin development, Pairee provides a unified error handling and console output architecture:
 
-1. **Integrated Logs:** The `pairee.log` module routes messages directly to Pairee's log pipeline. The logs are captured and written to `~/.cache/pairee/app.log`.
+1. **Integrated Logs:** The `pairee.log` module routes messages directly to Pairee's log pipeline. The logs are captured and written to `~/.cache/FittyAr/Pairee/app.log`.
 2. **Error Isolation:** If a plugin encounters a runtime exception (e.g. nil references, dividing by zero, type errors), it is captured at the `mlua` border in Rust. The event loop is unaffected. Pairee displays a visual notification detailing the error and records the backtrace.
 3. **CLI Debug Mode:** Developers can run:
    ```bash
@@ -336,7 +336,7 @@ To prevent third-party plugins from cluttering or requiring edits to Pairee's ce
 ### 11.1 File Structure
 Each plugin maintains a `lang/` directory containing language files (named after their ISO 639-1 code):
 ```text
-~/.config/pairee/plugins/git.pairee/
+~/.config/FittyAr/Pairee/plugins/git.pairee/
 ├── manifest.toml
 └── lang/
     ├── en.toml        # Default language translations
@@ -397,7 +397,7 @@ Plugins can provide user documentation that is automatically parsed and embedded
 ### 13.1 Structured Help Files
 To keep the plugin workspace organized, help documentation files must reside inside a dedicated `help/` subdirectory, named after their ISO 639-1 language code (with `.md` extension):
 ```text
-~/.config/pairee/plugins/git.pairee/
+~/.config/FittyAr/Pairee/plugins/git.pairee/
 ├── manifest.toml
 └── help/
     ├── en.md          # Default English help documentation

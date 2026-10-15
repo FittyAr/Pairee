@@ -4,13 +4,22 @@
 #   curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
 #   ... | sh -s -- [debug] [uninstall] [--insecure-skip-signature] [--verify-only]
 #
-# Installs the static (musl) binary to ~/.local/bin and its resources to
-# ${XDG_CONFIG_HOME:-~/.config}/pairee. The download is checked against its
-# SHA-256 and its minisign signature. When minisign is not installed, its
-# official release (jedisct1/minisign) is downloaded into the temporary
-# folder, pinned by version and SHA-256 below. --insecure-skip-signature
-# checks only the checksum, served from the same place as the archive. --verify-only downloads and verifies
-# the release and installs nothing.
+# Installs the static (musl) binary to ~/.local/lib/FittyAr/Pairee (all
+# FittyAr apps share the FittyAr folder) with a `pairee` link in ~/.local/bin,
+# and its resources to ${XDG_CONFIG_HOME:-~/.config}/FittyAr/Pairee. Pairee
+# keeps its log in ${XDG_CACHE_HOME:-~/.cache}/FittyAr/Pairee and the plugins'
+# data in ${XDG_DATA_HOME:-~/.local/share}/FittyAr/Pairee. The layout of
+# earlier versions (the program in ~/.local/bin, the `pairee` folders in
+# those places) is moved into place automatically; nothing is deleted. The
+# settings folders stay where they are while the release being installed is
+# 0.11.0 or older, which still reads them there.
+#
+# The download is checked against its SHA-256 and its minisign signature.
+# When minisign is not installed, its official release (jedisct1/minisign) is
+# downloaded into the temporary folder, pinned by version and SHA-256 below.
+# --insecure-skip-signature checks only the checksum, served from the same
+# place as the archive. --verify-only downloads and verifies the release and
+# installs nothing.
 #
 # Everything runs from `main` on the last line, so a download cut short
 # executes nothing.
@@ -24,12 +33,31 @@ MINISIGN_PUBKEY="RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
 # install.ps1): https://github.com/jedisct1/minisign/releases
 MINISIGN_VERSION="0.12"
 MINISIGN_TARBALL_SHA256="9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73"
-INSTALL_DIR="$HOME/.local/bin"
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pairee"
+
+# An XDG base folder: the variable when it holds an absolute path (relative
+# ones are ignored, as Pairee does), else the default.
+xdg_base() {
+    case "$1" in
+        /*) printf '%s' "$1" ;;
+        *) printf '%s' "$2" ;;
+    esac
+}
+CONFIG_BASE=$(xdg_base "${XDG_CONFIG_HOME:-}" "$HOME/.config")
+CACHE_BASE=$(xdg_base "${XDG_CACHE_HOME:-}" "$HOME/.cache")
+DATA_BASE=$(xdg_base "${XDG_DATA_HOME:-}" "$HOME/.local/share")
+
+VENDOR_DIR="$HOME/.local/lib/FittyAr"
+LIB_DIR="$VENDOR_DIR/Pairee"
+BIN_DIR="$HOME/.local/bin"
+CONFIG_DIR="$CONFIG_BASE/FittyAr/Pairee"
 # Where Pairee keeps its log and the plugins' data (removed on uninstall
 # together with the configuration, when the user agrees).
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/pairee"
-DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pairee"
+CACHE_DIR="$CACHE_BASE/FittyAr/Pairee"
+DATA_DIR="$DATA_BASE/FittyAr/Pairee"
+# The same folders before the shared FittyAr layout.
+PREVIOUS_CONFIG_DIR="$CONFIG_BASE/pairee"
+PREVIOUS_CACHE_DIR="$CACHE_BASE/pairee"
+PREVIOUS_DATA_DIR="$DATA_BASE/pairee"
 
 DEBUG_MODE=false
 UNINSTALL_MODE=false
@@ -61,6 +89,62 @@ cleanup() {
     if [ -n "$TEMP_DIR" ]; then
         rm -rf "$TEMP_DIR"
     fi
+}
+
+# move_previous <folder> <folder of the previous layout>: renames the
+# previous folder into place when the new one does not exist yet (the rule
+# Pairee itself follows). Nothing is deleted; prints the folder to use, which
+# stays the previous one if it could not be moved.
+move_previous() {
+    if [ -e "$1" ] || [ -L "$1" ] || [ ! -d "$2" ]; then
+        printf '%s' "$1"
+        return 0
+    fi
+    if mkdir -p "$(dirname "$1")" 2> /dev/null && mv "$2" "$1" 2> /dev/null; then
+        echo "Moved $2 to $1" >&2
+        printf '%s' "$1"
+    else
+        rmdir "$(dirname "$1")" 2> /dev/null || true
+        echo "${YELLOW}Could not move $2; it keeps being used.${NC}" >&2
+        printf '%s' "$2"
+    fi
+}
+
+# Whether the Pairee being installed ($VERSION) uses the FittyAr folders.
+# TRANSITION: 0.11.0 and older read the `pairee` folders; drop this (and the
+# `else` below) once a newer release is the latest.
+uses_fittyar_folders() {
+    case "$VERSION" in
+        debug-source) return 0 ;;
+    esac
+    REST=${VERSION#v}
+    MAJOR=${REST%%.*}
+    REST=${REST#*.}
+    MINOR=${REST%%.*}
+    PATCH=${REST#*.}
+    PATCH=${PATCH%%[!0-9]*}
+    [ "$MAJOR" -gt 0 ] || [ "$MINOR" -gt 11 ] || { [ "$MINOR" -eq 11 ] && [ "$PATCH" -gt 0 ]; }
+}
+
+# The settings, log and plugin data of earlier versions (`pairee` folders)
+# move under FittyAr, unless the Pairee being installed still reads them.
+choose_settings_folders() {
+    if uses_fittyar_folders; then
+        CONFIG_DIR=$(move_previous "$CONFIG_DIR" "$PREVIOUS_CONFIG_DIR")
+        CACHE_DIR=$(move_previous "$CACHE_DIR" "$PREVIOUS_CACHE_DIR")
+        DATA_DIR=$(move_previous "$DATA_DIR" "$PREVIOUS_DATA_DIR")
+    else
+        CONFIG_DIR="$PREVIOUS_CONFIG_DIR"
+        CACHE_DIR="$PREVIOUS_CACHE_DIR"
+        DATA_DIR="$PREVIOUS_DATA_DIR"
+    fi
+}
+
+# Removes the empty FittyAr folders (other FittyAr apps may use them).
+remove_empty_vendor_dirs() {
+    for dir in "$VENDOR_DIR" "$CONFIG_BASE/FittyAr" "$CACHE_BASE/FittyAr" "$DATA_BASE/FittyAr"; do
+        rmdir "$dir" 2> /dev/null || true
+    done
 }
 
 parse_args() {
@@ -95,8 +179,18 @@ remove_binary() {
 uninstall() {
     echo "${BLUE}Pairee Uninstaller${NC}"
     echo "=============================="
+    # Nothing is moved here: an uninstall that is cancelled must leave the
+    # folders where the installed version reads them.
+    if [ ! -d "$CONFIG_DIR" ] && [ -d "$PREVIOUS_CONFIG_DIR" ]; then
+        CONFIG_DIR="$PREVIOUS_CONFIG_DIR"
+    fi
 
-    USER_BIN="$INSTALL_DIR/pairee"
+    # The program of this installer, or the one an earlier version put in
+    # ~/.local/bin itself.
+    USER_BIN="$LIB_DIR/pairee"
+    if [ ! -f "$USER_BIN" ] && [ -f "$BIN_DIR/pairee" ] && [ ! -L "$BIN_DIR/pairee" ]; then
+        USER_BIN="$BIN_DIR/pairee"
+    fi
     SYS_BIN_1="/usr/bin/pairee"
     SYS_BIN_2="/usr/local/bin/pairee"
 
@@ -158,6 +252,13 @@ uninstall() {
 
     for bin in $TO_REMOVE; do
         remove_binary "$bin"
+        if [ "$bin" = "$LIB_DIR/pairee" ]; then
+            rm -rf "$LIB_DIR"
+            # Only our own link: never a pairee installed some other way.
+            if [ -L "$BIN_DIR/pairee" ]; then
+                rm -f "$BIN_DIR/pairee"
+            fi
+        fi
     done
 
     if [ -d "$CONFIG_DIR" ]; then
@@ -167,11 +268,13 @@ uninstall() {
             [yY] | [yY][eE][sS])
                 echo "Removing configuration folder: $CONFIG_DIR"
                 echo "Removing logs and plugin data: $CACHE_DIR $DATA_DIR"
-                rm -rf "$CONFIG_DIR" "$CACHE_DIR" "$DATA_DIR"
+                rm -rf "$CONFIG_DIR" "$CACHE_DIR" "$DATA_DIR" \
+                    "$PREVIOUS_CONFIG_DIR" "$PREVIOUS_CACHE_DIR" "$PREVIOUS_DATA_DIR"
                 ;;
             *) echo "Keeping configuration settings." ;;
         esac
     fi
+    remove_empty_vendor_dirs
 
     echo "=============================="
     echo "${GREEN}Uninstall process completed successfully!${NC}"
@@ -237,7 +340,7 @@ find_minisign() {
 }
 
 confirm_overwrite() {
-    if [ ! -f "$INSTALL_DIR/pairee" ] && [ ! -d "$CONFIG_DIR" ]; then
+    if [ ! -f "$LIB_DIR/pairee" ] && [ ! -f "$BIN_DIR/pairee" ]         && [ ! -d "$CONFIG_DIR" ] && [ ! -d "$PREVIOUS_CONFIG_DIR" ]; then
         return 0
     fi
     echo "${YELLOW}Warning: Pairee is already installed.${NC}"
@@ -256,13 +359,13 @@ confirm_overwrite() {
             ;;
     esac
 
-    if [ -d "$CONFIG_DIR" ]; then
+    if [ -d "$CONFIG_DIR" ] || [ -d "$PREVIOUS_CONFIG_DIR" ]; then
         printf "Do you want to clear old configurations, themes, and history settings? [y/N]: "
         read -r CLEAR_ANSWER < /dev/tty || CLEAR_ANSWER="n"
         case "$CLEAR_ANSWER" in
             [yY][eE][sS] | [yY])
                 CLEAR_CONFIG=true
-                echo "Old settings in $CONFIG_DIR will be cleared once the download is verified."
+                echo "Old settings will be cleared once the download is verified."
                 ;;
             *) echo "Keeping existing settings." ;;
         esac
@@ -357,18 +460,26 @@ build_from_source() {
 
 install_files() {
     echo "Installing files..."
+    choose_settings_folders
     if [ "$CLEAR_CONFIG" = "true" ]; then
         echo "Clearing old settings in $CONFIG_DIR..."
         rm -rf "$CONFIG_DIR"
     fi
-    mkdir -p "$INSTALL_DIR" "$CONFIG_DIR/lang" "$CONFIG_DIR/help"
+    mkdir -p "$LIB_DIR" "$BIN_DIR" "$CONFIG_DIR/lang" "$CONFIG_DIR/help"
 
     # Staged next to the target and renamed over it: a running pairee keeps
     # its old file (no "Text file busy"), and a failed copy changes nothing.
-    STAGED_BIN="$INSTALL_DIR/.pairee.new.$$"
+    STAGED_BIN="$LIB_DIR/.pairee.new.$$"
     cp "$BIN_SRC" "$STAGED_BIN"
     chmod 755 "$STAGED_BIN"
-    mv -f "$STAGED_BIN" "$INSTALL_DIR/pairee"
+    mv -f "$STAGED_BIN" "$LIB_DIR/pairee"
+    STAGED_BIN=""
+
+    # The `pairee` command. It replaces the program an earlier version
+    # installed there, again through a rename.
+    STAGED_BIN="$BIN_DIR/.pairee.link.$$"
+    ln -s "$LIB_DIR/pairee" "$STAGED_BIN"
+    mv -f "$STAGED_BIN" "$BIN_DIR/pairee"
     STAGED_BIN=""
 
     if [ -d "${PKG_FOLDER}/lang" ]; then
@@ -384,14 +495,15 @@ install_files() {
 print_summary() {
     echo "=============================="
     echo "${GREEN}Pairee version ${VERSION} installed successfully!${NC}"
-    echo "Binary location: ${BLUE}${INSTALL_DIR}/pairee${NC}"
-    echo "Config location: ${BLUE}${CONFIG_DIR}/${NC}"
+    echo "Program:  ${BLUE}${LIB_DIR}/pairee${NC}"
+    echo "Command:  ${BLUE}${BIN_DIR}/pairee${NC}"
+    echo "Settings: ${BLUE}${CONFIG_DIR}/${NC}"
     echo ""
 
     case ":$PATH:" in
-        *:"$INSTALL_DIR":*) ;;
+        *:"$BIN_DIR":*) ;;
         *)
-            echo "${BLUE}Note: '${INSTALL_DIR}' is not in your PATH.${NC}"
+            echo "${BLUE}Note: '${BIN_DIR}' is not in your PATH.${NC}"
             echo "Please add it to your shell configuration (e.g. ~/.bashrc or ~/.zshrc):"
             echo "  ${GREEN}export PATH=\"\$PATH:\$HOME/.local/bin\"${NC}"
             echo ""

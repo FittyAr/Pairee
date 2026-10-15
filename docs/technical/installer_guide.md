@@ -11,7 +11,10 @@ How the release packages are built. Everything runs in
 
 `installer.iss` builds a per-user installer (`{localappdata}\Programs\FittyAr\Pairee`,
 no UAC prompt) that copies `pairee.exe`, puts `lang/` and `help/` in
-`%APPDATA%\FittyAr\Pairee\config`, adds the install folder to the user `PATH` once
+`%APPDATA%\FittyAr\Pairee\config` (first renaming the settings folder of
+earlier versions, `%APPDATA%\pairee`, into place; while it is in use the files
+go to its `config` folder and Pairee moves it on a later start), adds the
+install folder to the user `PATH` once
 and removes it again on uninstall. `package.sh` compiles it with the Inno
 Setup 6 of the Windows runner, passing everything that varies per build:
 
@@ -25,7 +28,20 @@ installs on ARM64 Windows (`ArchitecturesAllowed`).
 
 ---
 
-## 2. Linux: Debian/Ubuntu Package (.deb)
+## 2. Linux: install.sh
+
+`install.sh` installs the musl build per user: the program in
+`~/.local/lib/FittyAr/Pairee`, a `~/.local/bin/pairee` symlink to it, and
+`lang/` and `help/` in `$XDG_CONFIG_HOME/FittyAr/Pairee` (`~/.config` when
+unset). The layout of earlier versions (the program itself in
+`~/.local/bin`, settings, log and plugin data in `<XDG folder>/pairee`) is
+moved into place, never deleted. The self-updater replaces the file behind
+the link, and moves a program still in `~/.local/bin` to the FittyAr folder
+(`src/update/installer/unix.rs`).
+
+---
+
+## 3. Linux: Debian/Ubuntu Package (.deb)
 
 The x86_64 musl build is also packaged with
 [`cargo-deb`](https://github.com/kornelski/cargo-deb), configured in
@@ -38,7 +54,7 @@ binary.
 
 ---
 
-## 3. Linux: Red Hat/Fedora Package (.rpm)
+## 4. Linux: Red Hat/Fedora Package (.rpm)
 
 The same files are packaged with
 [`cargo-generate-rpm`](https://github.com/cat-in-136/cargo-generate-rpm),
@@ -49,7 +65,7 @@ release.
 
 ---
 
-## 4. Release Signing (minisign)
+## 5. Release Signing (minisign)
 
 Every release asset is signed with the **Pairee release key** (minisign /
 Ed25519). The self-updater (`src/update/signature.rs`) refuses to install an

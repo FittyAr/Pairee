@@ -136,14 +136,7 @@ fn subcommands_print_their_help() {
 fn help_follows_the_configured_language() {
     let home = tempfile::tempdir().unwrap();
     // Wherever this platform keeps config.toml under the isolated home.
-    for dir in [
-        home.path().join("appdata").join("pairee").join("config"),
-        home.path().join("config").join("pairee"),
-        home.path()
-            .join("Library")
-            .join("Application Support")
-            .join("com.pairee.Pairee"),
-    ] {
+    for dir in config_dirs(home.path()) {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("config.toml"),
@@ -157,6 +150,68 @@ fn help_follows_the_configured_language() {
         text.contains("Uso:") && text.contains("Opciones:"),
         "{text}"
     );
+}
+
+/// The settings folder of each platform under the isolated `home`:
+/// `(current FittyAr folder, folder of the previous layout)`.
+fn config_dirs_with_previous(home: &Path) -> [(std::path::PathBuf, std::path::PathBuf); 3] {
+    let mac = home.join("Library").join("Application Support");
+    [
+        (
+            home.join("appdata")
+                .join("FittyAr")
+                .join("Pairee")
+                .join("config"),
+            home.join("appdata").join("pairee").join("config"),
+        ),
+        (
+            home.join("config").join("FittyAr").join("Pairee"),
+            home.join("config").join("pairee"),
+        ),
+        (
+            mac.join("FittyAr").join("Pairee"),
+            mac.join("com.pairee.Pairee"),
+        ),
+    ]
+}
+
+fn config_dirs(home: &Path) -> Vec<std::path::PathBuf> {
+    config_dirs_with_previous(home)
+        .into_iter()
+        .map(|(current, _)| current)
+        .collect()
+}
+
+#[test]
+fn settings_of_the_previous_layout_are_moved_and_kept() {
+    let home = tempfile::tempdir().unwrap();
+    for (_, previous) in config_dirs_with_previous(home.path()) {
+        std::fs::create_dir_all(previous.join("themes")).unwrap();
+        std::fs::write(previous.join("config.toml"), "language = \"Español\"\n").unwrap();
+        std::fs::write(
+            previous.join("themes").join("mine.toml"),
+            "name = \"mine\"\n",
+        )
+        .unwrap();
+    }
+    let text = stdout_of(home.path(), &["--help"]);
+    assert!(
+        text.contains("Uso:"),
+        "the moved settings were read: {text}"
+    );
+    // Exactly this platform's folder moved, with everything in it.
+    let moved: Vec<_> = config_dirs_with_previous(home.path())
+        .into_iter()
+        .filter(|(current, _)| current.join("config.toml").is_file())
+        .collect();
+    assert_eq!(moved.len(), 1, "{moved:?}");
+    let (current, previous) = &moved[0];
+    assert!(!previous.exists(), "{previous:?}");
+    assert_eq!(
+        std::fs::read_to_string(current.join("config.toml")).unwrap(),
+        "language = \"Español\"\n"
+    );
+    assert!(current.join("themes").join("mine.toml").is_file());
 }
 
 #[test]

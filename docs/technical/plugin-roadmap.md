@@ -67,7 +67,7 @@ This section lists everything the current Pairee plugin system actually exposes 
 
 | Concern | Status | Where |
 |---|---|---|
-| Plugin directory discovery | Implemented | `src/plugin/manager.rs:107-160` scans `~/.config/pairee/plugins/` for `*.pairee` folders |
+| Plugin directory discovery | Implemented | `src/plugin/manager.rs:107-160` scans `~/.config/FittyAr/Pairee/plugins/` for `*.pairee` folders |
 | Manifest loading (`manifest.toml`) | Implemented | `src/plugin/loader.rs:24-35` (supports flat or nested `[plugin]` table); `69-119` reads + parses + version-checks |
 | Sandbox creation | Implemented | `src/plugin/sandbox.rs:46-77` (`create_sandboxed_lua`) — `StdLib::TABLE \| STRING \| UTF8 \| MATH`, removes `load/loadstring/dofile/loadfile`, custom path-bounded `require` |
 | Trusted mode flag | Implemented | `src/plugin/loader.rs:85`, `:150` (no `tokio::process::Command` execution when `trusted=false`) |

@@ -44,7 +44,7 @@ body:
     attributes:
       label: Attach Pairee log file (`app.log`)
       description: |
-        Please check your user cache folder for `app.log` (e.g. `~/.cache/pairee/app.log` on Linux or `%APPDATA%/FittyAr/Pairee/cache/app.log` on Windows) and paste relevant parts here.
+        Please check your user cache folder for `app.log` (e.g. `~/.cache/FittyAr/Pairee/app.log` on Linux or `%APPDATA%/FittyAr/Pairee/cache/app.log` on Windows) and paste relevant parts here.
 
         ⚠️ **Please review your log file for secrets and redact them before posting.**
       value: |

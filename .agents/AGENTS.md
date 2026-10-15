@@ -131,8 +131,9 @@ For long-running file system operations (like Copy or Move):
   * Translate texts using `t("key")`.
   * Do not automatically write or generate translation JSON files inside the application's configuration directory at runtime. They must be supplied from the installer or project directory (`lang/` folder).
 
-### Windows Configuration Directories
+### Configuration Directories
 * **Rule:** On Windows systems, the application must use `%APPDATA%` directly (typically `Roaming/FittyAr/Pairee/config` and `Roaming/FittyAr/Pairee/cache`) for storing system-wide config and logs, ensuring a shared folder structure. Do not use local AppData or add extra levels of nested project directories.
+* **Linux/macOS:** the same shared `FittyAr/Pairee` folder under each base folder: `$XDG_CONFIG_HOME`, `$XDG_CACHE_HOME` and `$XDG_DATA_HOME` on Linux; `~/Library/Application Support` and `~/Library/Caches` on macOS. `install.sh` puts the program in `~/.local/lib/FittyAr/Pairee` with a `~/.local/bin/pairee` link. Every path comes from `src/config/paths.rs`, which also moves the folders of the previous layout into place (never deleting them).
 
 ---
 

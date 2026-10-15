@@ -145,7 +145,7 @@ f081d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  lang/es.toml
 
 ## 4. `plugins.lock` — User-Side Lock File
 
-Stored as `plugins.lock` in Pairee's config folder (`~/.config/pairee/plugins.lock` on Linux/macOS, `%APPDATA%\FittyAr\Pairee\config\plugins.lock` on Windows). It is a TOML table `plugins` with one sub-table per installed plugin (`src/plugin/updater/lockfile.rs`, `types.rs`): the installed `version`, whether it is `pinned`, and a `files` table of relative path (`/` separated) to the lowercase SHA-256 of that file, `manifest.toml` included:
+Stored as `plugins.lock` in Pairee's config folder (`~/.config/FittyAr/Pairee/plugins.lock` on Linux, `~/Library/Application Support/FittyAr/Pairee/plugins.lock` on macOS, `%APPDATA%\FittyAr\Pairee\config\plugins.lock` on Windows). It is a TOML table `plugins` with one sub-table per installed plugin (`src/plugin/updater/lockfile.rs`, `types.rs`): the installed `version`, whether it is `pinned`, and a `files` table of relative path (`/` separated) to the lowercase SHA-256 of that file, `manifest.toml` included:
 
 ```toml
 [plugins.git]
@@ -384,7 +384,7 @@ Plugins follow **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH`):
 ## 8. Community Plugin Submission Workflow
 
 With `pairee developer` (CLI) or the Developer Tools tab, shown when `plugins_developer_mode = true` is set in `config.toml`:
-1. The developer prepares their plugin directory locally (`~/.config/pairee/plugins/my-plugin.pairee`).
+1. The developer prepares their plugin directory locally (`~/.config/FittyAr/Pairee/plugins/my-plugin.pairee`).
 2. Runs the publication checks (section 9) and packages the plugin, from inside its folder:
    ```bash
    pairee developer package

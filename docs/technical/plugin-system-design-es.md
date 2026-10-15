@@ -67,7 +67,7 @@ graph TD
         LUA --> BIND_SYNC[pairee.sync]
     end
 
-    subgraph "Código de Complementos — ~/.config/pairee/plugins/"
+    subgraph "Código de Complementos — ~/.config/FittyAr/Pairee/plugins/"
         LOADER --> P1[git.pairee/main.lua]
         LOADER --> P2[fzf.pairee/main.lua]
         LOADER --> P3[custom/main.lua]
@@ -284,7 +284,7 @@ Hilo principal (bucle de renderizado a 60 fps)
 
 Para facilitar el desarrollo de complementos, Pairee proporciona una arquitectura integrada de registro y manejo de errores:
 
-1. **Registros Integrados:** El módulo `pairee.log` envía los mensajes directamente a la bitácora de la aplicación, escribiéndose en `~/.cache/pairee/app.log`.
+1. **Registros Integrados:** El módulo `pairee.log` envía los mensajes directamente a la bitácora de la aplicación, escribiéndose en `~/.cache/FittyAr/Pairee/app.log`.
 2. **Aislamiento de Errores:** Si un complemento sufre una excepción (referencias nil, división por cero, etc.), esta es interceptada en la frontera de `mlua` en Rust. El bucle de la app no se ve afectado. Pairee muestra una notificación visual de error detallando la línea y el mensaje.
 3. **Modo Depuración por CLI:** Los desarrolladores pueden ejecutar:
    ```bash
@@ -334,7 +334,7 @@ Para evitar que los complementos de terceros requieran modificaciones en la base
 ### 11.1 Estructura de Archivos
 Cada complemento mantiene un directorio `lang/` con archivos de idioma (nombrados según su código ISO 639-1):
 ```text
-~/.config/pairee/plugins/git.pairee/
+~/.config/FittyAr/Pairee/plugins/git.pairee/
 ├── manifest.toml
 └── lang/
     ├── en.toml        # Traducciones en inglés por defecto
@@ -395,7 +395,7 @@ Los complementos pueden proporcionar documentación de usuario que se analiza y 
 ### 13.1 Archivos de Ayuda Estructurados
 Para mantener el espacio de trabajo del complemento organizado, los archivos de documentación de ayuda deben residir dentro de un subdirectorio dedicado `help/`, nombrados según su código de idioma ISO 639-1 (con extensión `.md`):
 ```text
-~/.config/pairee/plugins/git.pairee/
+~/.config/FittyAr/Pairee/plugins/git.pairee/
 ├── manifest.toml
 └── help/
     ├── en.md          # Documentación de ayuda por defecto en inglés

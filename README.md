@@ -74,6 +74,8 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (Win
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
     ```
     The installer verifies the release signature with [`minisign`](https://jedisct1.github.io/minisign/): the installed one, or else the official build, which it downloads itself (version and SHA-256 pinned in the script). Add `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) to accept the download on its SHA-256 checksum alone.
+
+    The program goes to `~/.local/lib/FittyAr/Pairee` with a `pairee` command in `~/.local/bin` (an install of an earlier version, the program itself in `~/.local/bin`, is moved there by the installer or the next self-update); translations and help go to the settings folder.
   * **Build from Source (Debug/Source Mode):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug
@@ -92,6 +94,8 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (Win
     ```powershell
     & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) -InsecureSkipSignature
     ```
+
+    The program goes to `%LOCALAPPDATA%\Programs\FittyAr\Pairee` (added to the user `PATH`) and the settings, translations and help to `%APPDATA%\FittyAr\Pairee`.
   * **Build from Source (Debug/Source Mode):**
     ```powershell
     & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) -DebugMode
@@ -171,7 +175,10 @@ Run `pairee --standalone` (from a checkout: `cargo xtask dev standalone`) to boo
 Pairee stores configurations, custom themes, and debug logs in the system's standard directories:
 
 * **Windows:** `%APPDATA%/FittyAr/Pairee/config` and `%APPDATA%/FittyAr/Pairee/cache`
-* **Linux/macOS:** `~/.config/pairee` and `~/.cache/pairee`
+* **Linux:** `~/.config/FittyAr/Pairee`, `~/.cache/FittyAr/Pairee` and `~/.local/share/FittyAr/Pairee` (plugin data), following `XDG_CONFIG_HOME`, `XDG_CACHE_HOME` and `XDG_DATA_HOME`
+* **macOS:** `~/Library/Application Support/FittyAr/Pairee` and `~/Library/Caches/FittyAr/Pairee`
+
+Every FittyAr app shares the `FittyAr` folder. The folders of earlier versions (`%APPDATA%/pairee`, `~/.config/pairee`, `~/.cache/pairee`, `~/.local/share/pairee`, `com.pairee.Pairee` on macOS) are moved into place on the first start; nothing is deleted, and a folder that cannot be moved keeps being used.
 
 Logs are appended to `app.log` in the cache directory, allowing you to troubleshoot without cluttering the TUI. Past 5 MiB the file moves to `app.log.1`. Release builds log at `info` level; run with `RUST_LOG=debug` for more detail.
 

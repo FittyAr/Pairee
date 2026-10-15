@@ -52,11 +52,11 @@ Los complementos se almacenan en tu carpeta de configuración y se configuran en
 
 ## 3. Tu Primer Complemento — Hola Mundo
 
-Crea la carpeta `~/.config/pairee/plugins/hello.pairee/`. Pairee solo carga
+Crea la carpeta `~/.config/FittyAr/Pairee/plugins/hello.pairee/`. Pairee solo carga
 carpetas llamadas `<nombre>.pairee`, y el `name` del manifiesto debe ser el
 nombre de la carpeta sin el sufijo (`hello`); solo se admite `[A-Za-z0-9_-]`.
 
-Crea el archivo `~/.config/pairee/plugins/hello.pairee/main.lua`:
+Crea el archivo `~/.config/FittyAr/Pairee/plugins/hello.pairee/main.lua`:
 
 ```lua
 local M = {}
@@ -72,7 +72,7 @@ Pairee llama a las funciones del complemento como métodos, con la tabla del
 complemento primero, así que se declaran con `:` (`function M:entry(args)`);
 con `.` el primer parámetro recibe la tabla en lugar de `args`.
 
-Crea el archivo de manifiesto `~/.config/pairee/plugins/hello.pairee/manifest.toml`:
+Crea el archivo de manifiesto `~/.config/FittyAr/Pairee/plugins/hello.pairee/manifest.toml`:
 
 ```toml
 name = "hello"
@@ -105,7 +105,7 @@ Lanza Pairee y ejecuta **Decir hola** desde la paleta de comandos (o asigna `plu
 Un complemento es una carpeta que contiene un script Lua principal, un manifiesto y submódulos o recursos opcionales:
 
 ```text
-~/.config/pairee/plugins/
+~/.config/FittyAr/Pairee/plugins/
 └── my-plugin.pairee/       # <nombre>.pairee; name del manifiesto = "my-plugin"
     ├── main.lua              # Requerido — punto de entrada
     ├── manifest.toml         # Requerido — metadatos y atajos de teclado
@@ -611,7 +611,7 @@ Usa nombres de eventos con espacio de nombres (`nombre-complemento:evento`) para
 Pairee proporciona ricas características de aislamiento y registro de bitácora:
 
 ### 12.1 API de Registro de Bitácora (`pairee.log`)
-Utiliza las funciones de registro para escribir información o marcadores de depuración directamente en el archivo de registro de Pairee ubicado en `~/.cache/pairee/app.log`:
+Utiliza las funciones de registro para escribir información o marcadores de depuración directamente en el archivo de registro de Pairee ubicado en `~/.cache/FittyAr/Pairee/app.log`:
 ```lua
 pairee.log.debug("Verificando la estructura del CSV...")
 pairee.log.info("La vista previa del CSV se renderizó correctamente.")
@@ -690,9 +690,9 @@ En el Gestor de Complementos (pestaña Instalados) `c` o Enter abre los ajustes 
 
 ## 14. Probar tu Complemento Localmente
 
-1. **Coloca la carpeta de tu complemento** bajo `~/.config/pairee/plugins/<nombre>.pairee/`; el `name` del manifiesto debe ser `<nombre>`.
+1. **Coloca la carpeta de tu complemento** bajo `~/.config/FittyAr/Pairee/plugins/<nombre>.pairee/`; el `name` del manifiesto debe ser `<nombre>`.
 2. **Regístralo** en `config.toml` (hace falta para `trusted = true`; un complemento sin registrar carga como no confiable).
-3. Ejecuta Pairee y revisa los registros en `~/.cache/pairee/app.log` para ver los eventos de ejecución.
+3. Ejecuta Pairee y revisa los registros en `~/.cache/FittyAr/Pairee/app.log` para ver los eventos de ejecución.
 
 ---
 
@@ -830,7 +830,7 @@ Los complementos de Pairee admiten traducciones aisladas y autocontenidas. No es
 ### 17.1 Creación de Archivos de Idioma
 Crea un subdirectorio `lang/` en la carpeta raíz de tu complemento y coloca allí archivos de traducción TOML nombrados con su código de idioma ISO-639-1:
 ```text
-~/.config/pairee/plugins/mi-complemento.pairee/
+~/.config/FittyAr/Pairee/plugins/mi-complemento.pairee/
 ├── manifest.toml
 ├── main.lua
 └── lang/
@@ -903,7 +903,7 @@ Para documentar atajos de teclado, comandos y funciones para los usuarios, puede
 ### 19.1 Creación de Archivos Markdown de Ayuda
 Agrega un subdirectorio `help/` a la carpeta raíz de tu complemento, y coloca dentro los archivos markdown de ayuda nombrados según su código de idioma ISO-639-1:
 ```text
-~/.config/pairee/plugins/mi-complemento.pairee/
+~/.config/FittyAr/Pairee/plugins/mi-complemento.pairee/
 ├── manifest.toml
 ├── main.lua
 └── help/

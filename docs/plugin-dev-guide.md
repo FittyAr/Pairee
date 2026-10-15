@@ -52,11 +52,11 @@ Plugins are stored in your configuration folder and configured in `config.toml`.
 
 ## 3. Your First Plugin — Hello World
 
-Create the folder `~/.config/pairee/plugins/hello.pairee/`. Pairee only loads
+Create the folder `~/.config/FittyAr/Pairee/plugins/hello.pairee/`. Pairee only loads
 folders named `<name>.pairee`, and the manifest `name` must be the folder name
 without the suffix (`hello`); only `[A-Za-z0-9_-]` is allowed.
 
-Create the file `~/.config/pairee/plugins/hello.pairee/main.lua`:
+Create the file `~/.config/FittyAr/Pairee/plugins/hello.pairee/main.lua`:
 
 ```lua
 local M = {}
@@ -72,7 +72,7 @@ Pairee calls plugin functions as methods, with the plugin table first, so
 declare them with `:` (`function M:entry(args)`); with `.` the first parameter
 receives the table instead of `args`.
 
-Create the manifest file `~/.config/pairee/plugins/hello.pairee/manifest.toml`:
+Create the manifest file `~/.config/FittyAr/Pairee/plugins/hello.pairee/manifest.toml`:
 
 ```toml
 name = "hello"
@@ -105,7 +105,7 @@ Launch Pairee and run **Say hello** from the command palette (or bind `plugin.he
 A plugin is a folder containing a main Lua script, manifest, and optional submodules or resources:
 
 ```text
-~/.config/pairee/plugins/
+~/.config/FittyAr/Pairee/plugins/
 └── my-plugin.pairee/       # <name>.pairee; manifest name = "my-plugin"
     ├── main.lua              # Required — plugin entry point
     ├── manifest.toml         # Required — metadata and commands
@@ -602,7 +602,7 @@ Use namespaced event names (`your-plugin-name:event`) to avoid conflicts.
 Pairee provides rich logging and isolation features:
 
 ### 12.1 Logging API (`pairee.log`)
-Use the logging functions to write information or debug markers directly to Pairee's log file located at `~/.cache/pairee/app.log`:
+Use the logging functions to write information or debug markers directly to Pairee's log file located at `~/.cache/FittyAr/Pairee/app.log`:
 ```lua
 pairee.log.debug("Checking CSV structure...")
 pairee.log.info("CSV Preview rendered successfully.")
@@ -681,9 +681,9 @@ In the Plugin Manager (Installed tab) `c` or Enter opens the plugin's settings (
 
 ## 14. Testing Your Plugin Locally
 
-1. **Place your plugin** folder under `~/.config/pairee/plugins/<name>.pairee/`; the manifest `name` must be `<name>`.
+1. **Place your plugin** folder under `~/.config/FittyAr/Pairee/plugins/<name>.pairee/`; the manifest `name` must be `<name>`.
 2. **Register it** in `config.toml` (needed for `trusted = true`; an unregistered plugin loads untrusted).
-3. Run Pairee and check the logs in `~/.cache/pairee/app.log` for execution events.
+3. Run Pairee and check the logs in `~/.cache/FittyAr/Pairee/app.log` for execution events.
 
 ---
 
@@ -821,7 +821,7 @@ Pairee plugins support isolated, self-contained translations. There is no need t
 ### 17.1 Creating Language Files
 Create a `lang/` subdirectory in your plugin's root folder, and place translation TOML files inside named after their ISO-639-1 language code:
 ```text
-~/.config/pairee/plugins/my-plugin.pairee/
+~/.config/FittyAr/Pairee/plugins/my-plugin.pairee/
 ├── manifest.toml
 ├── main.lua
 └── lang/
@@ -896,7 +896,7 @@ To document keybindings, commands, and functionality for your users, you can int
 ### 19.1 Creating Help Markdown Files
 Add a `help/` subdirectory to the root folder of your plugin, and place help markdown files named after their ISO-639-1 language code inside:
 ```text
-~/.config/pairee/plugins/my-plugin.pairee/
+~/.config/FittyAr/Pairee/plugins/my-plugin.pairee/
 ├── manifest.toml
 ├── main.lua
 └── help/

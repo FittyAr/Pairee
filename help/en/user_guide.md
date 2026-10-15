@@ -29,7 +29,7 @@ On the **first launch** (new config directory), Pairee asks which keyboard prese
 
 ## 🎨 2. Custom TOML Themes
 
-Themes are loaded from `%APPDATA%/FittyAr/Pairee/config/themes/` (Windows) or `~/.config/pairee/themes/` (Linux/macOS) in TOML format, one file per theme: `themes/<name>.toml` is the theme selected by name in the settings. Two themes are built in, `slate` (the default) and `classic_blue`; a file with the same name replaces the built-in one.
+Themes are loaded from `%APPDATA%/FittyAr/Pairee/config/themes/` (Windows), `~/.config/FittyAr/Pairee/themes/` (Linux) or `~/Library/Application Support/FittyAr/Pairee/themes/` (macOS) in TOML format, one file per theme: `themes/<name>.toml` is the theme selected by name in the settings. Two themes are built in, `slate` (the default) and `classic_blue`; a file with the same name replaces the built-in one.
 
 ### Theme Properties Map
 The colors are flat keys at the top of the file. `name` and every color below are **required**: a file that misses one (or has a syntax error) is ignored, the built-in theme is used and the error is reported. Only `[syntax]` and `[ui]` are optional, and any entry missing inside them keeps its default.

@@ -216,7 +216,7 @@ Exportación de resultados de transferencia.
   - Total de bytes transferidos
   - Velocidad media
   - Lista detallada de cada archivo: ruta origen, ruta destino, tamaño, estado, hash (si aplica), error (si aplica)
-- Ubicación por defecto: `%APPDATA%/FittyAr/Pairee/cache/reports/` (Windows) o `~/.cache/pairee/reports/` (Linux)
+- Ubicación por defecto: `%APPDATA%/FittyAr/Pairee/cache/reports/` (Windows) o `~/.cache/FittyAr/Pairee/reports/` (Linux) o `~/Library/Caches/FittyAr/Pairee/reports/` (macOS)
 - Template HTML embebido como `include_str!` en el binario
 - Generación automática opcional o bajo demanda (botón "Export Report" en el popup)
 
