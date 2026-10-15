@@ -3,9 +3,10 @@
 # (see docs/technical/plugin-registry-spec.md, "How the registry is
 # signed").
 #
-# Signs the registry after every push that changes it, and whenever it is
-# started by hand or by the weekly refresh on master (GitHub only runs
-# `schedule` triggers from the default branch): `index.toml` and
+# Signs the registry after every push that changes it, and when started by
+# hand; the weekly refresh is refresh-registry.yml on master (GitHub only
+# runs `schedule` triggers from the default branch), which runs the same
+# shared action (.github/actions/sign-registry): `index.toml` and
 # `blocklist.toml` get a trusted comment with a serial and a timestamp,
 # which Pairee requires to refuse replayed (older serial) and frozen (older
 # than `registry_max_age_days`, 30 days by default) indexes; every plugin

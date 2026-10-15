@@ -162,7 +162,7 @@ Lists all plugins currently loaded and active in your local Pairee setup.
 * **`e` / `E`:** Enable or disable the highlighted plugin.
 * **`s` / `S`:** Turn the global Secure Mode on or off for all plugins.
 
-Trust, enable and Secure Mode changes are saved and applied at once: Pairee reloads its plugins with the new settings. If `config.toml` cannot be read, plugins run in Secure Mode until it is fixed. Registry downloads are checked against the registry's minisign signatures; while the registry is not signed yet, installs and updates show an "unsigned" warning.
+Trust, enable and Secure Mode changes are saved and applied at once: Pairee reloads its plugins with the new settings. If `config.toml` cannot be read, plugins run in Secure Mode until it is fixed. Registry downloads are checked against the registry's minisign signatures: a file without a valid signature, or an index older than 30 days, is refused (`[security] registry_require_signature` and `registry_max_age_days` in `config.toml`).
 * **`p` / `P`:** Toggle version pinning in `plugins.lock`.
 * **`u`:** Update the selected plugin to the latest version in the background. A notification toast will display at the top once complete.
 * **`U`:** Update all unpinned plugins in a batch background operation.

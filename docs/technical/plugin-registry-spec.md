@@ -283,14 +283,15 @@ An unsigned file (see below) has no freshness to check.
 * A signature that is present but does not verify **always** fails the
   operation (also for the blocklist), whatever the settings.
 * `registry_require_signature = true` under `[security]` (the default):
-  once the binary declares the official registry signed
-  (`plugin::updater::trust::REGISTRY_SIGNED = true`), a missing signature is
-  refused from the very first fetch. Until then (the transition, while the
-  `plugin-registry` branch is not signed yet) a missing signature is refused
-  only after the installation has verified a registry file signed with the
-  configured key (recorded in `registry_state.toml`), so stripping the
-  signatures does not downgrade a signed registry; before that it is
-  accepted with an **"unsigned" warning** (CLI report line, TUI toast).
+  the binary declares the official registry signed
+  (`plugin::updater::trust::REGISTRY_SIGNED = true` since the release after
+  0.11.0), so a missing signature is refused from the very first fetch. A
+  build with it off (a fork or private registry that is not signed yet)
+  refuses a missing signature only after the installation has verified a
+  registry file signed with the configured key (recorded in
+  `registry_state.toml`), so stripping the signatures does not downgrade a
+  signed registry; before that it is accepted with an **"unsigned"
+  warning** (CLI report line, TUI toast).
 * `registry_require_signature = false` accepts unsigned files with the
   warning, always.
 
@@ -332,29 +333,19 @@ each run.
 
 **Keeping the index fresh.** Clients refuse an index older than 30 days by
 default, so the index must be re-signed at least that often even when no
-plugin changes. GitHub runs `schedule` triggers only from the default
-branch, so the weekly refresh is a small workflow on **master** that starts
-the one on `plugin-registry`:
+plugin changes. GitHub runs `schedule` triggers (and `workflow_dispatch` by
+name) only for workflows on the default branch, so the signing steps live in
+a composite action on master, `.github/actions/sign-registry`, used by two
+workflows:
 
-```yaml
-# .github/workflows/refresh-registry.yml (on master)
-name: Refresh registry signature
-on:
-  schedule:
-    - cron: '17 4 * * 1'   # every Monday
-  workflow_dispatch:
-permissions:
-  actions: write
-jobs:
-  refresh:
-    runs-on: ubuntu-latest
-    steps:
-      - run: gh workflow run sign-index.yml --ref plugin-registry -R "$GITHUB_REPOSITORY"
-        env:
-          GH_TOKEN: ${{ github.token }}
-```
+* `sign-index.yml` on `plugin-registry`: on every push that changes a
+  `.toml` under `registry/`;
+* `refresh-registry.yml` on master: every Monday at 04:17 UTC and by hand
+  (Actions → *Refresh registry signature* → *Run workflow*).
 
-(`workflow_dispatch` events are allowed from `GITHUB_TOKEN`.)
+Both share the `sign-registry` concurrency group, so serials never collide.
+The secret key reaches only the environment of the signing step (never a
+command line or a log); `cargo xtask` writes it to a private temporary file.
 
 By hand, with the offline release secret key:
 
@@ -370,10 +361,11 @@ git commit -m "registry: sign index, blocklist and manifests"
 plain `minisign` must keep the trusted comment format above, with a serial
 higher than the published one.
 
-**Turning on strict mode** (once, after the first signed index is
-published): set `REGISTRY_SIGNED` to `true` in `src/plugin/updater/trust.rs`
-and release. From that release on, `registry_require_signature = true`
-refuses unsigned registry files on every installation, including fresh ones.
+**Strict mode** is on: `REGISTRY_SIGNED` is `true` in
+`src/plugin/updater/trust.rs` (from the release after 0.11.0), so
+`registry_require_signature = true` refuses unsigned registry files on every
+installation, including fresh ones. A fork that publishes an unsigned
+registry must build with it off or set `registry_require_signature = false`.
 
 ---
 
@@ -429,7 +421,7 @@ Lua syntax, translation coverage, key alignment and encoding are **not** checked
 
 **Target.** The branch signs through one workflow, `sign-index.yml`, whose template lives on master at `.github/registry/sign-index.yml` (installation steps in 6.1). On every push that changes a `.toml` under `registry/`, and when started by hand or by the weekly refresh workflow on master, it runs `cargo xtask sign-registry`: `index.toml` and `blocklist.toml` are signed with `file:<name> serial:<N> timestamp:<now>` (the serial is one more than the published one, runs are serialized), every plugin `manifest.toml` with `file:<path>`, each signature is verified against the key embedded in Pairee, and the `.minisig` files are committed with `GITHUB_TOKEN` (`[skip ci]`). Signing can run in the `registry-signing` environment, so required reviewers can approve each run.
 
-**Current state of the branch.** `sign-index.yml` is installed on `plugin-registry` (it replaced the older `sign-registry.yml`, which signed without `serial:` and `timestamp:`), and the index, blocklist and manifests were signed with it on 2026-10-15 (serial 1). What is still missing is the weekly refresh (6.1) and `REGISTRY_SIGNED = true`: do not switch the latter on before the refresh runs, or clients start refusing the index 30 days after the last change.
+**Current state of the branch.** `sign-index.yml` is installed on `plugin-registry` (it replaced the older `sign-registry.yml`, which signed without `serial:` and `timestamp:`) and calls the shared action on master; `refresh-registry.yml` re-signs weekly. The first serial-signed index was published on 2026-10-15.
 
 No workflow validates pull requests or regenerates `index.toml`: the index is written by the packager (section 9) and reviewed in the pull request. Because anything merged is signed with the release key, keep the branch protected (pull requests with review).
 

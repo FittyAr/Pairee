@@ -162,7 +162,7 @@ Muestra una lista con todos los plugins que se han cargado y están instalados l
 * **`e` / `E`:** Activa o desactiva el plugin seleccionado.
 * **`s` / `S`:** Activa o desactiva el Modo Seguro global para todos los plugins.
 
-Los cambios de confianza, activación y Modo Seguro se guardan y se aplican al instante: Pairee recarga sus plugins con la nueva configuración. Si `config.toml` no se puede leer, los plugins se ejecutan en Modo Seguro hasta que se corrija. Las descargas del registro se comprueban con las firmas minisign del registro; mientras el registro todavía no esté firmado, las instalaciones y actualizaciones muestran un aviso de "sin firmar".
+Los cambios de confianza, activación y Modo Seguro se guardan y se aplican al instante: Pairee recarga sus plugins con la nueva configuración. Si `config.toml` no se puede leer, los plugins se ejecutan en Modo Seguro hasta que se corrija. Las descargas del registro se comprueban con las firmas minisign del registro: un archivo sin una firma válida, o un índice de más de 30 días, se rechaza (`[security] registry_require_signature` y `registry_max_age_days` en `config.toml`).
 * **`p` / `P`:** Ancla (Pin) o desancla la versión actual del plugin en `plugins.lock`.
 * **`u`:** Actualiza el plugin seleccionado a la versión más reciente en segundo plano. Recibirás una notificación en la parte superior cuando finalice.
 * **`U`:** Actualiza todos los plugins instalados (que no estén anclados) de forma masiva en segundo plano.

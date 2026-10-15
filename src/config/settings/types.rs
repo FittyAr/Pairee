@@ -40,10 +40,10 @@ pub struct SecuritySettings {
     #[serde(default)]
     pub registry_public_key: String,
     /// Refuse plugin registry files that have no signature (on by default).
-    /// Until the official registry is declared signed in the binary
-    /// (`plugin::updater::trust::REGISTRY_SIGNED`), this applies once this
-    /// installation has verified a signed registry file; before that,
-    /// unsigned files are only warned about. Off: always only warn.
+    /// The official registry is declared signed in the binary
+    /// (`plugin::updater::trust::REGISTRY_SIGNED`), so this applies from the
+    /// first fetch; for a registry not declared signed it applies once this
+    /// installation has verified a signed file. Off: always only warn.
     #[serde(default = "enabled_by_default")]
     pub registry_require_signature: bool,
     /// Oldest signed registry index (and blocklist) accepted, in days since

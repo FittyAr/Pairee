@@ -298,6 +298,7 @@ fn settings_override_the_pinned_key_and_the_limits() {
         custom,
         RegistryTrust {
             require_signature: false,
+            registry_signed: REGISTRY_SIGNED,
             max_age_days: 0,
             state_path: pinned.state_path,
             ..trust()

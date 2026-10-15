@@ -25,12 +25,13 @@
 //!
 //! **Missing signatures.**
 //! * A signature that is present but does not verify is always an error.
-//! * With `registry_require_signature = true` (the default), a missing
-//!   signature is refused once [`REGISTRY_SIGNED`] declares the official
-//!   registry signed. Until then (the registry is not signed yet) it is
-//!   refused only after this installation has verified a signed registry
-//!   file with the configured key (stripping the signatures cannot
-//!   downgrade it), and otherwise accepted with an "unsigned" warning.
+//! * With `registry_require_signature = true` (the default) and the
+//!   official registry declared signed ([`REGISTRY_SIGNED`]), a missing
+//!   signature is refused from the first fetch. Without that declaration
+//!   (a fork or private registry built with it off) it is refused only
+//!   after this installation has verified a signed registry file with the
+//!   configured key (stripping the signatures cannot downgrade it), and
+//!   otherwise accepted with an "unsigned" warning.
 //! * `false` always only warns.
 
 use crate::config::localization::t_fill;
@@ -43,11 +44,11 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// Whether the official registry publishes a signature for every file.
-/// Flip it to `true` once the `plugin-registry` branch is signed (see
-/// `docs/technical/plugin-registry-spec.md`): from then on
+/// The `plugin-registry` branch is signed on every change and re-signed
+/// weekly (see `docs/technical/plugin-registry-spec.md`), so
 /// `registry_require_signature` refuses unsigned files from the very first
 /// fetch, with no grace period.
-pub const REGISTRY_SIGNED: bool = false;
+pub const REGISTRY_SIGNED: bool = true;
 
 /// The registry files whose signature must carry `serial:` and `timestamp:`.
 pub const FRESHNESS_TRACKED: [&str; 2] = ["index.toml", "blocklist.toml"];
