@@ -123,7 +123,7 @@ pub fn ensure_empty_dir(vfs: &dyn Vfs, dir: &Path) -> io::Result<()> {
 /// (SFTP v3, some FTP servers): the old file is moved aside, the new one
 /// put in place and the old one deleted — or put back when the second
 /// rename fails, so the destination is never lost. The name it is moved to
-/// is never one that exists ([`free_aside_name`]): a copy left by an earlier
+/// is never one that exists (`free_aside_name`): a copy left by an earlier
 /// interrupted replace may be the only one of the user's file, so it is
 /// neither overwritten nor deleted.
 pub fn replace_by_moving_aside(vfs: &dyn Vfs, from: &Path, to: &Path) -> io::Result<()> {
