@@ -170,7 +170,7 @@ Ejecutá `pairee --standalone` (desde el código fuente: `cargo xtask dev standa
 
 Pairee almacena configuraciones, temas y registros de depuración en los directorios estándares del sistema:
 
-* **Windows:** `%APPDATA%/pairee/config` y `%APPDATA%/pairee/cache`
+* **Windows:** `%APPDATA%/FittyAr/Pairee/config` y `%APPDATA%/FittyAr/Pairee/cache`
 * **Linux/macOS:** `~/.config/pairee` y `~/.cache/pairee`
 
 Los registros se añaden a `app.log` dentro de la carpeta cache, permitiéndote resolver problemas sin ensuciar la interfaz TUI. Al superar 5 MiB el archivo pasa a `app.log.1`. Las versiones release registran a nivel `info`; ejecutá con `RUST_LOG=debug` para más detalle.

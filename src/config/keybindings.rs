@@ -11,7 +11,7 @@ pub type OverrideTable = BTreeMap<String, String>;
 ///
 /// ## Preset files
 /// Each preset is a TOML file in the `keymaps/` subdirectory of the Pairee
-/// config folder (e.g. `%APPDATA%\pairee\config\keymaps\` on Windows).
+/// config folder (e.g. `%APPDATA%\FittyAr\Pairee\config\keymaps\` on Windows).
 /// Built-in presets: `"norton"` (default), `"standard"`, `"neovim"`, `"yazi"`
 /// (`"vscode"` is the old name of `"standard"`).
 ///

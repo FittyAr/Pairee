@@ -3,8 +3,10 @@
 #   irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex
 #   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) [-DebugMode] [-Uninstall] [-InsecureSkipSignature] [-VerifyOnly]
 #
-# Installs pairee.exe to %LOCALAPPDATA%\Programs\pairee and its resources to
-# %APPDATA%\pairee\config. The download is checked against its SHA-256 and
+# Installs pairee.exe to %LOCALAPPDATA%\Programs\FittyAr\Pairee and its resources
+# to %APPDATA%\FittyAr\Pairee\config (all FittyAr apps share the FittyAr
+# folders). Earlier layouts (Programs\pairee, %APPDATA%\pairee) are moved
+# automatically. The download is checked against its SHA-256 and
 # its minisign signature. minisign itself is downloaded from its official
 # release (jedisct1/minisign), pinned by version and SHA-256 below.
 #   -InsecureSkipSignature  skip the signature (only the checksum, served from
@@ -34,8 +36,13 @@ $minisignPubKey = "RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
 # minisign for Windows: https://github.com/jedisct1/minisign/releases
 $minisignVersion = "0.12"
 $minisignZipSha256 = "37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479"
-$installDir = Join-Path $env:LOCALAPPDATA "Programs\pairee"
-$configDir = Join-Path $env:APPDATA "pairee\config"
+$vendorDir = Join-Path $env:LOCALAPPDATA "Programs\FittyAr"
+$installDir = Join-Path $vendorDir "Pairee"
+$dataRoot = Join-Path $env:APPDATA "FittyAr\Pairee"
+$configDir = Join-Path $dataRoot "config"
+# Used by this script before installs moved under the FittyAr folders.
+$previousDir = Join-Path $env:LOCALAPPDATA "Programs\pairee"
+$previousDataRoot = Join-Path $env:APPDATA "pairee"
 $exePath = Join-Path $installDir "pairee.exe"
 
 # Whether this machine runs ARM64 Windows (also when this PowerShell itself
@@ -102,12 +109,38 @@ function Test-IsInstallDir([string]$entry) {
     return [Environment]::ExpandEnvironmentVariables($entry).TrimEnd('\') -eq $installDir.TrimEnd('\')
 }
 
+# Moves the pre-FittyAr folders into place: the settings folder is renamed
+# (only when the new one does not exist yet; nothing is deleted) and the old
+# program folder is removed, with its PATH entry.
+function Move-PreviousSettings {
+    if (-not (Test-Path $dataRoot) -and (Test-Path $previousDataRoot)) {
+        Write-Host "Moving settings from $previousDataRoot to $dataRoot..."
+        New-Item -ItemType Directory -Force -Path (Split-Path $dataRoot) | Out-Null
+        Move-Item -Path $previousDataRoot -Destination $dataRoot -ErrorAction SilentlyContinue
+    }
+}
+
+function Move-PreviousLayout {
+    Move-PreviousSettings
+    if (Test-Path (Join-Path $previousDir "pairee.exe")) {
+        Write-Host "Moving from $previousDir to $installDir..."
+        Remove-Item -Recurse -Force $previousDir -ErrorAction SilentlyContinue
+        $entries = Get-UserPathEntries
+        $kept = @($entries | Where-Object {
+            [Environment]::ExpandEnvironmentVariables($_).TrimEnd([char]92) -ne $previousDir.TrimEnd([char]92)
+        })
+        if ($kept.Count -ne $entries.Count) { Set-UserPathEntries $kept }
+    }
+}
+
 # No `exit` here: run through `irm | iex`, it would close the user's shell.
 function Invoke-Uninstall {
     Write-Host "Pairee Uninstaller" -ForegroundColor Blue
     Write-Host "=============================="
+    Move-PreviousSettings
 
     $userBin = Join-Path $installDir "pairee.exe"
+    $oldBin = Join-Path $previousDir "pairee.exe"
     $sysBin1 = Join-Path $env:ProgramFiles "pairee\pairee.exe"
     $sysBin2 = Join-Path ${env:ProgramFiles(x86)} "pairee\pairee.exe"
 
@@ -115,6 +148,7 @@ function Invoke-Uninstall {
     if (Test-Path $userBin) { $installs += @{ Id = 1; Path = $userBin; Desc = "User installation ($userBin)" } }
     if (Test-Path $sysBin1) { $installs += @{ Id = 2; Path = $sysBin1; Desc = "System-wide installation ($sysBin1)" } }
     if (Test-Path $sysBin2) { $installs += @{ Id = 3; Path = $sysBin2; Desc = "System-wide installation ($sysBin2)" } }
+    if (Test-Path $oldBin) { $installs += @{ Id = 4; Path = $oldBin; Desc = "Previous user installation ($oldBin)" } }
 
     if ($installs.Length -eq 0 -and -not (Test-Path $configDir)) {
         Write-Host "No Pairee installations or configurations found."
@@ -160,20 +194,28 @@ function Invoke-Uninstall {
         Remove-Item -Force $bin -ErrorAction SilentlyContinue
         
         $parent = Split-Path $bin
-        if ((Split-Path $parent -Leaf) -eq "pairee") {
-            if ((Get-ChildItem -Path $parent).Length -eq 0) {
+        if ((Split-Path $parent -Leaf) -in @("pairee", "Pairee")) {
+            if (@(Get-ChildItem -Path $parent).Count -eq 0) {
                 Write-Host "Removing empty parent folder: $parent"
                 Remove-Item -Recurse -Force $parent -ErrorAction SilentlyContinue
             }
+        }
+        # Leave the shared FittyAr folder only while other apps use it.
+        if ((Test-Path $vendorDir) -and @(Get-ChildItem -Path $vendorDir).Count -eq 0) {
+            Remove-Item -Force $vendorDir -ErrorAction SilentlyContinue
         }
     }
 
     if (Test-Path $configDir) {
         $confirmConfig = Read-Host "Do you want to delete the configuration, themes, and history settings at $configDir? [y/N]"
         if ($confirmConfig -match "^[yY](es)?$") {
-            $configParent = Split-Path $configDir
-            Write-Host "Removing configuration folder: $configParent"
-            Remove-Item -Recurse -Force $configParent -ErrorAction SilentlyContinue
+            Write-Host "Removing configuration folder: $dataRoot"
+            Remove-Item -Recurse -Force $dataRoot -ErrorAction SilentlyContinue
+            # Leave the shared FittyAr folder only while other apps use it.
+            $dataVendor = Split-Path $dataRoot
+            if ((Test-Path $dataVendor) -and @(Get-ChildItem -Path $dataVendor).Count -eq 0) {
+                Remove-Item -Force $dataVendor -ErrorAction SilentlyContinue
+            }
         } else {
             Write-Host "Keeping configuration settings."
         }
@@ -367,6 +409,7 @@ function Add-ToUserPath {
 function Invoke-Install {
     Write-Host "Pairee Installer for Windows" -ForegroundColor Blue
     Write-Host "=============================="
+    if (-not $VerifyOnly) { Move-PreviousLayout }
     if (-not $VerifyOnly -and -not (Confirm-Overwrite)) {
         return
     }

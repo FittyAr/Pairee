@@ -9,9 +9,9 @@ How the release packages are built. Everything runs in
 
 ## 1. Windows: Inno Setup Installer (.exe)
 
-`installer.iss` builds a per-user installer (`{localappdata}\Programs\pairee`,
+`installer.iss` builds a per-user installer (`{localappdata}\Programs\FittyAr\Pairee`,
 no UAC prompt) that copies `pairee.exe`, puts `lang/` and `help/` in
-`%APPDATA%\pairee\config`, adds the install folder to the user `PATH` once
+`%APPDATA%\FittyAr\Pairee\config`, adds the install folder to the user `PATH` once
 and removes it again on uninstall. `package.sh` compiles it with the Inno
 Setup 6 of the Windows runner, passing everything that varies per build:
 

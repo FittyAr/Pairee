@@ -30,7 +30,7 @@ with the tag.
   (default locale), `FittyAr.Pairee.locale.es-ES.yaml`,
   `FittyAr.Pairee.installer.yaml`.
 - Installer: `InstallerType: inno`, `Scope: user` (the installer is per-user
-  since REL-01: `PrivilegesRequired=lowest`, `{localappdata}\Programs\pairee`),
+  since REL-01: `PrivilegesRequired=lowest`, `{localappdata}\Programs\FittyAr\Pairee`),
   `ProductCode: '{D37E8417-C08D-43EC-4FE5-87673A12B57F}_is1'` (the Inno
   `AppId` plus `_is1`), `UpgradeBehavior: install`, `Commands: [pairee]`,
   x64 and arm64 installers.

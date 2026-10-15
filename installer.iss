@@ -27,7 +27,7 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}
 AppUpdatesURL={#AppURL}
-DefaultDirName={localappdata}\Programs\pairee
+DefaultDirName={localappdata}\Programs\FittyAr\Pairee
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir=target\release
@@ -56,8 +56,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#SourceDir}\pairee.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "lang\*"; DestDir: "{userappdata}\pairee\config\lang"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "help\*"; DestDir: "{userappdata}\pairee\config\help"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "lang\*"; DestDir: "{userappdata}\FittyAr\Pairee\config\lang"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "help\*"; DestDir: "{userappdata}\FittyAr\Pairee\config\help"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"

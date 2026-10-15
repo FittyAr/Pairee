@@ -170,7 +170,7 @@ Run `pairee --standalone` (from a checkout: `cargo xtask dev standalone`) to boo
 
 Pairee stores configurations, custom themes, and debug logs in the system's standard directories:
 
-* **Windows:** `%APPDATA%/pairee/config` and `%APPDATA%/pairee/cache`
+* **Windows:** `%APPDATA%/FittyAr/Pairee/config` and `%APPDATA%/FittyAr/Pairee/cache`
 * **Linux/macOS:** `~/.config/pairee` and `~/.cache/pairee`
 
 Logs are appended to `app.log` in the cache directory, allowing you to troubleshoot without cluttering the TUI. Past 5 MiB the file moves to `app.log.1`. Release builds log at `info` level; run with `RUST_LOG=debug` for more detail.

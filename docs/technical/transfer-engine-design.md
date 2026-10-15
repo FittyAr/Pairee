@@ -216,7 +216,7 @@ Exportación de resultados de transferencia.
   - Total de bytes transferidos
   - Velocidad media
   - Lista detallada de cada archivo: ruta origen, ruta destino, tamaño, estado, hash (si aplica), error (si aplica)
-- Ubicación por defecto: `%APPDATA%/pairee/cache/reports/` (Windows) o `~/.cache/pairee/reports/` (Linux)
+- Ubicación por defecto: `%APPDATA%/FittyAr/Pairee/cache/reports/` (Windows) o `~/.cache/pairee/reports/` (Linux)
 - Template HTML embebido como `include_str!` en el binario
 - Generación automática opcional o bajo demanda (botón "Export Report" en el popup)
 
@@ -317,7 +317,7 @@ Registro de rutas utilizadas recientemente para accesos rápidos.
 
 **Detalles técnicos:**
 - Almacenar las últimas 20 rutas de origen y 20 rutas de destino en `transfer_history.toml`
-- Ubicación: junto con la configuración de la app (`%APPDATA%/pairee/config/`)
+- Ubicación: junto con la configuración de la app (`%APPDATA%/FittyAr/Pairee/config/`)
 - Accesible desde el popup de copia/movimiento como dropdown/autocompletado
 - Integración con el sistema de historial existente (`config::history`)
 

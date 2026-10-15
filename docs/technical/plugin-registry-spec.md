@@ -145,7 +145,7 @@ f081d4a298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  lang/es.toml
 
 ## 4. `plugins.lock` — User-Side Lock File
 
-Stored as `plugins.lock` in Pairee's config folder (`~/.config/pairee/plugins.lock` on Linux/macOS, `%APPDATA%\pairee\config\plugins.lock` on Windows). It is a TOML table `plugins` with one sub-table per installed plugin (`src/plugin/updater/lockfile.rs`, `types.rs`): the installed `version`, whether it is `pinned`, and a `files` table of relative path (`/` separated) to the lowercase SHA-256 of that file, `manifest.toml` included:
+Stored as `plugins.lock` in Pairee's config folder (`~/.config/pairee/plugins.lock` on Linux/macOS, `%APPDATA%\FittyAr\Pairee\config\plugins.lock` on Windows). It is a TOML table `plugins` with one sub-table per installed plugin (`src/plugin/updater/lockfile.rs`, `types.rs`): the installed `version`, whether it is `pinned`, and a `files` table of relative path (`/` separated) to the lowercase SHA-256 of that file, `manifest.toml` included:
 
 ```toml
 [plugins.git]

@@ -29,7 +29,7 @@ En el **primer arranque** (config nueva) Pairee pregunta el preset de teclado: *
 
 ## 🎨 2. Temas de Color Personalizados (TOML)
 
-Los archivos de tema se cargan desde `%APPDATA%/pairee/config/themes/` (Windows) o `~/.config/pairee/themes/` (Linux/macOS) en formato TOML, un archivo por tema: `themes/<nombre>.toml` es el tema que se elige por nombre en los ajustes. Hay dos temas integrados, `slate` (el predeterminado) y `classic_blue`; un archivo con el mismo nombre reemplaza al integrado.
+Los archivos de tema se cargan desde `%APPDATA%/FittyAr/Pairee/config/themes/` (Windows) o `~/.config/pairee/themes/` (Linux/macOS) en formato TOML, un archivo por tema: `themes/<nombre>.toml` es el tema que se elige por nombre en los ajustes. Hay dos temas integrados, `slate` (el predeterminado) y `classic_blue`; un archivo con el mismo nombre reemplaza al integrado.
 
 ### Estructura de Propiedades de Tema
 Los colores son claves planas al principio del archivo. `name` y todos los colores siguientes son **obligatorios**: un archivo al que le falta alguno (o con un error de sintaxis) se ignora, se usa el tema integrado y se informa del error. Solo `[syntax]` y `[ui]` son opcionales, y cualquier entrada que falte dentro de ellas conserva su valor por defecto.

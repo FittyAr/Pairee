@@ -132,7 +132,7 @@ For long-running file system operations (like Copy or Move):
   * Do not automatically write or generate translation JSON files inside the application's configuration directory at runtime. They must be supplied from the installer or project directory (`lang/` folder).
 
 ### Windows Configuration Directories
-* **Rule:** On Windows systems, the application must use `%APPDATA%` directly (typically `Roaming/pairee/config` and `Roaming/pairee/cache`) for storing system-wide config and logs, ensuring a shared folder structure. Do not use local AppData or add extra levels of nested project directories.
+* **Rule:** On Windows systems, the application must use `%APPDATA%` directly (typically `Roaming/FittyAr/Pairee/config` and `Roaming/FittyAr/Pairee/cache`) for storing system-wide config and logs, ensuring a shared folder structure. Do not use local AppData or add extra levels of nested project directories.
 
 ---
 

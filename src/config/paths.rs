@@ -1,5 +1,7 @@
 #[cfg(not(target_os = "windows"))]
 use directories::ProjectDirs;
+#[cfg(target_os = "windows")]
+use std::path::Path;
 use std::path::PathBuf;
 
 /// The per-user folders Pairee keeps its files in.
@@ -7,12 +9,12 @@ use std::path::PathBuf;
 enum UserDir {
     Config,
     Cache,
-    /// Plugin data (on Windows the `pairee` folder itself).
+    /// Plugin data (on Windows the `FittyAr\Pairee` folder itself).
     Data,
 }
 
 impl UserDir {
-    /// Sub-folder under the Windows `%APPDATA%\pairee` folder and the test
+    /// Sub-folder under the Windows `%APPDATA%\FittyAr\Pairee` folder and the test
     /// root (`None`: the folder itself).
     #[cfg_attr(not(any(test, target_os = "windows")), allow(dead_code))]
     fn subdir(self) -> Option<&'static str> {
@@ -32,22 +34,31 @@ impl UserDir {
         #[cfg(target_os = "windows")]
         {
             let base = std::env::var("APPDATA")
-                .map(|appdata| PathBuf::from(appdata).join("pairee"))
+                .map(|appdata| windows_base(Path::new(&appdata)))
                 .unwrap_or_else(|_| PathBuf::from("."));
             self.under(base)
         }
         #[cfg(not(target_os = "windows"))]
         {
-            ProjectDirs::from("com", "pairee", "Pairee")
-                .map(|dirs| {
-                    match self {
-                        Self::Config => dirs.config_dir(),
-                        Self::Cache => dirs.cache_dir(),
-                        Self::Data => dirs.data_dir(),
-                    }
-                    .to_path_buf()
-                })
-                .unwrap_or_else(|| PathBuf::from("."))
+            let pick = |dirs: &ProjectDirs| {
+                match self {
+                    Self::Config => dirs.config_dir(),
+                    Self::Cache => dirs.cache_dir(),
+                    Self::Data => dirs.data_dir(),
+                }
+                .to_path_buf()
+            };
+            let current = ProjectDirs::from("ar", "FittyAr", "Pairee").map(|d| pick(&d));
+            // Before the FittyAr layout the qualifier was `com.pairee` (a
+            // different folder on macOS; the same one on Linux). Keep reading
+            // that folder until the new one exists; nothing is moved or deleted.
+            let previous = ProjectDirs::from("com", "pairee", "Pairee").map(|d| pick(&d));
+            match (current, previous) {
+                (Some(new), Some(old)) if !new.exists() && old.exists() => old,
+                (Some(new), _) => new,
+                (None, Some(old)) => old,
+                (None, None) => PathBuf::from("."),
+            }
         }
     }
 
@@ -60,16 +71,34 @@ impl UserDir {
     }
 }
 
+/// Windows per-user root: `%APPDATA%\FittyAr\Pairee`. A folder from before
+/// the shared FittyAr layout (`%APPDATA%\pairee`) is renamed into place the
+/// first time (nothing is deleted); if it cannot be moved it keeps being used.
+#[cfg(target_os = "windows")]
+fn windows_base(appdata: &Path) -> PathBuf {
+    let new = appdata.join("FittyAr").join("Pairee");
+    let old = appdata.join("pairee");
+    if !new.exists() && old.is_dir() {
+        let moved = std::fs::create_dir_all(appdata.join("FittyAr"))
+            .and_then(|()| std::fs::rename(&old, &new))
+            .is_ok();
+        if !moved {
+            return old;
+        }
+    }
+    new
+}
+
 /// Returns the platform-specific configuration directory for Pairee.
 /// Linux: ~/.config/pairee
-/// Windows: %APPDATA%\pairee\config
+/// Windows: %APPDATA%\FittyAr\Pairee\config
 pub fn get_config_dir() -> PathBuf {
     UserDir::Config.path()
 }
 
 /// Returns the platform-specific cache directory for Pairee (used for logs).
 /// Linux: ~/.cache/pairee
-/// Windows: %APPDATA%\pairee\cache
+/// Windows: %APPDATA%\FittyAr\Pairee\cache
 pub fn get_cache_dir() -> PathBuf {
     UserDir::Cache.path()
 }
@@ -77,7 +106,7 @@ pub fn get_cache_dir() -> PathBuf {
 /// Returns the private data directory for a single plugin. This is the only
 /// location an untrusted plugin may write to through `pairee.fs`.
 /// Linux: ~/.local/share/pairee/plugin-data/<name>
-/// Windows: %APPDATA%\pairee\plugin-data\<name>
+/// Windows: %APPDATA%\FittyAr\Pairee\plugin-data\<name>
 pub fn get_plugin_data_dir(plugin_name: &str) -> PathBuf {
     UserDir::Data.path().join("plugin-data").join(plugin_name)
 }
@@ -188,5 +217,21 @@ mod tests {
         assert_eq!(get_cache_dir(), root.join("cache"));
         assert_eq!(get_plugin_data_dir("p"), root.join("plugin-data").join("p"));
         assert_eq!(get_log_file_path(), root.join("cache").join("app.log"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_base_moves_the_old_folder() {
+        let tmp = std::env::temp_dir().join(format!("pairee-base-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(tmp.join("pairee").join("config")).unwrap();
+        std::fs::write(tmp.join("pairee").join("config").join("config.toml"), "x").unwrap();
+        let base = windows_base(&tmp);
+        assert_eq!(base, tmp.join("FittyAr").join("Pairee"));
+        assert!(base.join("config").join("config.toml").is_file());
+        assert!(!tmp.join("pairee").exists());
+        // A second call keeps the new folder.
+        assert_eq!(windows_base(&tmp), base);
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }
