@@ -85,6 +85,14 @@ fn is_rpm_owned(exe: &std::path::Path) -> bool {
 
 #[cfg(target_os = "windows")]
 pub fn detect_os() -> InstallMethod {
+    // 0. Microsoft Store: MSIX packages run from a read-only `WindowsApps`
+    //    folder and are updated by the Store only.
+    if let Ok(exe) = std::env::current_exe()
+        && is_ms_store_path(&exe)
+    {
+        return InstallMethod::MsStore;
+    }
+
     // 1. Scoop: installed under %USERPROFILE%\scoop\apps\pairee
     if let Some(profile) = dirs_home() {
         let scoop_path = profile.join("scoop").join("apps").join("pairee");
@@ -115,6 +123,14 @@ pub fn detect_os() -> InstallMethod {
 
     // Default: zip / PowerShell manual install
     InstallMethod::ZipManual
+}
+
+/// True for a binary inside an MSIX package (`...\WindowsApps\<package>\pairee.exe`).
+#[cfg(any(target_os = "windows", test))]
+fn is_ms_store_path(exe: &std::path::Path) -> bool {
+    exe.to_string_lossy()
+        .split(['/', '\\'])
+        .any(|c| c.eq_ignore_ascii_case("WindowsApps"))
 }
 
 #[cfg(target_os = "windows")]
@@ -158,6 +174,22 @@ fn is_inno_setup_install() -> bool {
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[test]
+    fn ms_store_paths_are_recognised() {
+        assert!(is_ms_store_path(Path::new(
+            r"C:\Program Files\WindowsApps\30176FittyDev.Pairee_0.11.0.0_x64__023m4rw42zhg8\pairee.exe"
+        )));
+        assert!(is_ms_store_path(Path::new(
+            r"C:\Users\u\AppData\Local\Microsoft\windowsapps\pairee.exe"
+        )));
+        assert!(!is_ms_store_path(Path::new(
+            r"C:\Users\u\AppData\Local\Programs\FittyAr\Pairee\pairee.exe"
+        )));
+        assert!(!is_ms_store_path(Path::new(
+            "/opt/WindowsAppsBackup/pairee"
+        )));
+    }
 
     #[test]
     fn nix_paths_are_recognised_strictly() {

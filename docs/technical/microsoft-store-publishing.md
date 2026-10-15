@@ -60,75 +60,28 @@ All assets must be transparent PNGs:
 
 ## Step 3 — The `AppxManifest.xml` File
 
-Create a file named `AppxManifest.xml` in your staging folder. Populate it with your Partner Center product identity details:
+The package manifest is [`manifests/msix/AppxManifest.xml`](../../manifests/msix/AppxManifest.xml);
+`.github/scripts/package-msix.ps1` copies it into the staging folder and
+fills in the identity, the version (`X.Y.Z.0`) and the architecture. It
+declares:
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<Package
-  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
-  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+- the `pairee` command (`uap5:AppExecutionAlias`, console subsystem), so the
+  Store installation starts from any terminal like the other installers;
+- the languages of `lang/` in the variants that get their own Store listing
+  (`<Resources>`: en-US, en-GB, en-AU, en-CA, en-IN, es-ES, es-MX, es-AR,
+  es-CO, es-CL, es-US);
+- `runFullTrust`, required by a desktop (Win32) file manager.
 
-  <Identity
-    Name="TEMPLATE_PACKAGE_IDENTITY_NAME"
-    Publisher="TEMPLATE_PACKAGE_IDENTITY_PUBLISHER"
-    Version="0.6.1.0" 
-    ProcessorArchitecture="x64" />
-
-  <Properties>
-    <DisplayName>Pairee</DisplayName>
-    <PublisherDisplayName>TEMPLATE_PUBLISHER_DISPLAY_NAME</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
-  </Properties>
-
-  <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
-  </Dependencies>
-
-  <Resources>
-    <Resource Language="en-US" />
-    <Resource Language="es-ES" />
-  </Resources>
-
-  <Applications>
-    <Application Id="Pairee"
-      Executable="pairee.exe"
-      EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements
-        DisplayName="Pairee"
-        Description="A modern, sleek terminal dual-panel file manager."
-        BackgroundColor="transparent"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
-      </uap:VisualElements>
-    </Application>
-  </Applications>
-
-  <Capabilities>
-    <!-- Allows the Win32 application to run with full user access (required for file managers) -->
-    <rescap:Capability Name="runFullTrust" />
-  </Capabilities>
-</Package>
-```
+The listing text for those languages is in [`store-listing.md`](store-listing.md).
 
 > [!IMPORTANT]
 > The template manifest contains placeholders (`TEMPLATE_PACKAGE_IDENTITY_NAME`, `TEMPLATE_PACKAGE_IDENTITY_PUBLISHER`, and `TEMPLATE_PUBLISHER_DISPLAY_NAME`) to prevent hardcoding sensitive credentials in the source code.
 > 
 > - **Local Development:** `cargo xtask dev msix-package` (then `msix-cert`, `msix-sign`, `msix-install`) packages the local release build with `.github/scripts/package-msix.ps1`, the script the Release workflow uses; unset `STORE_*` variables fall back to the Pairee Store identity defined in that script.
-> - **CI/CD Pipeline (GitHub Actions):** To compile a production-ready package with your actual credentials, you should configure GitHub Repository secrets or variables.
-> 
-> ### How to configure Store variables:
-> 1. Go to your GitHub repository **Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions**.
-> 2. Create the following Secrets or Variables (both are supported, but Variables are recommended for public values):
->    - `STORE_PACKAGE_NAME`: The Package Identity Name (e.g. `30176FittyDev.Pairee`).
->    - `STORE_PUBLISHER`: The Package Identity Publisher CN (e.g. `CN=EDC5BDED-A726-42CD-B98E-5657B88D9832`).
->    - `STORE_PUBLISHER_DISPLAY_NAME`: The Publisher Display Name (e.g. `FittyAr`).
-> 
-> The pipeline dynamically injects these environment variables and substitutes them during build time. If you do not configure these secrets, the pipeline automatically falls back to our default test values.
+> - **CI/CD Pipeline (GitHub Actions):** the Release workflow reads `STORE_PACKAGE_NAME`, `STORE_PUBLISHER` and `STORE_PUBLISHER_DISPLAY_NAME` (repository secrets or variables) and attaches `pairee-X.Y.Z-x64.msix` and `pairee-X.Y.Z-arm64.msix` to every release.
 
----
+Installed from the Store, Pairee detects the `WindowsApps` folder and leaves
+updates to the Store (`InstallMethod::MsStore`) instead of replacing itself.
 
 ## Step 4 — Compiling the MSIX Package
 
@@ -200,8 +153,17 @@ During ingestion, the Microsoft Store will verify the identity matches your acco
 
 ---
 
-## Automatic Updates
-Once users install the MSIX version, Windows Update will automatically handle application updates. Whenever you publish a new version of the MSIX package to Partner Center:
-1. Increment the version number in `<Identity Version="0.6.1.0" ... />` inside `AppxManifest.xml`.
-2. Pack and upload the new `.msix` package.
-3. Windows Store will push the update to all active users silently in the background.
+## Every release
+
+The Release workflow builds the MSIX packages but does **not** submit them:
+the Store keeps the last version uploaded to Partner Center (it stayed on
+0.6.1 from July to October 2026 because of this). After each release:
+
+1. Download `pairee-X.Y.Z-x64.msix` and `pairee-X.Y.Z-arm64.msix` from the
+   GitHub release (the version inside is already `X.Y.Z.0`).
+2. Partner Center → Pairee → **Start update** → **Packages**: upload both and
+   remove the previous ones.
+3. **Store listings**: paste "What's new" from [`store-listing.md`](store-listing.md)
+   into every language (update that file first from `docs/CHANGELOG.md`).
+4. **Submit to the Store**. Certification usually takes one to three days;
+   installed copies then update through the Store.

@@ -11,8 +11,13 @@
 
 `FittyAr.Pairee` is **not yet in** [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs)
 (the 0.6.0 pull requests #394315 and #394525 were closed unmerged; the first
-one failed on a missing MSVC runtime). `winget.yml` handles both cases on its
-own, after every published release:
+one failed on a missing MSVC runtime). The 0.11.0 new-package pull request,
+[#452771](https://github.com/microsoft/winget-pkgs/pull/452771), passed every
+validation check and waits for an administrator: the `Policy-Test-1.2`
+(security) label, most likely raised by the code Pairee downloads (its
+updater and plugin manager) and only a Windows Package Manager administrator
+can clear it. `winget.yml` handles both cases on its own, after every
+published release:
 
 | Package in winget-pkgs? | What `winget.yml` does |
 |---|---|

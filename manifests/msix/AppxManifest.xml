@@ -2,8 +2,10 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  IgnorableNamespaces="uap uap5 desktop4 rescap">
 
   <!-- Identity: Update Publisher to match your Partner Center ID (e.g. CN=12345-...) -->
   <Identity
@@ -19,26 +21,47 @@
   </Properties>
 
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
 
+  <!-- The languages of lang/ (English and Spanish) in the variants that get
+       their own Store listing (docs/technical/store-listing.md). -->
   <Resources>
     <Resource Language="en-US" />
+    <Resource Language="en-GB" />
+    <Resource Language="en-AU" />
+    <Resource Language="en-CA" />
+    <Resource Language="en-IN" />
     <Resource Language="es-ES" />
+    <Resource Language="es-MX" />
+    <Resource Language="es-AR" />
+    <Resource Language="es-CO" />
+    <Resource Language="es-CL" />
+    <Resource Language="es-US" />
   </Resources>
 
   <Applications>
     <Application Id="Pairee"
       Executable="pairee.exe"
-      EntryPoint="Windows.FullTrustApplication">
+      EntryPoint="Windows.FullTrustApplication"
+      desktop4:Subsystem="console"
+      desktop4:SupportsMultipleInstances="true">
       <uap:VisualElements
         DisplayName="Pairee"
-        Description="A modern, sleek terminal dual-panel file manager."
+        Description="Dual-panel terminal file manager inspired by Norton Commander and Far Manager."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <!-- `pairee` on the command line of any terminal. -->
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias desktop4:Subsystem="console">
+            <uap5:ExecutionAlias Alias="pairee.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

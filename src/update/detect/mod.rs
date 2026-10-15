@@ -24,6 +24,7 @@ mod tests {
             InstallMethod::Winget,
             InstallMethod::Scoop,
             InstallMethod::Chocolatey,
+            InstallMethod::MsStore,
             InstallMethod::Deb,
             InstallMethod::Rpm,
         ];

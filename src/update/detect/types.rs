@@ -42,6 +42,9 @@ pub enum InstallMethod {
     /// Installed via Chocolatey.
     #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     Chocolatey,
+    /// Installed from the Microsoft Store (MSIX package under `WindowsApps`).
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    MsStore,
 
     /// Could not determine the install method.
     #[allow(dead_code)]
@@ -61,6 +64,7 @@ impl InstallMethod {
                 | Self::Winget
                 | Self::Scoop
                 | Self::Chocolatey
+                | Self::MsStore
                 | Self::Deb
                 | Self::Rpm
         )
@@ -77,6 +81,7 @@ impl InstallMethod {
             Self::Winget => Some("winget upgrade FittyAr.Pairee".to_string()),
             Self::Scoop => Some("scoop update pairee".to_string()),
             Self::Chocolatey => Some("choco upgrade pairee".to_string()),
+            Self::MsStore => Some("winget upgrade --id 9PBSDNBTP2JZ --source msstore".to_string()),
             Self::Deb => Some("sudo apt-get install --only-upgrade pairee".to_string()),
             Self::Rpm => {
                 Some("sudo dnf upgrade pairee  # or: sudo zypper update pairee".to_string())
@@ -100,6 +105,7 @@ impl InstallMethod {
             Self::Winget => "winget",
             Self::Scoop => "Scoop",
             Self::Chocolatey => "Chocolatey",
+            Self::MsStore => "Microsoft Store",
             Self::Unknown => "unknown",
         }
     }

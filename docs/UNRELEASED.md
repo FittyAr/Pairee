@@ -2,6 +2,8 @@
 
 ### Added
 
+- Microsoft Store: the package registers the `pairee` command, so the Store installation starts from any terminal, and declares English and Spanish in their regional variants (en-GB, en-AU, en-CA, en-IN, es-MX, es-AR, es-CO, es-CL, es-US) for the Store listings.
+
 ### Improved
 
 ### Changed
@@ -16,6 +18,8 @@
 ### Removed
 
 ### Fixed
+
+- Updater: a copy installed from the Microsoft Store is recognized (`WindowsApps` folder) and points to the Store for updates instead of trying to replace itself in a read-only folder.
 
 - Plugins: Secure Mode no longer lets `Command:cwd` or `tar`/`git`/`zip` path arguments write into the config or other plugins; uninstalling clears the plugin's trust and data; an unreachable blocklist or a corrupt `plugins.lock` is an error instead of being ignored; installs and `install_local` are staged and swapped atomically; reloads cannot register a stale plugin; `developer package` no longer rewrites the source manifest.
 - Transfers and remotes: 7z extraction no longer hangs on stderr output, FTP/S3 paths with spaces or accents and WebDAV absolute links open correctly, SFTP write errors are reported, copying a folder into a same-named panel folder nests, `descript.ion` handles names with quotes, archive entries with Windows-invalid names are refused, and the admin listing asks for the sudo password.
