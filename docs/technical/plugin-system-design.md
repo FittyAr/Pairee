@@ -321,8 +321,9 @@ To prevent even trusted plugins from stealthily exfiltrating data or stealing se
 * **Activation:** Enabled via the main configuration file (`secure_mode = true` at the top level of `config.toml`).
 * **Immutability:** The main configuration object is loaded as read-only by the Rust core; Lua scripts have no write access to this memory space and cannot disable Secure Mode.
 * **Network & Socket Interception:** Even if a plugin is set to `trusted = true`, the Rust runtime blocks any TCP/UDP socket creation or HTTP calls from within the VM environment.
-* **Process Spawning Allowlist:** `pairee.Command` and `pairee.fs.spawn()` go through `plugin::command_policy::CommandPolicy`. A program runs only if it is a bare name declared in the manifest (`[permissions] commands`), is not a shell / interpreter / network tool / command wrapper (hard deny list, also checked on the symlink target), and resolves through an absolute `PATH` entry (Windows: `.exe` / `.com` only). The resolved absolute path is executed.
-* **FS Boundary Sandboxing:** Under Secure Mode, file read/write operations through `pairee.fs` are restricted to the active workspace directory and the user's configuration folders, preventing access to root paths or system directories.
+* **Process Spawning Allowlist:** `pairee.Command` and `pairee.fs.spawn()` go through `plugin::command_policy::CommandPolicy`. A program runs only if it is a bare name declared in the manifest (`[permissions] commands`), is not a shell / interpreter / network tool / command wrapper (hard deny list, also checked on the symlink target), and resolves through an absolute `PATH` entry (Windows: `.exe` / `.com` only). The resolved absolute path is executed. The deny list also covers build tools and package managers (`cargo`, `make`, `npm`, `pip`, `go`, `gcc`, ...), containers, debuggers and tracers, launchers (`xdg-open`, `open`, `wsl`) and tools that overwrite any path they are given (`cp`, `mv`, `dd`, `tee`, `rm`, `ln`, `install`, `rsync`, `scp`, `sftp`). `Command:cwd` must lie in the plugin's **write** jail, and the paths the common options of `tar`, `git` and `zip` make them write (`-C`, a created archive, a clone destination, ...) are jailed too (`command_policy::args::path_arguments`; best effort for those three tools). Children get a null stdin unless asked, `output()` is capped at 16 MiB per stream and timed out, and children are killed when their handle drops.
+* **FS Boundary Sandboxing:** Under Secure Mode, file read/write operations through `pairee.fs` are restricted to the plugin's workspace and the user's configuration, cache and plugin folders. The workspace is the active panel's local folder (`plugin::workspace`, refreshed every tick), never the process launch folder; the user's home and filesystem roots are not workspaces. Pairee's config folder is read-only except the plugin's own data folder, `<data>/pairee/plugin-data/<plugin name>`, which exists from the moment the runtime is bound.
+* **Reloads:** each reload bumps a generation counter and a load that began earlier is refused at registration (`registry::register_plugin`), so a slow stale load cannot resurrect a plugin the user just disabled.
 
 ---
 
@@ -423,22 +424,23 @@ Setting `plugins_developer_mode = true` in `config.toml` shows the Developer Too
 `pairee developer <cmd>` (`src/run/dev_cli.rs`) acts on the current directory and does not require developer mode:
 * `init <name>`: Creates a plugin from the `plugin-template` branch.
 * `lint`: Checks the manifest and `default_language`, that `main.lua` exists, unsafe calls (`os.execute`, `io.open`, `os.system`, `dofile`, `loadfile`) in a plugin without `requires_trust`, and suggested keys per built-in preset.
-* `package`: Runs the publication checks (14.2), resolves the license, copies the plugin into a local clone of `plugin-registry`, writes `sha256.sum` and the manifest `[files]` table, and updates `registry/index.toml`. It does not detect languages or the plugin type: `languages` and `type` are taken from the manifest as written.
-* `submit`: `package`, then a local commit and, with a GitHub token, a fork push and a pull request.
+* `package`: Runs the publication checks (14.2), resolves the license, copies the plugin into a local clone of `plugin-registry`, writes `sha256.sum` and the manifest `[files]` table there (the author's folder and manifest are never modified; a generated MIT `LICENSE` also goes to the copy only), and updates `registry/index.toml`. It does not detect languages or the plugin type: `languages` and `type` are taken from the manifest as written (`type` is ignored by Pairee).
+* `submit`: `package`, then a local commit on the clone's `plugin-registry` branch and, with a GitHub token (typed without echo), a fork push and a pull request.
 
 ### 14.2 Publication Checks
 `validate_for_publish` (`src/plugin/developer_tool/package/validate.rs`) stops at the first failure:
 1. `manifest.toml` exists and parses.
-2. `name` and `author` only use `[A-Za-z0-9_-]` (checked by `registry_plugin_dir` when the files are copied).
-3. The icon exists and is a readable 256x256 or 512x512 image.
-4. At least one screenshot is listed; each exists and is a readable image of at least 640x480.
+2. The manifest's `icon` is a file that would be published (inside the plugin folder, not hidden, not a link) and a readable 256x256 or 512x512 image.
+3. At least one screenshot is listed; each is a published file and a readable image of at least 640x480.
+4. `main.lua` exists, every file name is one the installer's `safe_join` accepts (no Windows device names, trailing dots or spaces, names equal ignoring case), and the registry limits hold (1000 files, 16 MiB per file, 64 MiB in total).
+5. Afterwards, before anything is fetched or written, `name` and `author` only use `[A-Za-z0-9_-]` (checked by `registry_plugin_dir`).
 
-File naming, translation coverage, key alignment, Lua syntax and UTF-8 encoding are not validated when packaging.
+Translation coverage, key alignment, Lua syntax and UTF-8 encoding are not validated when packaging.
 
-### 14.3 Automated PR Submission UI & Metadata Wizard
-An interactive developer-only TUI metadata builder and submission wizard is added to submit plugins directly from Pairee:
-1. **Metadata Wizard:** Prompts the developer step-by-step to input missing manifest fields (author, description, license), displays the auto-detected language files and plugin category, and validates the configuration.
-2. **PR Automation:** Collects GitHub PATs, fork URLs, and commit descriptions, packages the files (updating `sha256.sum`), creates a local Git branch, commits, pushes to the fork, and creates the Pull Request on GitHub automatically.
+### 14.3 PR Submission
+There is no metadata wizard: the manifest is taken as written, and nothing (language files, plugin category) is auto-detected. The submit flow (`submit.rs`):
+1. **Commit:** the staged registry copy is committed on the `plugin-registry` branch of the local clone. A clone holding unsubmitted work is never reset or deleted by a later package, offline or not.
+2. **PR automation (with a GitHub token):** the fork owner is the token's account (no fork URL is asked); Pairee forks `FittyAr/Pairee`, waits until the fork exists, force-pushes `plugin-registry` to it (one credentials attempt; a ref the server rejects is an error) and opens a pull request from `<login>:plugin-registry` to the official `plugin-registry` branch. Without a token it prints the manual commands.
 
 ---
 
@@ -446,13 +448,14 @@ An interactive developer-only TUI metadata builder and submission wizard is adde
 
 To simplify distribution, the registry distributes raw directory structures with hash checks:
 
-* **Directory format:** Plugins are stored as raw folders in the registry branch under `registry/plugins/<name>/<version>/`.
-* **Integrity verification:** A `sha256.sum` file inside the version folder lists the SHA-256 hash of every single file. The installer downloads each file individually and validates its hash.
-* **Plugin Management:**
-  * `pairee plugin search <query>`: Local search of cached `index.toml`. Results display colored badges for plugin category (e.g., `[Hook]`) and supported languages (e.g., `[EN] [ES]`).
+* **Directory format:** Plugins are stored as raw folders in the registry branch under `registry/plugins/<shard>/<author>/<name>/` (`<shard>` is the lowercased first letter of the author, `_` for a non-letter). Only the **latest** version is kept there; there is no per-version folder.
+* **Integrity verification:** The signed `manifest.toml` of that folder carries a `[files]` table with the SHA-256 of every other file. The installer downloads each file individually, validates its hash in memory and only then stages the install (`sha256.sum` is written for humans; the installer does not use it).
+* **Plugin Management** (details in `plugin-registry-spec.md`, section 5):
+  * `pairee plugin search <query>`: Searches the remote `index.toml` by name and description; blocked plugins are left out. Results show `[Hook]` when the index lists hooks and the supported languages (e.g., `[EN] [ES]`).
   * `pairee plugin list`: Inspect installed versions, trust settings, and list available updates.
-  * `pairee plugin check-updates`: Query the registry branch to check for newer compatible versions.
-  * `pairee plugin update`: Automated file-by-file update and hash verification.
+  * `pairee plugin check-updates`: Query the registry branch to check for newer versions (never a lower one).
+  * `pairee plugin update`: Reinstalls plugins with a newer version through the same checked, atomic install (including the `min_pairee` / `@since` checks).
+  * `pairee plugin remove`: Removes the folder, the `plugins.lock` entry, the data folder and the `config.toml` entries.
 
 ---
 

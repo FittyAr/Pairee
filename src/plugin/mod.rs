@@ -15,5 +15,6 @@ pub mod runtime;
 pub mod sandbox;
 pub mod updater;
 pub mod worker;
+pub mod workspace;
 
 pub use manager::{PluginManager, process_plugin_requests};

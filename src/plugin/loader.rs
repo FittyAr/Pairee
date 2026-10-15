@@ -110,6 +110,7 @@ pub async fn load_plugin(
     tx: mpsc::Sender<PluginRequest>,
 ) -> anyhow::Result<()> {
     let name = &options.name;
+    let generation = crate::plugin::registry::generation();
     // 1. Read manifest.toml
     let manifest_path = path.join("manifest.toml");
     if !manifest_path.exists() {
@@ -178,7 +179,7 @@ pub async fn load_plugin(
         annotations,
         methods,
     };
-    crate::plugin::registry::register_plugin(loaded, tx).await?;
+    crate::plugin::registry::register_plugin(loaded, tx, generation).await?;
 
     tracing::info!(
         "Successfully loaded plugin: {} v{} (License: {:?}, Languages: {:?})",

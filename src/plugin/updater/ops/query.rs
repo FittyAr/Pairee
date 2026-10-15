@@ -3,7 +3,7 @@
 
 use crate::config::settings::PluginConfig;
 use crate::plugin::updater::http::{self, MAX_MANIFEST_BYTES};
-use crate::plugin::updater::lockfile::read_lockfile;
+use crate::plugin::updater::lockfile::try_read_lockfile;
 use crate::plugin::updater::registry::{
     fetch_blocklist, fetch_index_with, fetch_signed, plugin_file_path, registry_author,
 };
@@ -18,7 +18,7 @@ pub async fn list_installed(
     plugins: &HashMap<String, PluginConfig>,
     trust: &RegistryTrust,
 ) -> anyhow::Result<Report> {
-    let lock = read_lockfile();
+    let lock = try_read_lockfile()?;
     let mut report = Report::default();
     report.line("Installed Plugins:");
     if lock.plugins.is_empty() {
@@ -26,7 +26,13 @@ pub async fn list_installed(
         return Ok(report);
     }
     let index = fetch_index_with(trust, &mut report).await.ok();
-    let blocklist = fetch_blocklist(trust, &mut report).await?;
+    // Listing what is installed works offline; the badges just are not shown.
+    let blocklist = fetch_blocklist(trust, &mut report)
+        .await
+        .unwrap_or_else(|e| {
+            report.warn(format!("Blocked plugins cannot be shown: {e:#}"));
+            Default::default()
+        });
 
     for (name, info) in &lock.plugins {
         let pin_str = if info.pinned { " [PINNED]" } else { "" };
@@ -59,7 +65,7 @@ pub async fn check_updates(trust: &RegistryTrust) -> anyhow::Result<Report> {
     report.line("Checking for plugin updates...");
     let index = fetch_index_with(trust, &mut report).await?;
     let blocklist = fetch_blocklist(trust, &mut report).await?;
-    let lock = read_lockfile();
+    let lock = try_read_lockfile()?;
     let mut updates_available = 0;
 
     for (name, info) in &lock.plugins {

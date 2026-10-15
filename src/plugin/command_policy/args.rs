@@ -209,6 +209,185 @@ const GIT_CONFIG: ConfigRules = ConfigRules {
     ],
 };
 
+/// What a command does to a path named in its arguments.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PathUse {
+    Read,
+    Write,
+}
+
+/// Paths that `tool` writes (or, for `zip`, packs) according to `args`:
+/// where `tar` extracts / creates, where `git` works or clones to, the
+/// archive `zip` creates. The caller checks each against the plugin's
+/// write jail, so an allowed tool cannot overwrite what `pairee.fs` could
+/// not (Pairee's own config, other plugins). This is a best-effort list for
+/// the common options of the few tools Secure Mode lets through; the
+/// working directory is checked separately. Tools without rows have none.
+pub fn path_arguments(tool: &str, args: &[String]) -> Vec<(String, PathUse)> {
+    match tool {
+        "tar" | "gtar" | "bsdtar" => tar_paths(args),
+        "git" => git_paths(args),
+        "zip" => zip_paths(args),
+        _ => Vec::new(),
+    }
+}
+
+/// The value of option `short` / `long` at `args[i]`: `-C dir`, `-Cdir`,
+/// `--directory dir`, `--directory=dir`, and a bundle ending in the letter
+/// (`-xzf a.tar`).
+fn option_value<'a>(args: &'a [String], i: usize, short: char, long: &str) -> Option<&'a str> {
+    let arg = args[i].as_str();
+    let next = args.get(i + 1).map(String::as_str);
+    if let Some(rest) = arg.strip_prefix("--") {
+        let (name, value) = rest
+            .split_once('=')
+            .map_or((rest, None), |(n, v)| (n, Some(v)));
+        let name = format!("--{name}");
+        return (name.len() >= 3 && long.starts_with(&name)).then(|| value.or(next))?;
+    }
+    let bundle = arg.strip_prefix('-')?;
+    let at = bundle.find(short)?;
+    let rest = &bundle[at + short.len_utf8()..];
+    if rest.is_empty() { next } else { Some(rest) }
+}
+
+fn tar_paths(args: &[String]) -> Vec<(String, PathUse)> {
+    let mut creating = false;
+    let mut files = Vec::new();
+    let mut paths = Vec::new();
+    for (i, arg) in args.iter().enumerate() {
+        let bare = i == 0 && !arg.starts_with('-');
+        if bare || (arg.starts_with('-') && !arg.starts_with("--")) {
+            let letters = arg.trim_start_matches('-');
+            // Letters after `f` / `C` are that option's value (`-Cout`).
+            creating |= letters
+                .chars()
+                .take_while(|c| !matches!(c, 'f' | 'C'))
+                .any(|c| matches!(c, 'c' | 'r' | 'u'));
+        } else if ["--create", "--append", "--update"]
+            .iter()
+            .any(|o| long_matches(arg, o))
+        {
+            creating = true;
+        }
+        let value = if bare {
+            // `tar xzf a.tar`: the operand after the bundle belongs to `f`.
+            arg.contains('f')
+                .then(|| args.get(i + 1).map(String::as_str))
+                .flatten()
+        } else {
+            option_value(args, i, 'f', "--file")
+        };
+        if let Some(file) = value
+            && (bare || arg.starts_with('-'))
+        {
+            files.push(file.to_string());
+        }
+        if !bare && let Some(dir) = option_value(args, i, 'C', "--directory") {
+            paths.push((dir.to_string(), PathUse::Write));
+        }
+    }
+    let file_use = if creating {
+        PathUse::Write
+    } else {
+        PathUse::Read
+    };
+    paths.extend(files.into_iter().map(|f| (f, file_use)));
+    paths
+}
+
+fn git_paths(args: &[String]) -> Vec<(String, PathUse)> {
+    const VALUE_OPTIONS: &[&str] = &[
+        "-b",
+        "--branch",
+        "--depth",
+        "-o",
+        "--origin",
+        "--reference",
+        "--filter",
+        "-j",
+        "--jobs",
+        "-c",
+        "--config",
+        "--shallow-since",
+        "--shallow-exclude",
+    ];
+    let mut paths = Vec::new();
+    let mut operands: Vec<&str> = Vec::new();
+    let mut subcommand_seen = false;
+    let mut skip = false;
+    for (i, arg) in args.iter().enumerate() {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if !subcommand_seen {
+            // Global options: `-C <dir>` / `--work-tree <dir>` move the work.
+            if let Some(dir) = option_value(args, i, 'C', "--work-tree")
+                .filter(|_| arg.starts_with("-C") || arg.starts_with("--work"))
+            {
+                paths.push((dir.to_string(), PathUse::Write));
+                skip = arg == "-C" || arg == "--work-tree";
+            } else if arg == "-c" || arg == "--config-env" {
+                skip = true;
+            } else if !arg.starts_with('-') {
+                subcommand_seen = true;
+                operands.push(arg);
+            }
+            continue;
+        }
+        if let Some(dir) = arg.strip_prefix("--separate-git-dir=") {
+            paths.push((dir.to_string(), PathUse::Write));
+        } else if arg == "--separate-git-dir" {
+            paths.extend(args.get(i + 1).map(|d| (d.clone(), PathUse::Write)));
+            skip = true;
+        } else if VALUE_OPTIONS.contains(&arg.as_str()) {
+            skip = true;
+        } else if !arg.starts_with('-') {
+            operands.push(arg);
+        }
+    }
+    // operands[0] is the subcommand.
+    let destination = match operands.as_slice() {
+        ["clone", _url, dest, ..] => Some(*dest),
+        ["init", dest, ..] => Some(*dest),
+        ["worktree", "add", path, ..] => Some(*path),
+        _ => None,
+    };
+    paths.extend(destination.map(|d| (d.to_string(), PathUse::Write)));
+    paths
+}
+
+fn zip_paths(args: &[String]) -> Vec<(String, PathUse)> {
+    let mut paths = Vec::new();
+    let mut operands = Vec::new();
+    let mut skip = false;
+    for (i, arg) in args.iter().enumerate() {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if let Some(path) = arg.strip_prefix("--output-file=") {
+            paths.push((path.to_string(), PathUse::Write));
+        } else if arg == "--output-file" || arg == "-O" || arg == "-b" || arg == "--temp-path" {
+            paths.extend(args.get(i + 1).map(|p| (p.clone(), PathUse::Write)));
+            skip = true;
+        } else if !arg.starts_with('-') {
+            operands.push(arg);
+        }
+    }
+    // First operand: the archive; the rest are files to pack.
+    for (n, operand) in operands.into_iter().enumerate() {
+        let usage = if n == 0 {
+            PathUse::Write
+        } else {
+            PathUse::Read
+        };
+        paths.push((operand.clone(), usage));
+    }
+    paths
+}
+
 /// Arguments Secure Mode puts before the plugin's own for `tool`.
 pub fn prepended(tool: &str) -> &'static [&'static str] {
     rule_of(tool).map_or(&[], |rule| rule.prepend)
@@ -450,6 +629,45 @@ mod tests {
                 "{tool} {list:?}: {err}"
             );
         }
+    }
+
+    #[test]
+    fn written_paths_are_found_in_common_forms() {
+        use super::{PathUse::*, path_arguments};
+        let paths = |tool: &str, list: &[&str]| path_arguments(tool, &args(list));
+        let w = |p: &str| (p.to_string(), Write);
+        let r = |p: &str| (p.to_string(), Read);
+        assert_eq!(
+            paths("tar", &["-xzf", "a.tgz", "-C", "out"]),
+            [w("out"), r("a.tgz")]
+        );
+        assert_eq!(
+            paths("tar", &["xf", "a.tar", "-Cout"]),
+            [w("out"), r("a.tar")]
+        );
+        assert_eq!(
+            paths("tar", &["--directory=out", "-xf", "a"]),
+            [w("out"), r("a")]
+        );
+        assert_eq!(paths("tar", &["-czf", "../x.tgz", "d"]), [w("../x.tgz")]);
+        assert_eq!(paths("tar", &["cf", "x.tar", "d"]), [w("x.tar")]);
+        assert_eq!(paths("git", &["-C", "repo", "status"]), [w("repo")]);
+        assert_eq!(paths("git", &["--work-tree=wt", "status"]), [w("wt")]);
+        assert_eq!(
+            paths("git", &["clone", "--depth", "1", "https://h/r.git", "dest"]),
+            [w("dest")]
+        );
+        assert_eq!(paths("git", &["init", "newrepo"]), [w("newrepo")]);
+        assert_eq!(
+            paths("git", &["clone", "--separate-git-dir", "g", "u", "d"]),
+            [w("g"), w("d")]
+        );
+        assert!(paths("git", &["log", "--oneline"]).is_empty());
+        assert_eq!(
+            paths("zip", &["-r", "out.zip", "dir"]),
+            [w("out.zip"), r("dir")]
+        );
+        assert!(paths("rg", &["x", "."]).is_empty());
     }
 
     #[test]

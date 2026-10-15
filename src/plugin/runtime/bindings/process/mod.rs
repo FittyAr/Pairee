@@ -1,5 +1,6 @@
 //! `pairee.Command` builder, `Child`, `Output`, and `Status`.
 
+mod capture;
 mod child;
 mod command;
 mod output;

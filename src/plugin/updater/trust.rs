@@ -185,6 +185,14 @@ impl RegistryTrust {
             .for_key(&self.public_key)
     }
 
+    /// Whether every registry file must carry a valid signature: signatures
+    /// are required and the registry is declared signed or this
+    /// installation has verified a signed file before. A file that cannot
+    /// be fetched is then an error, not an empty list.
+    pub fn expects_signed(&self) -> bool {
+        self.require_signature && (self.registry_signed || self.seen_signed())
+    }
+
     /// Whether a file signed with this key has been verified before.
     fn seen_signed(&self) -> bool {
         self.state_path
@@ -244,7 +252,7 @@ impl RegistryTrust {
 
     /// A file published without a signature.
     fn unsigned(&self, signed_name: &str) -> Result<SignatureStatus> {
-        if self.require_signature && (self.registry_signed || self.seen_signed()) {
+        if self.expects_signed() {
             bail!(t_fill("plugin_registry_err_unsigned", &[signed_name]));
         }
         tracing::warn!("Plugin registry file {signed_name} is not signed");

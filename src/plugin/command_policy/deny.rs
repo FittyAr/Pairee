@@ -106,6 +106,59 @@ const DENIED_COMMANDS: &[&str] = &[
     "runas",
     "start",
     "open",
+    // Build tools, package managers and containers run project code (build
+    // scripts, hooks, Dockerfiles) or pull it from the network
+    "cargo",
+    "rustc",
+    "make",
+    "gmake",
+    "cmake",
+    "ninja",
+    "npm",
+    "npx",
+    "yarn",
+    "pnpm",
+    "pip",
+    "pip3",
+    "pipx",
+    "go",
+    "dotnet",
+    "gcc",
+    "g++",
+    "cc",
+    "c++",
+    "clang",
+    "clang++",
+    "docker",
+    "podman",
+    "kubectl",
+    // Debuggers, tracers and sandbox escapes
+    "gdb",
+    "lldb",
+    "strace",
+    "ltrace",
+    "unshare",
+    "nsenter",
+    "chroot",
+    "flock",
+    "parallel",
+    "watch",
+    // Launchers of other programs
+    "xdg-open",
+    "mpv",
+    "wsl",
+    // Writers that overwrite arbitrary paths named in their arguments
+    "cp",
+    "mv",
+    "dd",
+    "tee",
+    "rm",
+    "ln",
+    "install",
+    "shred",
+    "truncate",
+    "chmod",
+    "chown",
 ];
 
 /// Prefixes that are always denied (versioned interpreters such as
@@ -187,6 +240,14 @@ mod tests {
             "cmd.exe. ",
             "perl5.36",
             "curl",
+            "cargo",
+            "make",
+            "npm.cmd",
+            "docker.exe",
+            "wsl.exe",
+            "cp",
+            "rm",
+            "ssh",
             "",
         ] {
             assert!(denied(blocked), "{blocked:?} should be denied");
@@ -195,7 +256,7 @@ mod tests {
 
     #[test]
     fn ordinary_tools_are_not_denied() {
-        for allowed in ["git", "cargo", "ls", "C:\\tools\\rg.exe", "/usr/bin/fd"] {
+        for allowed in ["git", "tar", "ls", "C:\\tools\\rg.exe", "/usr/bin/fd"] {
             assert!(!denied(allowed), "{allowed:?} should not be denied");
         }
     }

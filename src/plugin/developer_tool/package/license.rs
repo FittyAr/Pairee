@@ -1,5 +1,7 @@
 //! License of a plugin being published: a `LICENSE` file without a license
 //! name in the manifest asks for one; no `LICENSE` file gets an MIT license.
+//! The decision never touches the author's folder: a generated `LICENSE` is
+//! returned as text and goes into the registry copy only.
 
 use crate::plugin::loader::PluginManifest;
 use std::path::Path;
@@ -8,33 +10,45 @@ use std::path::Path;
 /// the TUI has no prompt and publishes "Custom").
 pub type AskLicense<'a> = Option<&'a dyn Fn() -> String>;
 
-/// Decides the license to publish with, writing `LICENSE` when missing.
-/// `None` keeps the manifest as it is.
+/// The license a plugin is published with.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct License {
+    /// The `license` value for the published manifest.
+    pub name: String,
+    /// The text of a `LICENSE` file to add to the registry copy (the
+    /// plugin has none of its own).
+    pub generated_file: Option<String>,
+}
+
+/// Decides the license to publish with. Nothing is written.
 pub(super) fn resolve_license(
     plugin_dir: &Path,
     manifest: &PluginManifest,
     ask: AskLicense<'_>,
-) -> anyhow::Result<Option<String>> {
+) -> License {
     if !has_license_file(plugin_dir) {
         // No license file present. Auto-assign MIT
         let author_name = manifest.author.as_deref().unwrap_or("unknown");
-        std::fs::write(plugin_dir.join("LICENSE"), mit_license(author_name))?;
-        return Ok(Some("MIT".to_string()));
+        return License {
+            name: "MIT".to_string(),
+            generated_file: Some(mit_license(author_name)),
+        };
     }
-    let named = manifest
-        .license
-        .as_ref()
-        .is_some_and(|l| !l.trim().is_empty());
-    if named {
-        return Ok(manifest.license.clone());
+    let named = manifest.license.as_deref().map(str::trim);
+    let name = match named {
+        Some(name) if !name.is_empty() => name.to_string(),
+        _ => {
+            let answer = ask.map(|ask| ask()).unwrap_or_default();
+            match answer.trim() {
+                "" => "Custom".to_string(),
+                answer => answer.to_string(),
+            }
+        }
+    };
+    License {
+        name,
+        generated_file: None,
     }
-    let answer = ask.map(|ask| ask()).unwrap_or_default();
-    let answer = answer.trim();
-    Ok(Some(if answer.is_empty() {
-        "Custom".to_string()
-    } else {
-        answer.to_string()
-    }))
 }
 
 /// Check for LICENSE file (case-insensitive)
@@ -69,13 +83,17 @@ mod tests {
     }
 
     #[test]
-    fn a_plugin_without_a_license_file_gets_mit_in_its_authors_name() {
+    fn a_plugin_without_a_license_file_gets_mit_without_touching_its_folder() {
         let dir = tempfile::tempdir().unwrap();
-        let license = resolve_license(dir.path(), &manifest("author = \"Ana\"\n"), None).unwrap();
-        assert_eq!(license.as_deref(), Some("MIT"));
-        let text = std::fs::read_to_string(dir.path().join("LICENSE")).unwrap();
+        let license = resolve_license(dir.path(), &manifest("author = \"Ana\"\n"), None);
+        assert_eq!(license.name, "MIT");
+        let text = license.generated_file.unwrap();
         assert!(text.starts_with("MIT License"));
         assert!(text.contains(" Ana\n"), "{text}");
+        assert!(
+            !dir.path().join("LICENSE").exists(),
+            "the source is untouched"
+        );
     }
 
     #[test]
@@ -83,15 +101,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("License.md"), "terms").unwrap();
         let named = manifest("license = \"Apache-2.0\"\n");
-        let kept = resolve_license(dir.path(), &named, None).unwrap();
-        assert_eq!(kept.as_deref(), Some("Apache-2.0"));
+        let kept = resolve_license(dir.path(), &named, None);
+        assert_eq!(kept.name, "Apache-2.0");
+        assert_eq!(kept.generated_file, None);
 
         let unnamed = manifest("");
         let ask = || " BSD-3-Clause ".to_string();
-        let asked = resolve_license(dir.path(), &unnamed, Some(&ask)).unwrap();
-        assert_eq!(asked.as_deref(), Some("BSD-3-Clause"));
-        let silent = resolve_license(dir.path(), &unnamed, None).unwrap();
-        assert_eq!(silent.as_deref(), Some("Custom"), "the TUI has no prompt");
+        let asked = resolve_license(dir.path(), &unnamed, Some(&ask));
+        assert_eq!(asked.name, "BSD-3-Clause");
+        let silent = resolve_license(dir.path(), &unnamed, None);
+        assert_eq!(silent.name, "Custom", "the TUI has no prompt");
         assert_eq!(
             std::fs::read_to_string(dir.path().join("License.md")).unwrap(),
             "terms"

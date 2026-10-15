@@ -54,6 +54,24 @@ pub fn set_settings(
     apply(config);
 }
 
+/// Drops everything `config` keeps about plugin `name` (trust, enabled
+/// flag, settings) when it is uninstalled; whether anything was there.
+pub fn forget(config: &mut AppConfig, name: &str) -> bool {
+    let trust = config.settings.plugins.remove(name).is_some();
+    let values = config.settings.plugin_settings.remove(name).is_some();
+    trust || values
+}
+
+/// [`forget`] on the saved `config.toml`, for callers that hold no config
+/// (the CLI, the updater removing a blocked plugin).
+pub fn forget_saved(name: &str) -> anyhow::Result<()> {
+    let mut config = AppConfig::load_or_create()?;
+    if forget(&mut config, name) {
+        config.save()?;
+    }
+    Ok(())
+}
+
 /// Saves `config` and reloads the plugins with it (also used by the
 /// configuration dialog when its Secure Mode row changed).
 pub fn apply(config: &AppConfig) {
@@ -75,6 +93,29 @@ mod tests {
         assert!(!flip(&mut config, "demo", PluginToggle::Enabled));
         assert!(config.settings.plugins["demo"].trusted);
         assert!(flip_secure_mode(&mut config));
+    }
+
+    #[test]
+    fn uninstalling_forgets_trust_and_settings_on_disk_too() {
+        let dir = tempfile::tempdir().unwrap();
+        let _root = crate::config::paths::test_root::redirect(dir.path());
+        let mut config = AppConfig::default();
+        flip(&mut config, "demo", PluginToggle::Trust);
+        flip(&mut config, "other", PluginToggle::Trust);
+        set_settings(
+            &mut config,
+            "demo",
+            [("a".to_string(), "1".to_string())].into(),
+        );
+        assert!(forget(&mut config, "demo"));
+        assert!(!forget(&mut config, "demo"));
+        assert!(config.settings.plugins.contains_key("other"));
+        // A fresh install of `demo` must not come back trusted.
+        let mut again = AppConfig::default();
+        flip(&mut again, "demo", PluginToggle::Trust);
+        forget_saved("demo").unwrap();
+        let reloaded = AppConfig::load_or_create().unwrap();
+        assert!(!reloaded.settings.plugins.contains_key("demo"));
     }
 
     #[test]

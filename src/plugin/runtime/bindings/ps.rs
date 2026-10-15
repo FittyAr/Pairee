@@ -47,7 +47,12 @@ pub fn bind(lua: &mlua::Lua, origin: PluginOrigin) -> mlua::Result<mlua::Table> 
                     "pairee.ps.pub: '{event_name}' is reserved for Pairee events"
                 )));
             }
-            let json = crate::plugin::runtime::lua_json::to_json(lua_ctx, data)?.to_string();
+            // The cap applies while the value is walked, so an oversized
+            // message is refused before it is converted or copied.
+            let json =
+                crate::plugin::runtime::lua_json::to_json_capped(lua_ctx, data, MAX_PAYLOAD_BYTES)
+                    .map_err(|e| mlua::Error::runtime(format!("pairee.ps.pub: {e}")))?
+                    .to_string();
             if json.len() > MAX_PAYLOAD_BYTES {
                 return Err(mlua::Error::runtime(format!(
                     "pairee.ps.pub: the payload is larger than {MAX_PAYLOAD_BYTES} bytes"
@@ -100,5 +105,7 @@ mod tests {
             .exec()
             .unwrap_err();
         assert!(err.to_string().contains("larger than"), "{err}");
+        // The walk refuses it before any JSON is built.
+        assert!(err.to_string().contains("text larger"), "{err}");
     }
 }

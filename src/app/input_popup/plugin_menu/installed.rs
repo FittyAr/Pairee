@@ -29,9 +29,12 @@ fn toggle(
 
 /// Uninstalls `name` (asked first by `ConfirmUninstallPlugin`) and
 /// refreshes the Plugin Manager's Installed rows when it is on top.
-pub fn uninstall(state: &mut AppState, context: &AppContext, name: &str) {
+pub fn uninstall(state: &mut AppState, context: &mut AppContext, name: &str) {
     match crate::plugin::updater::remove(name) {
         Ok(_) => {
+            // `remove` cleared config.toml; drop the copy held in memory too
+            // so a later save cannot bring the trust entry back.
+            toggles::forget(&mut context.config, name);
             let name = name.to_string();
             tokio::spawn(async move {
                 crate::plugin::registry::unregister_plugin(&name).await;
@@ -74,11 +77,14 @@ pub fn handle_installed(
         }
         KeyCode::Char('p') | KeyCode::Char('P') => {
             if let Some(name) = installed.get(*cursor_idx).map(|p| &p.name) {
-                let mut lock = crate::plugin::updater::read_lockfile();
-                if let Some(p) = lock.plugins.get_mut(name) {
-                    p.pinned = !p.pinned;
+                // A corrupt lockfile is left alone (`pairee plugin verify`
+                // reports it).
+                if let Ok(mut lock) = crate::plugin::updater::try_read_lockfile() {
+                    if let Some(p) = lock.plugins.get_mut(name) {
+                        p.pinned = !p.pinned;
+                    }
+                    let _ = crate::plugin::updater::write_lockfile(&lock);
                 }
-                let _ = crate::plugin::updater::write_lockfile(&lock);
 
                 *installed = reload_installed_plugins(context, &None);
             }

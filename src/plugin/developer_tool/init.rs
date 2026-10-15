@@ -60,7 +60,7 @@ fn clone_from_template(
     progress_status(progress, t("plugin_dev_progress_locating_template"));
 
     // 1. Try local repository first
-    if let Some(repo_dir) = find_pairee_repo()
+    if let Some(repo_dir) = find_pairee_repo(TEMPLATE_BRANCH)
         && let Ok(repo) = git2::Repository::open(&repo_dir)
     {
         let branch_ref = format!("refs/heads/{}", TEMPLATE_BRANCH);
@@ -69,6 +69,13 @@ fn clone_from_template(
             && let Ok(tree) = commit.tree()
         {
             progress_status(progress, t("plugin_dev_progress_copying_template"));
+            // The first write error stops the walk and is returned: a
+            // half-copied template must not look like a created plugin.
+            let failure: std::cell::RefCell<Option<std::io::Error>> = Default::default();
+            let record = |error: std::io::Error| {
+                *failure.borrow_mut() = Some(error);
+                git2::TreeWalkResult::Abort
+            };
             let walk_res = tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
                 use git2::ObjectType;
                 let rel_path = if root.is_empty() {
@@ -100,19 +107,31 @@ fn clone_from_template(
                             return git2::TreeWalkResult::Ok;
                         }
                         let dest = target_path.join(&rel_path);
-                        if let Some(parent) = dest.parent() {
-                            let _ = std::fs::create_dir_all(parent);
+                        if let Some(parent) = dest.parent()
+                            && let Err(e) = std::fs::create_dir_all(parent)
+                        {
+                            return record(e);
                         }
-                        let _ = std::fs::write(&dest, blob.content());
+                        if let Err(e) = std::fs::write(&dest, blob.content()) {
+                            return record(e);
+                        }
                     }
                     Some(ObjectType::Tree) => {
                         let dir = target_path.join(&rel_path);
-                        let _ = std::fs::create_dir_all(&dir);
+                        if let Err(e) = std::fs::create_dir_all(&dir) {
+                            return record(e);
+                        }
                     }
                     _ => {}
                 }
                 git2::TreeWalkResult::Ok
             });
+            if let Some(error) = failure.into_inner() {
+                anyhow::bail!(
+                    "{}",
+                    t("plugin_dev_err_copy_template").replace("{}", &error.to_string())
+                );
+            }
 
             if walk_res.is_ok() {
                 progress_status(progress, t("plugin_dev_progress_replacing_placeholders"));

@@ -1,12 +1,34 @@
 //! Plugin management operations (update, remove, pin, verify). They return
 //! a [`Report`] instead of printing.
 
+use super::files::list_files;
 use super::install::install;
 use super::install_guard::{safe_join, validate_identifier};
-use crate::plugin::updater::lockfile::{read_lockfile, write_lockfile};
+use crate::plugin::updater::lockfile::{try_read_lockfile, write_lockfile};
 use crate::plugin::updater::registry::{fetch_blocklist, fetch_index_with};
 use crate::plugin::updater::report::Report;
 use crate::plugin::updater::trust::RegistryTrust;
+
+/// The `.pairee` folders of the plugins directory that the lockfile does
+/// not list.
+fn unlocked_folders(lock: &crate::plugin::updater::types::PluginsLock) -> Vec<String> {
+    let plugins_dir = crate::config::paths::get_config_dir().join("plugins");
+    let Ok(entries) = std::fs::read_dir(plugins_dir) else {
+        return Vec::new();
+    };
+    let mut folders: Vec<String> = entries
+        .filter_map(std::result::Result::ok)
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter(|folder| {
+            folder
+                .strip_suffix(".pairee")
+                .is_some_and(|name| !lock.plugins.contains_key(name))
+        })
+        .collect();
+    folders.sort();
+    folders
+}
 
 /// Updates `name`, or every non-pinned plugin with a newer registry
 /// version (removing blocked ones first) when `name` is `None`.
@@ -14,7 +36,7 @@ pub async fn update(name: Option<&str>, trust: &RegistryTrust) -> anyhow::Result
     let mut report = Report::default();
     let blocklist = fetch_blocklist(trust, &mut report).await?;
     let index = fetch_index_with(trust, &mut report).await?;
-    let lock = read_lockfile();
+    let lock = try_read_lockfile()?;
 
     if let Some(n) = name {
         if let Some(reason) = blocklist.blocked.get(n) {
@@ -82,9 +104,12 @@ pub async fn update(name: Option<&str>, trust: &RegistryTrust) -> anyhow::Result
     Ok(report)
 }
 
+/// Uninstalls `name`: its folder, its lockfile entry, its data folder and
+/// its `config.toml` entries (a leftover `trusted = true` would silently
+/// trust a different plugin installed under that name later).
 pub fn remove(name: &str) -> anyhow::Result<Report> {
     validate_identifier("name", name)?;
-    let mut lock = read_lockfile();
+    let mut lock = try_read_lockfile()?;
     if lock.plugins.remove(name).is_none() {
         anyhow::bail!("Plugin '{}' is not installed", name);
     }
@@ -94,12 +119,26 @@ pub fn remove(name: &str) -> anyhow::Result<Report> {
     }
     write_lockfile(&lock)?;
     let mut report = Report::default();
+    for data_dir in [
+        crate::config::paths::get_plugin_data_dir(name),
+        // Older versions kept the data under the folder name.
+        crate::config::paths::get_plugin_data_dir(&format!("{name}.pairee")),
+    ] {
+        if data_dir.exists()
+            && let Err(e) = std::fs::remove_dir_all(&data_dir)
+        {
+            report.warn(format!("Could not remove {}: {e}", data_dir.display()));
+        }
+    }
+    if let Err(e) = crate::plugin::manager::toggles::forget_saved(name) {
+        report.warn(format!("Could not clear the settings of '{name}': {e:#}"));
+    }
     report.line(format!("Removed plugin '{name}'."));
     Ok(report)
 }
 
 pub fn pin(name: &str, pinned: bool) -> anyhow::Result<Report> {
-    let mut lock = read_lockfile();
+    let mut lock = try_read_lockfile()?;
     let plugin = lock
         .plugins
         .get_mut(name)
@@ -112,9 +151,12 @@ pub fn pin(name: &str, pinned: bool) -> anyhow::Result<Report> {
 }
 
 /// Re-hashes every installed file against the lockfile. Fails (with the
-/// full report in the error) when anything is missing, changed or blocked.
+/// full report in the error) when anything is missing, changed, blocked, or
+/// present without being in the lockfile: files in a plugin folder it does
+/// not list, and `.pairee` folders it does not know (code Pairee would load
+/// without ever having checked it).
 pub async fn verify(trust: &RegistryTrust) -> anyhow::Result<Report> {
-    let lock = read_lockfile();
+    let lock = try_read_lockfile()?;
     let mut report = Report::default();
     let mut clean = true;
     report.line("Verifying installed plugins...");
@@ -156,6 +198,19 @@ pub async fn verify(trust: &RegistryTrust) -> anyhow::Result<Report> {
             };
             report.line(line);
         }
+        for extra in list_files(&plugin_path)
+            .into_iter()
+            .filter(|rel| !info.files.contains_key(rel))
+        {
+            clean = false;
+            report.line(format!("  ✗ Unlisted file (not in plugins.lock): {extra}"));
+        }
+    }
+    for folder in unlocked_folders(&lock) {
+        clean = false;
+        report.line(format!(
+            "✗ Plugin folder '{folder}' is not in plugins.lock: it is loaded but was never verified."
+        ));
     }
 
     if clean {

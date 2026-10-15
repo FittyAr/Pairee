@@ -1,4 +1,4 @@
-mod http;
+pub(crate) mod http;
 pub mod lockfile;
 pub mod ops;
 pub mod registry;
@@ -8,7 +8,7 @@ mod tests;
 pub mod trust;
 pub mod types;
 
-pub use lockfile::{read_lockfile, write_lockfile};
+pub use lockfile::{read_lockfile, try_read_lockfile, write_lockfile};
 pub use ops::{
     check_updates, install, is_identifier, list_installed, pin, remove, search, show_info, update,
     verify,

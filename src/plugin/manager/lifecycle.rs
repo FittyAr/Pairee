@@ -58,6 +58,8 @@ impl PluginManager {
             return;
         }
         let plan = Self::plan(config);
+        // Loads still running from before this reload must not register.
+        crate::plugin::registry::next_generation();
         tokio::spawn(async move {
             for info in crate::plugin::registry::get_loaded_plugins().await {
                 crate::plugin::registry::unregister_plugin(&info.manifest.name).await;

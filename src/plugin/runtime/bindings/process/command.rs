@@ -1,13 +1,15 @@
 //! `pairee.Command` builder userdata.
 
+use super::capture::{self, MAX_TIMEOUT, OUTPUT_TIMEOUT, STATUS_TIMEOUT};
 use super::child::LuaChild;
 use super::output::{LuaOutput, LuaStatus};
 use super::stdio::StdioKind;
-use crate::plugin::command_policy::CommandPolicy;
+use crate::plugin::command_policy::{CommandPolicy, PathUse};
 use crate::plugin::runtime::bindings::fs::{Access, FsPolicy, Target};
 use mlua::{AnyUserData, Lua, MetaMethod, Table, UserData, UserDataMethods, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct LuaCommand {
@@ -18,6 +20,8 @@ pub struct LuaCommand {
     pub stdin: StdioKind,
     pub stdout: StdioKind,
     pub stderr: StdioKind,
+    /// `Command:timeout(seconds)`; `None`: the default of each call.
+    pub timeout: Option<Duration>,
     pub policy: Arc<CommandPolicy>,
     /// The plugin's `pairee.fs` jail; in Secure Mode `cwd` must lie inside.
     pub sandbox: Arc<FsPolicy>,
@@ -30,9 +34,12 @@ impl LuaCommand {
             args: Vec::new(),
             cwd: None,
             env: Vec::new(),
-            stdin: StdioKind::Inherit,
+            // A plugin's child never reads the user's keyboard unless the
+            // plugin asks for it with `:stdin(INHERIT)`.
+            stdin: StdioKind::Null,
             stdout: StdioKind::Inherit,
             stderr: StdioKind::Inherit,
+            timeout: None,
             policy,
             sandbox,
         }
@@ -48,14 +55,15 @@ impl LuaCommand {
     }
 
     /// Sets the working directory. In Secure Mode it must be an existing
-    /// folder inside the plugin's `pairee.fs` read jail; the resolved
-    /// (canonical) folder is what the child starts in.
+    /// folder inside the plugin's `pairee.fs` **write** jail (a tool run in
+    /// the config folder could overwrite `config.toml` or other plugins);
+    /// the resolved (canonical) folder is what the child starts in.
     pub fn set_cwd(&mut self, path: &str) -> mlua::Result<()> {
         if !self.policy.is_allowlist() {
             self.cwd = Some(PathBuf::from(path));
             return Ok(());
         }
-        let dir = match self.sandbox.check(path, Access::Read) {
+        let dir = match self.sandbox.check(path, Access::Write) {
             Ok(Target::Jailed { root, rel, .. }) => root.join(rel),
             Ok(Target::Free(p)) => p,
             Err(e) => return Err(mlua::Error::RuntimeError(e)),
@@ -72,14 +80,43 @@ impl LuaCommand {
     /// The program to execute (absolute in Secure Mode) and its arguments,
     /// or a violation.
     pub fn check_allowed(&self) -> mlua::Result<(PathBuf, Vec<String>)> {
-        self.policy
+        let allowed = self
+            .policy
             .authorize_command(&self.program, &self.args)
-            .map_err(mlua::Error::RuntimeError)
+            .map_err(mlua::Error::RuntimeError)?;
+        self.check_path_arguments()?;
+        Ok(allowed)
+    }
+
+    /// In Secure Mode, the paths the arguments make the tool write (`tar
+    /// -C`, `git clone <dest>`, the archive `zip` creates) must lie where
+    /// `pairee.fs` could write them; relative ones start at the command's
+    /// working directory.
+    fn check_path_arguments(&self) -> mlua::Result<()> {
+        for (path, usage) in self.policy.path_arguments(&self.program, &self.args) {
+            let absolute = match &self.cwd {
+                Some(cwd) if !std::path::Path::new(&path).is_absolute() => {
+                    cwd.join(&path).to_string_lossy().into_owned()
+                }
+                _ => path,
+            };
+            let access = match usage {
+                PathUse::Read => Access::Read,
+                PathUse::Write => Access::Write,
+            };
+            self.sandbox
+                .check(&absolute, access)
+                .map_err(mlua::Error::RuntimeError)?;
+        }
+        Ok(())
     }
 
     fn tokio_cmd(&self, (program, args): &(PathBuf, Vec<String>)) -> tokio::process::Command {
         let mut cmd = tokio::process::Command::new(program);
         cmd.args(args);
+        // Dropping the handle (a plugin forgetting a Child, a cancelled
+        // call) must not leave the program running.
+        cmd.kill_on_drop(true);
         if let Some(cwd) = &self.cwd {
             cmd.current_dir(cwd);
         }
@@ -111,22 +148,36 @@ impl LuaCommand {
         let mut cmd = self.clone();
         cmd.stdout = StdioKind::Piped;
         cmd.stderr = StdioKind::Piped;
-        let out = cmd.tokio_cmd(&program).output().await.map_err(|e| {
+        let run_error = |e: std::io::Error| {
             mlua::Error::RuntimeError(format!("Failed to run '{}': {e}", self.program))
-        })?;
+        };
+        let mut child = cmd.tokio_cmd(&program).spawn().map_err(run_error)?;
+        let (status, stdout, stderr) =
+            capture::collect(&mut child, self.time_limit(OUTPUT_TIMEOUT))
+                .await
+                .map_err(run_error)?;
         Ok(LuaOutput {
-            status: LuaStatus::from_exit(out.status),
-            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+            status: LuaStatus::from_exit(status),
+            stdout: String::from_utf8_lossy(&stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&stderr).into_owned(),
         })
     }
 
     pub async fn status_inner(&self) -> mlua::Result<LuaStatus> {
         let program = self.check_allowed()?;
-        let status = self.tokio_cmd(&program).status().await.map_err(|e| {
+        let run_error = |e: std::io::Error| {
             mlua::Error::RuntimeError(format!("Failed to run '{}': {e}", self.program))
-        })?;
+        };
+        let mut child = self.tokio_cmd(&program).spawn().map_err(run_error)?;
+        let status = capture::wait_within(&mut child, self.time_limit(STATUS_TIMEOUT))
+            .await
+            .map_err(run_error)?;
         Ok(LuaStatus::from_exit(status))
+    }
+
+    /// The plugin's `:timeout()` (capped) or `default`.
+    fn time_limit(&self, default: Duration) -> Duration {
+        self.timeout.map_or(default, |t| t.min(MAX_TIMEOUT))
     }
 }
 
@@ -163,6 +214,16 @@ impl UserData for LuaCommand {
 
         methods.add_function("env", |_, (ud, (k, v)): (AnyUserData, (String, String))| {
             ud.borrow_mut::<Self>()?.set_env(k, v)?;
+            chain(ud)
+        });
+
+        methods.add_function("timeout", |_, (ud, seconds): (AnyUserData, f64)| {
+            if !seconds.is_finite() || seconds <= 0.0 {
+                return Err(mlua::Error::RuntimeError(
+                    "Command:timeout expects a positive number of seconds".into(),
+                ));
+            }
+            ud.borrow_mut::<Self>()?.timeout = Some(Duration::from_secs_f64(seconds.min(1e9)));
             chain(ud)
         });
 
@@ -230,7 +291,9 @@ mod tests {
 
     fn sandbox(trusted: bool, secure: bool) -> Arc<FsPolicy> {
         use std::path::Path;
-        Arc::new(FsPolicy::new(Path::new("demo"), trusted, secure))
+        let mut policy = FsPolicy::new(Path::new("demo"), trusted, secure);
+        policy.workspace = std::env::current_dir().unwrap();
+        Arc::new(policy)
     }
 
     fn cmd(program: &str, trusted: bool, secure: bool, declared: &[&str]) -> LuaCommand {
@@ -260,6 +323,54 @@ mod tests {
         let cwd = std::env::current_dir().unwrap();
         c.set_cwd(&cwd.to_string_lossy()).unwrap();
         assert!(c.cwd.unwrap().is_dir());
+    }
+
+    #[test]
+    fn secure_mode_cwd_needs_write_access_so_config_is_refused() {
+        let c = cmd("git", true, true, &["git"]);
+        let config = crate::config::paths::get_config_dir();
+        let err = c.clone().set_cwd(&config.to_string_lossy()).unwrap_err();
+        assert!(err.to_string().contains("Security violation"), "{err}");
+    }
+
+    #[test]
+    fn secure_mode_refuses_written_paths_outside_the_jail() {
+        let outside = tempfile::tempdir().unwrap();
+        let out = outside.path().to_string_lossy().into_owned();
+        let work = std::env::current_dir().unwrap();
+        let mut c = cmd("tar", true, true, &["tar", "git"]);
+        c.args = vec!["-xf".into(), "a.tar".into(), "-C".into(), out.clone()];
+        assert!(c.check_path_arguments().is_err());
+        c.args = vec!["-xf".into(), "a.tar".into(), "-C".into(), "sub".into()];
+        c.cwd = Some(work);
+        assert!(c.check_path_arguments().is_ok());
+        let mut git = cmd("git", true, true, &["git"]);
+        git.args = vec!["clone".into(), "https://example.com/r.git".into(), out];
+        assert!(git.check_path_arguments().is_err());
+        let free = cmd("tar", true, false, &[]);
+        assert!(free.check_path_arguments().is_ok());
+    }
+
+    #[test]
+    fn child_stdin_defaults_to_null() {
+        assert_eq!(cmd("ls", true, false, &[]).stdin, StdioKind::Null);
+    }
+
+    #[tokio::test]
+    async fn a_command_past_its_timeout_is_killed() {
+        let mut c = cmd(sleeper().0, true, false, &[]);
+        c.args = sleeper().1;
+        c.timeout = Some(Duration::from_millis(200));
+        let err = c.output_inner().await.unwrap_err();
+        assert!(err.to_string().contains("did not finish"), "{err}");
+    }
+
+    fn sleeper() -> (&'static str, Vec<String>) {
+        if cfg!(windows) {
+            ("ping", vec!["-n".into(), "30".into(), "127.0.0.1".into()])
+        } else {
+            ("sleep", vec!["30".into()])
+        }
     }
 
     #[test]

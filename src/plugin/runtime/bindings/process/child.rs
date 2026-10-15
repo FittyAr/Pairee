@@ -1,8 +1,36 @@
 //! Streaming `Child` userdata from `Command:spawn()`.
 
+use super::capture::{self, OUTPUT_LIMIT};
 use super::output::{LuaOutput, LuaStatus};
 use mlua::{UserData, UserDataMethods};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+/// Most bytes one `read` / `read_line` call returns.
+const MAX_READ: usize = 1024 * 1024;
+
+/// Removes and returns up to `max` bytes of `buf` as text, cut at a
+/// character boundary. `None` when `buf` holds only the start of one
+/// character (more bytes are needed). Invalid bytes become U+FFFD.
+fn split_text(buf: &mut Vec<u8>, max: usize) -> Option<String> {
+    if buf.is_empty() {
+        return Some(String::new());
+    }
+    let take = buf.len().min(max);
+    let cut = match std::str::from_utf8(&buf[..take]) {
+        Ok(_) => take,
+        // Incomplete character at the end of the window.
+        Err(e) if e.error_len().is_none() => match e.valid_up_to() {
+            0 if take == buf.len() => return None,
+            // The window is smaller than the character: cut anyway.
+            0 => take,
+            valid => valid,
+        },
+        Err(_) => take,
+    };
+    let rest = buf.split_off(cut);
+    let head = std::mem::replace(buf, rest);
+    Some(String::from_utf8_lossy(&head).into_owned())
+}
 
 pub struct LuaChild {
     pub child: Option<tokio::process::Child>,
@@ -55,46 +83,55 @@ impl LuaChild {
         self.stdin = None;
     }
 
-    pub async fn read(&mut self, len: usize) -> mlua::Result<String> {
-        let n = len.max(1);
-        let mut buf = vec![0u8; n];
+    /// Reads one chunk from stdout into `leftover`; `false` at end of file.
+    async fn fill(&mut self) -> mlua::Result<bool> {
         let stdout = self
             .stdout
             .as_mut()
             .ok_or_else(|| mlua::Error::RuntimeError("child stdout is not piped".into()))?;
-        let got = stdout
+        let mut buf = [0u8; 4096];
+        let n = stdout
             .read(&mut buf)
             .await
             .map_err(|e| mlua::Error::RuntimeError(format!("read failed: {e}")))?;
-        buf.truncate(got);
-        Ok(String::from_utf8_lossy(&buf).into_owned())
+        self.leftover.extend_from_slice(&buf[..n]);
+        Ok(n > 0)
     }
 
+    /// Up to `len` bytes of text (at most [`MAX_READ`]), after what
+    /// `read_line` left buffered; never splits a UTF-8 character.
+    pub async fn read(&mut self, len: usize) -> mlua::Result<String> {
+        let len = len.clamp(1, MAX_READ);
+        if self.leftover.is_empty() {
+            self.fill().await?;
+        }
+        loop {
+            if let Some(text) = split_text(&mut self.leftover, len) {
+                return Ok(text);
+            }
+            // Only the start of a multi-byte character is buffered.
+            if !self.fill().await? {
+                return Ok(
+                    String::from_utf8_lossy(&std::mem::take(&mut self.leftover)).into_owned()
+                );
+            }
+        }
+    }
+
+    /// The next line (with its `\n`); the rest of the data stays buffered.
     pub async fn read_line(&mut self) -> mlua::Result<String> {
-        let mut line = String::from_utf8_lossy(&self.leftover).into_owned();
-        self.leftover.clear();
-        if let Some(pos) = line.find('\n') {
-            let rest = line.split_off(pos + 1);
-            self.leftover = rest.into_bytes();
-            return Ok(line);
-        }
-        let mut buf = [0u8; 256];
-        while let Some(out) = self.stdout.as_mut() {
-            let n = out
-                .read(&mut buf)
-                .await
-                .map_err(|e| mlua::Error::RuntimeError(format!("read_line failed: {e}")))?;
-            if n == 0 {
-                break;
+        loop {
+            if let Some(pos) = self.leftover.iter().position(|&b| b == b'\n') {
+                let rest = self.leftover.split_off(pos + 1);
+                let line = std::mem::replace(&mut self.leftover, rest);
+                return Ok(String::from_utf8_lossy(&line).into_owned());
             }
-            line.push_str(&String::from_utf8_lossy(&buf[..n]));
-            if let Some(pos) = line.find('\n') {
-                let rest = line.split_off(pos + 1);
-                self.leftover = rest.into_bytes();
-                break;
+            if self.leftover.len() >= MAX_READ || self.stdout.is_none() || !self.fill().await? {
+                return Ok(
+                    String::from_utf8_lossy(&std::mem::take(&mut self.leftover)).into_owned()
+                );
             }
         }
-        Ok(line)
     }
 
     pub async fn wait(&mut self) -> mlua::Result<LuaStatus> {
@@ -110,20 +147,20 @@ impl LuaChild {
     }
 
     pub async fn wait_with_output(&mut self) -> mlua::Result<LuaOutput> {
-        let mut stdout = Vec::new();
-        let mut stderr = Vec::new();
-        stdout.extend_from_slice(&self.leftover);
-        self.leftover.clear();
-        if let Some(mut out) = self.stdout.take() {
-            out.read_to_end(&mut stdout)
-                .await
-                .map_err(|e| mlua::Error::RuntimeError(format!("read stdout failed: {e}")))?;
-        }
-        if let Some(mut err) = self.stderr.take() {
-            err.read_to_end(&mut stderr)
-                .await
-                .map_err(|e| mlua::Error::RuntimeError(format!("read stderr failed: {e}")))?;
-        }
+        let mut stdout = std::mem::take(&mut self.leftover);
+        let rest = capture::read_limited(
+            self.stdout.take(),
+            OUTPUT_LIMIT.saturating_sub(stdout.len()),
+        );
+        let (rest, stderr) = tokio::try_join!(
+            rest,
+            capture::read_limited(self.stderr.take(), OUTPUT_LIMIT)
+        )
+        .map_err(|e| {
+            let _ = self.start_kill();
+            mlua::Error::RuntimeError(format!("read output failed: {e}"))
+        })?;
+        stdout.extend_from_slice(&rest);
         let status = self.wait().await?;
         Ok(LuaOutput {
             status,
@@ -163,6 +200,23 @@ impl UserData for LuaChild {
 mod tests {
     use super::super::command::LuaCommand;
     use super::super::stdio::StdioKind;
+    use super::split_text;
+
+    #[test]
+    fn text_is_never_cut_inside_a_character() {
+        let mut buf = "aé".as_bytes().to_vec();
+        buf.truncate(2);
+        assert_eq!(split_text(&mut buf, 100).as_deref(), Some("a"));
+        assert_eq!(buf, "é".as_bytes()[..1]);
+        assert_eq!(split_text(&mut buf, 100), None);
+        buf.push("é".as_bytes()[1]);
+        assert_eq!(split_text(&mut buf, 100).as_deref(), Some("é"));
+        let mut buf = "héllo".as_bytes().to_vec();
+        assert_eq!(split_text(&mut buf, 2).as_deref(), Some("h"));
+        assert_eq!(split_text(&mut buf, 100).as_deref(), Some("éllo"));
+        let mut buf = vec![0xFF, b'a'];
+        assert_eq!(split_text(&mut buf, 100).as_deref(), Some("\u{FFFD}a"));
+    }
 
     /// A command for `prog` with no command or file system restrictions.
     fn unrestricted(prog: String) -> LuaCommand {

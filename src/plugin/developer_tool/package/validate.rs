@@ -31,16 +31,22 @@ pub fn validate_for_publish_with_progress(
         }
     };
 
+    // What would be published: the icon and screenshots must be among it.
+    let files = crate::plugin::loader::get_plugin_files(path);
+
     // 1. Validate Icon
     progress_status(&progress, t("plugin_dev_progress_validating_icon"));
     let icon_rel = match &manifest.icon {
         Some(i) if !i.trim().is_empty() => i.trim(),
         _ => return Err(t("plugin_dev_publish_no_icon")),
     };
-    let icon_path = path.join(icon_rel);
-    if !icon_path.exists() || !icon_path.is_file() {
-        return Err(t("plugin_dev_publish_no_icon"));
-    }
+    let icon_path = match published_file(path, &files, icon_rel) {
+        Published::File(file) => file,
+        Published::NotPublishable => {
+            return Err(t("plugin_dev_publish_bad_path").replace("{}", icon_rel));
+        }
+        Published::Missing => return Err(t("plugin_dev_publish_no_icon")),
+    };
 
     // Check dimensions: 256x256 or 512x512
     match image::image_dimensions(&icon_path) {
@@ -81,10 +87,15 @@ pub fn validate_for_publish_with_progress(
             scr_idx,
             total_screens.max(1),
         );
-        let scr_path = path.join(scr_rel);
-        if !scr_path.exists() || !scr_path.is_file() {
-            return Err(t("plugin_dev_publish_screenshot_not_found").replace("{}", scr_rel));
-        }
+        let scr_path = match published_file(path, &files, scr_rel.trim()) {
+            Published::File(file) => file,
+            Published::NotPublishable => {
+                return Err(t("plugin_dev_publish_bad_path").replace("{}", scr_rel));
+            }
+            Published::Missing => {
+                return Err(t("plugin_dev_publish_screenshot_not_found").replace("{}", scr_rel));
+            }
+        };
 
         // Validate screenshot size: minimum 640x480 pixels
         match image::image_dimensions(&scr_path) {
@@ -104,5 +115,83 @@ pub fn validate_for_publish_with_progress(
         }
     }
 
+    // 3. The entry point and the files themselves
+    if !files.iter().any(|(rel, _)| rel == "main.lua") {
+        return Err(t("plugin_dev_publish_no_main"));
+    }
+    check_files(&files)
+}
+
+/// Where a manifest path (`icon`, a screenshot) stands.
+enum Published {
+    /// A file the package would carry.
+    File(std::path::PathBuf),
+    /// It exists but would not be published, or points outside the folder.
+    NotPublishable,
+    Missing,
+}
+
+/// `rel` among the publishable `files` (a regular, non-hidden file inside
+/// the plugin folder: `../x.png`, absolute paths, links and hidden files
+/// are not).
+fn published_file(
+    root: &std::path::Path,
+    files: &[(String, std::path::PathBuf)],
+    rel: &str,
+) -> Published {
+    let wanted = rel.trim_start_matches("./");
+    if let Some((_, file)) = files.iter().find(|(name, _)| name == wanted) {
+        return Published::File(file.clone());
+    }
+    let on_disk = std::path::Path::new(rel);
+    if on_disk.is_absolute() || root.join(on_disk).exists() {
+        Published::NotPublishable
+    } else {
+        Published::Missing
+    }
+}
+
+/// The checks the installer applies when it downloads: every file name must
+/// be one `safe_join` accepts, names must not collide ignoring case, and the
+/// count and sizes must stay within the registry limits (the manifest and
+/// the generated `sha256.sum` are not counted: packaging adds them).
+fn check_files(files: &[(String, std::path::PathBuf)]) -> Result<(), String> {
+    use crate::plugin::updater::http::{MAX_FILE_BYTES, MAX_PLUGIN_BYTES, MAX_PLUGIN_FILES};
+    let published: Vec<_> = files
+        .iter()
+        .filter(|(rel, _)| rel != "manifest.toml" && rel != "sha256.sum")
+        .collect();
+    let too_large = |detail: String| t("plugin_dev_publish_too_large").replace("{}", &detail);
+    if published.len() > MAX_PLUGIN_FILES {
+        return Err(too_large(format!("more than {MAX_PLUGIN_FILES} files")));
+    }
+    let root = std::path::Path::new("plugin");
+    for (rel, _) in &published {
+        crate::plugin::updater::ops::safe_join(root, rel).map_err(|e| {
+            t("plugin_dev_publish_bad_file_name")
+                .replacen("{}", rel, 1)
+                .replacen("{}", &e.to_string(), 1)
+        })?;
+    }
+    crate::plugin::updater::ops::check_unique_keys(published.iter().map(|(rel, _)| rel)).map_err(
+        |e| {
+            t("plugin_dev_publish_bad_file_name")
+                .replacen("{}", "", 1)
+                .replacen("{}", &e.to_string(), 1)
+        },
+    )?;
+    let mut total = 0u64;
+    for (rel, file) in &published {
+        let len = std::fs::metadata(file).map_or(0, |m| m.len());
+        if len > MAX_FILE_BYTES as u64 {
+            return Err(too_large(format!("'{rel}' is over {MAX_FILE_BYTES} bytes")));
+        }
+        total += len;
+    }
+    if total > MAX_PLUGIN_BYTES as u64 {
+        return Err(too_large(format!(
+            "all files together exceed {MAX_PLUGIN_BYTES} bytes"
+        )));
+    }
     Ok(())
 }

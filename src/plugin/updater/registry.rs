@@ -103,19 +103,52 @@ pub async fn fetch_index(trust: &RegistryTrust) -> Result<RegistryIndex> {
     fetch_index_with(trust, &mut Report::default()).await
 }
 
-/// The blocklist. A missing or unreachable blocklist is empty; one with
-/// an invalid signature is an error (never silently ignored).
+/// The blocklist. It fails **closed**: an unreachable blocklist is an error
+/// (installing or updating without knowing what is blocked would defeat it),
+/// and so is a missing one once the registry is known to be signed (see
+/// [`RegistryTrust::expects_signed`]); only an unsigned registry may lack
+/// the file, which then means "nothing blocked". An invalid signature is
+/// always an error.
 pub async fn fetch_blocklist(trust: &RegistryTrust, report: &mut Report) -> Result<Blocklist> {
     const PATH: &str = "blocklist.toml";
     let client = http::client()?;
-    let data = match http::fetch_limited(&client, &registry_url(PATH), MAX_INDEX_BYTES).await {
-        Ok(Some(data)) => data,
-        Ok(None) => return Ok(Blocklist::default()),
-        Err(e) => {
-            report.warn(format!("Plugin blocklist unavailable: {e:#}"));
-            return Ok(Blocklist::default());
-        }
+    let fetched = http::fetch_limited(&client, &registry_url(PATH), MAX_INDEX_BYTES).await;
+    let Some(data) = blocklist_bytes(fetched, trust.expects_signed())? else {
+        return Ok(Blocklist::default());
     };
     check_signature(&client, trust, PATH, &data, report).await?;
     Ok(parse_blocklist(&http::utf8(data, PATH)?))
+}
+
+/// The downloaded blocklist, `None` when it legitimately does not exist.
+fn blocklist_bytes(
+    fetched: Result<Option<Vec<u8>>>,
+    expects_signed: bool,
+) -> Result<Option<Vec<u8>>> {
+    match fetched {
+        Ok(Some(data)) => Ok(Some(data)),
+        Ok(None) if expects_signed => anyhow::bail!(
+            "The plugin blocklist (blocklist.toml) is missing from a signed registry; refusing to continue without it"
+        ),
+        Ok(None) => Ok(None),
+        Err(e) => {
+            Err(e.context("The plugin blocklist is unreachable; refusing to continue without it"))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_unreachable_or_missing_blocklist_in_a_signed_registry_is_an_error() {
+        assert!(blocklist_bytes(Err(anyhow::anyhow!("offline")), false).is_err());
+        assert!(blocklist_bytes(Ok(None), true).is_err());
+        assert_eq!(blocklist_bytes(Ok(None), false).unwrap(), None);
+        assert_eq!(
+            blocklist_bytes(Ok(Some(vec![1])), true).unwrap(),
+            Some(vec![1])
+        );
+    }
 }

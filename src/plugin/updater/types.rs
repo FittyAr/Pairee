@@ -24,20 +24,14 @@ impl RegistryIndex {
     /// A lower version is never offered automatically: an older, validly
     /// signed index replayed from the registry history must not roll
     /// plugins back (`pairee plugin update <name>` still converges on the
-    /// listed version on request). Versions that are not semver are offered
-    /// when they differ.
+    /// listed version on request). Versions are compared as in the
+    /// self-updater (`1.2` counts as `1.2.0`); when either cannot be read as
+    /// a version nothing is offered, since a downgrade cannot be ruled out.
     pub fn update_for(&self, name: &str, installed: &str) -> Option<&str> {
-        let newer = |latest: &str| match (
-            semver::Version::parse(latest),
-            semver::Version::parse(installed),
-        ) {
-            (Ok(latest), Ok(installed)) => latest > installed,
-            _ => latest != installed,
-        };
         self.plugins
             .get(name)
             .map(|p| p.version.as_str())
-            .filter(|latest| newer(latest))
+            .filter(|latest| crate::update::version::is_newer(latest, installed))
     }
 }
 

@@ -47,7 +47,10 @@ pub fn bind_runtime(
     use super::bindings as b;
     pairee.set("app", b::app::bind(lua, tx.clone(), origin.clone())?)?;
     pairee.set("emit", b::emit::bind(lua, tx.clone(), origin.clone())?)?;
-    pairee.set("file_cache", b::file_cache::bind(lua, tx.clone())?)?;
+    pairee.set(
+        "file_cache",
+        b::file_cache::bind(lua, tx.clone(), options.name.clone())?,
+    )?;
     // Dialogs write their entries directly on the central `pairee`
     // table so that the top-level `pairee.confirm` and `pairee.input`
     // are discoverable alongside the existing `pairee.app.*` stubs.

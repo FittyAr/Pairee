@@ -78,6 +78,8 @@ pub enum PluginRequest {
     /// Returns a stable cache URL for `(file, skip)` so previewers can
     /// generate and reuse the same cache file across invocations.
     FileCache {
+        /// The asking plugin: caches are never shared between plugins.
+        plugin: String,
         file_path: PathBuf,
         skip: usize,
         reply_tx: oneshot::Sender<Option<PathBuf>>,

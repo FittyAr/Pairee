@@ -208,8 +208,14 @@ En Modo Seguro (13.3) `:env(nombre, valor)` solo acepta variables de idioma,
 terminal y color (`LANG`, `LANGUAGE`, `LC_*`, `TERM`, `COLORTERM`, `NO_COLOR`,
 `CLICOLOR`, `CLICOLOR_FORCE`, `FORCE_COLOR`, `TZ`, `COLUMNS`, `LINES`);
 cualquier otro nombre provoca una violación de seguridad. `:cwd(ruta)` debe
-indicar una carpeta existente dentro de la jaula de lectura de `pairee.fs` del
-complemento.
+indicar una carpeta existente dentro de la jaula de **escritura** de `pairee.fs`
+del complemento (así una herramienta nunca se ejecuta dentro de la carpeta de
+configuración de Pairee). El stdin de un hijo está cerrado salvo que pidas
+`:stdin(pairee.Command.INHERIT)` o `PIPED`; `:output()` y `:wait_with_output()`
+fallan con más de 16 MiB de salida, `:output()` se mata a los 5 minutos y
+`:status()` a la hora salvo que `:timeout(segundos)` diga otra cosa, y los hijos
+se matan cuando se suelta su handle. `child:read(len)` devuelve como máximo
+1 MiB y nunca parte un carácter UTF-8.
 
 ### `pairee.ui` — Widgets
 
@@ -636,7 +642,7 @@ Por defecto, todos los complementos se ejecutan en **Modo No Confiable** (`trust
 * **Funciones Dinámicas Prohibidas:** Las funciones globales que permiten la evaluación dinámica de código (`load`, `loadstring`, `dofile`, `loadfile`) están deshabilitadas.
 * **Aislamiento de Require:** `require("lib.util")` carga `lib/util.lua` (o `lib/util/init.lua`) de la carpeta del propio complemento, lo ejecuta una vez y guarda el resultado en una tabla privada del complemento. Funciona igual en complementos confiables y no confiables (no necesita la biblioteca `package`). Los nombres de módulo son identificadores con puntos (letras, dígitos, `_`, `-`); ni `..`, ni separadores, ni enlaces simbólicos o junctions pueden llegar a archivos fuera de la carpeta del complemento.
 * **Sin Comandos Externos:** Cualquier llamada a `pairee.fs.spawn()` generará inmediatamente un error de ejecución.
-* **Jaula del Sistema de Archivos:** `pairee.fs` solo puede leer dentro del directorio del propio complemento y de su directorio de datos privado (`pairee.fs.data_dir()`), y solo puede escribir dentro del directorio de datos. Esto se aplica tanto si el Modo Seguro está activo como si no; los segmentos `..` y los enlaces simbólicos no permiten escapar de ella.
+* **Jaula del Sistema de Archivos:** `pairee.fs` solo puede leer dentro del directorio del propio complemento y de su directorio de datos privado (`pairee.fs.data_dir()`: `<datos>/pairee/plugin-data/<nombre del complemento>`, creado por Pairee; los datos que versiones anteriores guardaban en `<nombre>.pairee` se mueven ahí), y solo puede escribir dentro del directorio de datos. Esto se aplica tanto si el Modo Seguro está activo como si no; los segmentos `..` y los enlaces simbólicos no permiten escapar de ella.
 * **Excepción de vista previa:** `pairee.image.show`, `pairee.image.info` y `pairee.preview_code` aceptan también el archivo que se está previsualizando; se lo pasan al anfitrión y devuelven un widget opaco (o el tamaño de la imagen), nunca su contenido. `pairee.image.precache` decodifica píxeles que el complemento puede volver a leer, así que solo admite orígenes dentro de la jaula.
 * **Portapapeles:** un complemento no confiable puede escribir en el portapapeles pero no leerlo (leer requiere un complemento de confianza fuera del Modo Seguro).
 
@@ -667,18 +673,18 @@ Para evitar la filtración de datos, los usuarios pueden habilitar un **Modo Seg
   commands = ["git", "rg"]
   ```
   * El programa debe indicarse por **nombre simple** (sin ruta absoluta ni relativa); se resuelve mediante las entradas absolutas de `PATH` y se ejecuta esa ruta absoluta. En Windows solo se resuelven `.exe` / `.com` (nunca `.bat` / `.cmd`).
-  * Los shells, intérpretes, utilidades de red y envoltorios de comandos (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) se rechazan **siempre**, aunque estén declarados, y también cuando un nombre declarado es un enlace simbólico a uno de ellos.
+  * Los shells, intérpretes, utilidades de red y envoltorios de comandos (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) se rechazan **siempre**, aunque estén declarados, y también cuando un nombre declarado es un enlace simbólico a uno de ellos. Lo mismo ocurre con las herramientas de compilación y gestores de paquetes (`cargo`, `make`, `cmake`, `npm`, `npx`, `pip`, `go`, `dotnet`, `gcc`, `clang`, ...: ejecutan código del proyecto), los contenedores (`docker`, `podman`), los depuradores y trazadores (`gdb`, `strace`, ...), los lanzadores (`xdg-open`, `open`, `mpv`, `wsl`, `start`) y las herramientas que sobrescriben cualquier ruta que se les dé (`cp`, `mv`, `dd`, `tee`, `rm`, `ln`, `install`, `rsync`, `scp`, `sftp`).
   * Los comandos no declarados fallan con `Security violation: ... is not declared in the plugin manifest`. El Gestor de Complementos muestra los comandos declarados en los detalles del complemento para que el usuario los revise antes de confiar en él.
-* **Entorno y directorio de trabajo:** `Command:env` se limita a variables de idioma/terminal/color y `Command:cwd` a carpetas dentro de la jaula (ver `pairee.Command`), para que una herramienta declarada no se convierta en un ejecutor de código mediante `GIT_SSH_COMMAND`, `LD_PRELOAD`, `PAGER` y variables similares.
+* **Entorno y directorio de trabajo:** `Command:env` se limita a variables de idioma/terminal/color y `Command:cwd` a carpetas dentro de la jaula de **escritura** (ver `pairee.Command`), para que una herramienta declarada no se convierta en un ejecutor de código mediante `GIT_SSH_COMMAND`, `LD_PRELOAD`, `PAGER` y variables similares, ni se ejecute dentro de la carpeta de configuración de Pairee. Las rutas que las opciones habituales de `tar` (`-C`, `-f` al crear), `git` (`-C`, `--work-tree`, el destino de `clone`/`init`/`worktree add`) y `zip` (el archivo, `-b`) hacen escribir a la herramienta se comprueban contra la misma jaula. Es una lista de mejor esfuerzo para esas tres herramientas: Pairee no analiza las rutas de otras herramientas declaradas (ni las de lectura), así que declara solo las herramientas que necesites y mantenlas dentro del espacio de trabajo.
 * **Argumentos:** se rechazan las opciones que hacen que una herramienta declarada ejecute otro programa (claves de configuración de Git que nombran programas con `-c` o `git config`, `--upload-pack`, `--exec`, `--git-dir`, `rebase -x`, `difftool -x`, `grep -O`, `submodule foreach`, `bisect run`, `filter-branch`, `send-email`; `tar --to-command` / `-I`; `rg --pre`; `fd --exec`; `fzf --preview`; ...). `git` siempre se ejecuta con `-c safe.bareRepository=explicit` antes de los argumentos del complemento.
-* **Sandboxing del Sistema de Archivos:** Para complementos confiables, las **lecturas** de archivos (`pairee.fs`) están restringidas al espacio de trabajo activo, a las carpetas de configuración y caché del usuario, y a los directorios propio y de datos del complemento. Las **escrituras** se limitan al espacio de trabajo, la caché y el directorio de datos del complemento: la carpeta de configuración de Pairee (`config.toml`, `keybindings.toml`, asociaciones, el menú de usuario, `plugins/`, `plugins.lock`) es de solo lectura, así que un complemento no puede desactivar el Modo Seguro ni marcarse como confiable. Nada dentro de una carpeta `.git` se puede escribir (su `config` y sus hooks ejecutan programas). Los complementos no confiables mantienen su jaula más estricta (13.1).
+* **Sandboxing del Sistema de Archivos:** Para complementos confiables, las **lecturas** de archivos (`pairee.fs`) están restringidas al espacio de trabajo, a las carpetas de configuración y caché del usuario, y a los directorios propio y de datos del complemento. El espacio de trabajo es la **carpeta local del panel activo** (sigue al usuario mientras navega), no la carpeta desde la que se lanzó Pairee; la carpeta personal del usuario y la raíz de un sistema de archivos nunca son un espacio de trabajo, así que mientras el panel esté ahí el complemento solo alcanza sus carpetas propia, de datos y de caché (y lee la de configuración). Las **escrituras** se limitan al espacio de trabajo, la caché y el directorio de datos del complemento: la carpeta de configuración de Pairee (`config.toml`, `keybindings.toml`, asociaciones, el menú de usuario, `plugins/`, `plugins.lock`) es de solo lectura, así que un complemento no puede desactivar el Modo Seguro ni marcarse como confiable. Nada dentro de una carpeta `.git` se puede escribir (su `config` y sus hooks ejecutan programas). Los complementos no confiables mantienen su jaula más estricta (13.1).
 * **Falla cerrado:** si `config.toml` no se puede leer, los complementos se ejecutan en Modo Seguro hasta que se corrija (el error de inicio lo indica).
 
 ### 13.4 Límites de recursos
 Cada complemento tiene un límite de memoria (128 MiB no confiable, 512 MiB confiable) y un watchdog de CPU: cada llamada que Pairee hace al complemento (`main.lua`, `setup`, `entry`, `peek`, callbacks de hooks) puede durar como máximo 10 segundos, incluido el tiempo dentro de funciones C como `string.rep`. El reloj solo corre mientras el complemento se ejecuta: mientras una llamada espera un diálogo, `pairee.sync`, una pausa o un proceso hijo, se detiene. Una llamada que se pasa del presupuesto se aborta con `plugin aborted: exceeded its execution time limit` y `pcall` no puede capturarlo; la siguiente llamada empieza con un presupuesto nuevo.
 
 ### 13.5 Gestionar complementos
-En el Gestor de Complementos (pestaña Instalados) `c` o Enter abre los ajustes del complemento (sección 18), `t` alterna la confianza de un complemento, `e` lo activa o desactiva y `s` alterna el Modo Seguro global. Los cambios se guardan y se aplican de inmediato: todos los complementos se recargan con la nueva configuración. Los complementos desactivados no se cargan, así que no se ejecuta nada de su código ni de sus hooks.
+En el Gestor de Complementos (pestaña Instalados) `c` o Enter abre los ajustes del complemento (sección 18), `t` alterna la confianza de un complemento, `e` lo activa o desactiva y `s` alterna el Modo Seguro global. Los cambios se guardan y se aplican de inmediato: todos los complementos se recargan con la nueva configuración. Los complementos desactivados no se cargan, así que no se ejecuta nada de su código ni de sus hooks. Desinstalar (`d`) elimina la carpeta del complemento, su entrada en `plugins.lock`, su carpeta de datos y sus entradas `[plugins.<nombre>]` y de ajustes en `config.toml`, de modo que una instalación posterior con el mismo nombre empieza sin confianza y limpia. Las instalaciones desde el registro se preparan en una carpeta hermana y solo se intercambian cuando están completas, y rechazan un complemento cuyo `min_pairee` o `--- @since` exija un Pairee más nuevo. `pairee plugin verify` también informa de archivos en la carpeta de un complemento que `plugins.lock` no lista y de carpetas `.pairee` que no conoce.
 
 ---
 
@@ -706,11 +712,12 @@ Se ejecutan desde dentro de la carpeta del complemento (actúan sobre el directo
 * `pairee developer init <nombre>`: Crea un complemento nuevo a partir de la rama `plugin-template` (15.4); pide una descripción y un autor.
 * `pairee developer lint`: Comprueba que `manifest.toml` se pueda leer y defina `default_language`, que exista `main.lua`, avisa del uso de `os.execute`, `io.open`, `os.system`, `dofile` y `loadfile` en un complemento sin `requires_trust = true`, e informa las teclas sugeridas inválidas o en conflicto en cada preset.
 * `pairee developer package`: Ejecuta las comprobaciones de publicación (15.3) y empaqueta el complemento en un clon local de la rama `plugin-registry`:
-  * **Genera Hashes:** Genera/actualiza automáticamente el archivo de hashes de integridad `sha256.sum` para todos los archivos de la carpeta. (Nota: esto no crea un archivo comprimido; los complementos en el registro de Pairee se distribuyen como carpetas abiertas).
+  * **Genera Hashes:** Genera `sha256.sum` (SHA-256 de cada archivo) y la tabla `[files]` en la **copia del registro** del complemento; tu carpeta y tu `manifest.toml` nunca se modifican (una tabla `[files]` escrita por ti se reemplaza en la copia). (Nota: esto no crea un archivo comprimido; los complementos en el registro de Pairee se distribuyen como carpetas abiertas).
   * **Detección y Generación de Licencia:**
     - Busca un archivo de licencia `LICENSE` (sin distinguir mayúsculas/minúsculas) en la raíz del plugin.
     - Si el archivo existe pero el campo `license` en `manifest.toml` está vacío, el asistente solicita ingresar el nombre de la licencia (o asigna `"Custom"` en entornos no interactivos).
-    - Si no existe ningún archivo de licencia, asigna automáticamente la licencia `"MIT"` en el manifiesto y genera un archivo `LICENSE` con la licencia MIT estándar y los datos de derechos de autor en el espacio de trabajo del plugin.
+    - Si no existe ningún archivo de licencia, publica el plugin como `"MIT"` y añade un archivo `LICENSE` MIT estándar con tus datos de derechos de autor solo a la copia del registro; no se escribe nada en la carpeta de tu plugin.
+  * **Orden:** el `name` y el `author` del plugin se comprueban antes de descargar, escribir o borrar nada.
 
 ### 15.2 Herramientas de Desarrollo en TUI y Asistente de PR
 Las herramientas interactivas de desarrollo en TUI (accesibles a través de **Barra de menú (F9) → Archivos → Comandos de plugins** → pestaña `Developer Tools` cuando el modo desarrollador está activo) ofrecen el siguiente conjunto de utilidades:
@@ -730,13 +737,17 @@ Las herramientas interactivas de desarrollo en TUI (accesibles a través de **Ba
 | `No se encontró manifest.toml en el directorio actual...` | El comando se ejecutó fuera de la carpeta del complemento. | Entra primero (`cd`) en la carpeta del complemento. |
 | `Error al leer manifest.toml` / `Error al analizar manifest.toml` | El manifiesto no se puede leer, no es TOML válido o le faltan campos obligatorios. | Corrige la sintaxis TOML y los campos de la sección 20. |
 | `Nombre o autor de plugin no válido '...'` | `name` o `author` contiene algo distinto de letras, dígitos, `_` y `-`. | Renómbralo; la carpeta del registro es `plugins/<shard>/<autor>/<nombre>/`. |
-| `icon.png no encontrado en la raíz del plugin...` | Falta `icon` en el manifiesto o el archivo no existe. | Agrega un PNG y apunta `icon` a él. |
+| `icon.png no encontrado en la raíz del plugin...` | Falta `icon` en el manifiesto o el archivo no existe. La comprobación es sobre el campo `icon` del manifiesto (vale cualquier nombre; `icon.png` es solo la convención). | Agrega un PNG y apunta `icon` a él. |
+| `'...' debe ser un archivo normal dentro de la carpeta del plugin...` | El `icon` o una captura está fuera de la carpeta del plugin (`../x.png`, una ruta absoluta), es un enlace o un archivo oculto: no se publicaría. | Pon el archivo dentro de la carpeta del plugin. |
 | `el tamaño del icono debe ser de 256x256 o 512x512 píxeles` | El icono tiene otro tamaño. | Redimensiónalo a 256x256 o 512x512 exactos. |
 | `el formato de imagen del icono no es válido o está dañado` | El archivo no es una imagen legible. | Vuelve a exportarlo como PNG. |
 | `el directorio screenshots/ no contiene ninguna captura...` | Falta el array `screenshots` o está vacío. | Lista al menos una imagen PNG/JPG/JPEG. |
 | `captura de pantalla '...' no encontrada` | Una captura listada no existe. | Corrige la ruta (relativa a la raíz del complemento). |
 | `el tamaño de la captura '...' debe ser de al menos 640x480 píxeles` | Una captura es demasiado chica. | Usa una captura de al menos 640x480. |
 | `el formato de imagen de la captura '...' no es válido o está dañado` | El archivo no es una imagen legible. | Vuelve a exportarla. |
+| `main.lua no encontrado en la raíz del plugin...` | Falta el punto de entrada. | Añade `main.lua`. |
+| `el archivo '...' no se puede publicar: ...` | Un nombre que el instalador rechazaría: un nombre de dispositivo de Windows (`con`, `aux`, `nul`, `com1`...), un punto o espacio final, los caracteres `<>"|?*`, o dos nombres que solo difieren en mayúsculas. | Renombra el archivo. |
+| `el plugin es demasiado grande para publicarlo: ...` | Más de 1000 archivos, un archivo de más de 16 MiB o más de 64 MiB en total. | Quita o reduce archivos. |
 
 La sintaxis Lua, la cobertura de traducciones y la alineación de claves no se comprueban al empaquetar: ejecuta `pairee developer lint` y prueba el complemento localmente (sección 14). `scripts/check_translations.py` solo cubre los archivos `lang/` del propio Pairee.
 
@@ -748,13 +759,13 @@ Pairee mantiene una rama git huérfana dedicada llamada **`plugin-template`** en
 
 Cuando un desarrollador usa el asistente **Inicializar Nuevo Complemento** (ya sea desde la pestaña Herramientas de Desarrollador de la TUI o `pairee developer init`), la herramienta:
 
-1. **Localiza el repositorio de Pairee** en disco recorriendo hacia arriba desde la ubicación del binario en ejecución hasta encontrar un directorio `.git`. Alternativamente, la variable de entorno `PAIREE_REPO_DIR` puede configurarse para apuntar al repositorio de forma explícita.
+1. **Localiza el repositorio de Pairee** en disco recorriendo hacia arriba desde la ubicación del binario en ejecución hasta una carpeta que sea un repositorio git con un remoto `FittyAr/Pairee` y la rama `plugin-template` (un `.git` en otro sitio, como uno en tu carpeta personal, se ignora). Alternativamente, la variable de entorno `PAIREE_REPO_DIR` puede configurarse para apuntar al repositorio de forma explícita; se comprueba igual.
 2. **Extrae los archivos** directamente de la rama `plugin-template` usando `libgit2` (sin necesidad de tener `git` instalado como comando externo). Cada archivo de la rama se escribe al directorio de destino del nuevo complemento.
 3. **Sustituye los marcadores de posición** en `manifest.toml` y `help/en.md`:
    - `PLUGIN_NAME` → el nombre ingresado por el desarrollador
    - `PLUGIN_DESCRIPTION` → la descripción ingresada por el desarrollador
    - `PLUGIN_AUTHOR` → el autor ingresado por el desarrollador
-4. Si la rama o el repositorio **no están disponibles** (ej. instalación como binario independiente sin el repo fuente), el sistema recurre de forma transparente a generar los archivos desde las cadenas de localización integradas — garantizando que la inicialización de plugins funcione siempre.
+4. Si no existe esa copia local (ej. instalación como binario independiente sin el repo fuente), clona la rama `plugin-template` desde GitHub (`https://github.com/FittyAr/Pairee.git`). Si eso también falla (sin conexión), la inicialización se detiene con *"No se pudo inicializar el plugin: rama de plantilla no disponible..."*: no hay archivos de plantilla integrados. Un archivo que no se pueda escribir al copiar la plantilla es un error, no un hueco silencioso.
 
 #### Estructura de Archivos de la Rama Template
 
@@ -799,14 +810,15 @@ git checkout master
 ## 16. Flujo de Envío al Registro
 
 1. **Activar el Modo Desarrollador** (`plugins_developer_mode = true` en `config.toml`).
-2. Abrir la pantalla del **Asistente de Metadatos TUI** o ejecutar `pairee developer package` desde dentro de la carpeta del complemento para validar tus archivos, copiarlos a una copia de trabajo local de la rama `plugin-registry` y actualizar el archivo de catálogo central `registry/index.toml`.
-3. Asegurarse de que el plugin cumpla con los siguientes requisitos obligatorios de publicación:
-   - **Icono:** Debe existir un icono PNG llamado `icon.png` en el directorio raíz del plugin (tamaños recomendados: `512x512` o `256x256` píxeles).
-   - **Capturas de pantalla:** Debe existir un directorio `screenshots/` en la raíz del plugin que contenga al menos una captura de pantalla (PNG, JPG o JPEG).
-4. Ejecutar la opción de empaquetado para clonar y preparar la rama `plugin-registry` localmente, verificar todas las firmas, copiar los archivos de código y generar la suma de verificación y la entrada del índice central.
+2. Usar la opción **Package** de la pestaña *Developer Tools* del Gestor de Complementos (15.2) o ejecutar `pairee developer package` desde dentro de la carpeta del complemento para validar tus archivos, copiarlos a una copia de trabajo local de la rama `plugin-registry` y actualizar el archivo de catálogo central `registry/index.toml`.
+3. Asegurarse de que el plugin cumpla con los siguientes requisitos obligatorios de publicación (15.3):
+   - **Icono:** el campo `icon` del manifiesto nombra una imagen dentro de la carpeta del plugin de exactamente `512x512` o `256x256` píxeles (por convención `icon.png`).
+   - **Capturas de pantalla:** el campo `screenshots` del manifiesto lista al menos una imagen (PNG, JPG o JPEG) de al menos `640x480` píxeles, dentro de la carpeta del plugin.
+   - Existe `main.lua`, los nombres de archivo son portables y se respetan los límites de tamaño.
+4. El empaquetado clona (o actualiza) la rama `plugin-registry` en una caché local, copia los archivos de código y genera las sumas de verificación y la entrada del índice. No verifica firmas: el registro firma después de la fusión. Un clon que aún guarda trabajo empaquetado y no enviado se conserva, no se reinicia.
 5. Ejecutar la opción "Enviar". El asistente te solicitará:
-   - **Descripción del Commit:** Una descripción detallada de los cambios o características.
-   - **Token de GitHub (Opcional):** Si se suministra, Pairee realizará automáticamente un fork del repositorio, subirá la rama y creará una Pull Request. Si se omite, Pairee realizará un commit git local e imprimirá los comandos manuales para que los copies y ejecutes para subir la rama y abrir la Pull Request por ti mismo.
+   - **Descripción del Commit:** Una descripción detallada de los cambios o características. Pairee hace commit de la copia preparada del registro en la rama `plugin-registry` del clon (no se crea otra rama).
+   - **Token de GitHub (Opcional, se escribe sin eco en la CLI):** Si se suministra, Pairee lee tu usuario a partir del token, hace un fork de `FittyAr/Pairee` en tu cuenta (no hay que indicar la URL del fork), espera a que el fork exista, sube a la fuerza `plugin-registry` a `<tu usuario>/Pairee`, comprueba que GitHub aceptó la referencia y abre una Pull Request de `<tu usuario>:plugin-registry` a `FittyAr/Pairee:plugin-registry`. Si se omite, Pairee conserva el commit local e imprime los comandos manuales para que los copies y ejecutes para subir la rama y abrir la Pull Request por ti mismo.
 6. **Las firmas las pone el registro, no tú.** No incluyas archivos `.minisig` en tu Pull Request. Cuando se fusiona, el workflow de firma del registro firma tu `manifest.toml` y un `index.toml` nuevo (con un número de serie y una fecha que Pairee comprueba para rechazar copias viejas o congeladas del índice) con la clave de Pairee. Los usuarios pueden instalar tu plugin una vez publicado ese índice firmado.
 
 ---
@@ -926,13 +938,12 @@ version       = "1.0.0"
 description   = "Descripción de mi complemento"
 author        = "tu-usuario-github"
 license       = "MIT"
-type          = "hook"               # Autodetectado por la herramienta de desarrollador
 min_pairee    = "0.7.0"
 requires_trust = false
 
 # Soporte de integración de idiomas
 default_language = "en"
-languages     = ["en", "es"]         # Autodetectado desde el directorio lang/
+languages     = ["en", "es"]         # se listan a mano (no se detectan); salen como insignias en el registro
 
 # Esquema de configuración personalizada
 [settings_schema]
@@ -949,6 +960,11 @@ default = "Ctrl+Alt+r"
 [permissions]
 commands = ["git"]
 ```
+
+Pairee lee las claves de arriba más `icon`, `screenshots` y la tabla heredada
+`[keybindings]`. Otras claves (`homepage`, `tags`, `type`, `hooks`, ...) se
+aceptan y se ignoran: no tienen efecto y el empaquetador no las copia al índice
+del registro. Nada del manifiesto se autodetecta: ni el tipo ni los idiomas.
 
 ---
 
