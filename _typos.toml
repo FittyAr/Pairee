@@ -24,6 +24,8 @@ extend-exclude = [
   "docs/technical/keybindings-presets-plan.md",
   "docs/technical/mouse-support-plan.md",
   "docs/technical/audit-2026-10.md",
+  # Store listing text (English and Spanish)
+  "docs/technical/store-listing.md",
   ".agents/",
   # Windows Explorer file descriptions (may contain localized text)
   "descript.ion",
