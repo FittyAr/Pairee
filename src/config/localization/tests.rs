@@ -66,6 +66,18 @@ fn en_and_es_translation_keys_match() {
 }
 
 #[test]
+fn language_files_have_no_replacement_characters() {
+    // Regression: a bad re-encoding left U+FFFD in es.toml (F9 showed "Men").
+    for (name, text) in [
+        ("en.toml", include_str!("../../../lang/en.toml")),
+        ("es.toml", include_str!("../../../lang/es.toml")),
+    ] {
+        let broken: Vec<&str> = text.lines().filter(|l| l.contains('\u{FFFD}')).collect();
+        assert!(broken.is_empty(), "{name} has U+FFFD in: {broken:?}");
+    }
+}
+
+#[test]
 fn test_embedded_translations() {
     // Test embedded English fallback
     assert_eq!(get_default_english_translation("tab_system"), "&System");

@@ -55,7 +55,7 @@ impl DialogView for SearchPrompt {
         let focus = kit::mouse::FormFocus::new(SEARCH_FORM, *cursor_idx);
         f.render_widget(
             Paragraph::new(format!(
-                " {}: {}",
+                " {} {}",
                 t("prompt_find_folder"),
                 search_root.to_string_lossy()
             ))

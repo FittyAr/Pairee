@@ -5,6 +5,7 @@ use crate::keybindings::Action;
 use crate::keybindings::keymap::ContextKeymap;
 use crate::keybindings::registry::is_global;
 use crate::keybindings::screens::ScreenCommand;
+use crate::text_width::{grapheme_width, pad_to_width};
 use crossterm::event::KeyModifiers;
 use ratatui::{
     Frame,
@@ -13,6 +14,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::Paragraph,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 /// F-key bar label (localization key) of each action that can sit on an
 /// F-key. The panel rows are built from the live keymap through this table,
@@ -170,6 +172,24 @@ fn is_dev_plugin_dir(context: &AppContext, state: &AppState) -> bool {
     }
 }
 
+/// Label part of a cell `width` columns wide: a space, then `text` clipped
+/// to the remaining columns by display width (whole graphemes, so `Menú` or a
+/// CJK label is never cut mid-character) and padded to at least `" {:<6}"`.
+fn cell_label(text: &str, width: usize) -> String {
+    let room = width.saturating_sub(1);
+    let mut clipped = String::new();
+    let mut used = 0;
+    for g in text.graphemes(true) {
+        let w = grapheme_width(g);
+        if used + w > room {
+            break;
+        }
+        clipped.push_str(g);
+        used += w;
+    }
+    format!(" {}", pad_to_width(&clipped, room.max(6)))
+}
+
 pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &AppState) {
     let theme = &context.theme();
     let fkeys = bar_cells(context, state);
@@ -197,9 +217,11 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         );
 
         // Compose block as " 1 Help   "
+        let number = format!(" {:>2}", num);
+        let label_width = usize::from(block_area.width).saturating_sub(number.len());
         let line = Line::from(vec![
-            Span::styled(format!(" {:>2}", num), num_style),
-            Span::styled(format!(" {:<6}", text), text_style),
+            Span::styled(number, num_style),
+            Span::styled(cell_label(text, label_width), text_style),
         ]);
 
         let paragraph = Paragraph::new(line);
@@ -286,6 +308,27 @@ mod tests {
             label(&bar_cells(&context, &state), 11),
             t("plugin_install_dev")
         );
+    }
+
+    #[test]
+    fn cell_labels_are_clipped_by_display_width() {
+        // Regression: Spanish F9 showed "Men" instead of "Menú".
+        assert_eq!(cell_label("Menú", 5), " Menú  ");
+        assert_eq!(cell_label("Menú", 5).trim_end(), " Menú");
+        assert_eq!(cell_label("Renombrar", 7).trim_end(), " Renomb");
+        // Wide (2-column) characters are never split.
+        assert_eq!(cell_label("メニュー", 6).trim_end(), " メニ");
+        assert_eq!(cell_label("Ayuda", 0).trim_end(), "");
+    }
+
+    #[test]
+    fn spanish_bar_cell_shows_the_whole_menu_label() {
+        // F9 in a 120-column terminal: 10 columns, " 9" plus the label.
+        let es: crate::config::localization::types::LanguageFile =
+            toml::from_str(include_str!("../../lang/es.toml")).unwrap();
+        let menu = &es.translations["fkey_menu"];
+        assert_eq!(menu, "Menú");
+        assert_eq!(cell_label(menu, 10 - 3).trim(), "Menú");
     }
 
     #[test]
