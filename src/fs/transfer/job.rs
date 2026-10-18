@@ -104,6 +104,49 @@ impl TransferJob {
 
     /// Copy/Move job of explicit file pairs (local only); every destination
     /// folder that is missing is created.
+    /// A new job for what failed in this one: a local copy or move retries
+    /// each failed file at the destination it was going to (keeping the
+    /// folders it was in), a delete or wipe the failed paths; other jobs
+    /// (remote, archive) run again as a whole, the conflict setting
+    /// deciding about what they already copied. `None` when nothing failed.
+    pub fn retry_failed(&self) -> Option<Self> {
+        let failed = &self.results.failed_files;
+        if failed.is_empty() {
+            return None;
+        }
+        let local_files = matches!(
+            self.operation,
+            TransferOperation::Copy | TransferOperation::Move
+        ) && self.remote.is_none()
+            && super::backend::archive_vfs::plan(self).is_none()
+            && failed.iter().all(|f| !f.dst.as_os_str().is_empty());
+        if local_files {
+            let pairs = failed
+                .iter()
+                .map(|f| (f.src.clone(), f.dst.clone()))
+                .collect();
+            return Some(Self::for_pairs(self.operation, pairs, self.options.clone()));
+        }
+        let mut retry = Self::new(
+            self.operation,
+            self.sources.clone(),
+            self.destination.clone(),
+            self.options.clone(),
+        );
+        if matches!(
+            self.operation,
+            TransferOperation::Delete | TransferOperation::Wipe
+        ) {
+            retry.sources = failed.iter().map(|f| f.src.clone()).collect();
+        }
+        retry.destination_kind = self.destination_kind;
+        retry.remote = self.remote.clone();
+        retry.shell_template = self.shell_template.clone();
+        retry.pairs = self.pairs.clone();
+        retry.prune_dirs = self.prune_dirs.clone();
+        Some(retry)
+    }
+
     pub fn for_pairs(
         operation: TransferOperation,
         pairs: Vec<(PathBuf, PathBuf)>,
@@ -323,4 +366,61 @@ pub struct FailedFile {
 pub struct SkippedFile {
     pub src: PathBuf,
     pub reason: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fs::transfer::control::failed;
+    use std::path::Path;
+
+    fn with_failure(op: TransferOperation, src: &str, dst: &str) -> TransferJob {
+        let mut job = TransferJob::new(
+            op,
+            vec![PathBuf::from("src/proj")],
+            PathBuf::from("dst"),
+            super::super::options::TransferOptions::default(),
+        )
+        .into_folder();
+        job.results
+            .failed_files
+            .push(failed(Path::new(src), PathBuf::from(dst), "boom".into()));
+        job
+    }
+
+    /// A file deep in a copied folder is retried where it was going, not
+    /// flat in the destination.
+    #[test]
+    fn a_retried_local_copy_keeps_the_folders() {
+        let job = with_failure(
+            TransferOperation::Copy,
+            "src/proj/a/f.txt",
+            "dst/proj/a/f.txt",
+        );
+        let retry = job.retry_failed().unwrap();
+        assert_ne!(retry.id, job.id);
+        assert_eq!(
+            retry.pairs,
+            Some(vec![("src/proj/a/f.txt".into(), "dst/proj/a/f.txt".into())])
+        );
+        let mut done = job.clone();
+        done.results.failed_files.clear();
+        assert!(done.retry_failed().is_none());
+    }
+
+    /// Without a destination per file the whole job runs again, the same
+    /// way (folder destination, endpoints).
+    #[test]
+    fn a_retry_without_file_destinations_repeats_the_job() {
+        let job = with_failure(TransferOperation::Move, "a.txt", "");
+        let retry = job.retry_failed().unwrap();
+        assert_eq!(retry.sources, job.sources);
+        assert_eq!(retry.destination_kind, DestinationKind::Folder);
+        assert!(retry.pairs.is_none());
+        let delete = with_failure(TransferOperation::Delete, "src/proj/f", "");
+        assert_eq!(
+            delete.retry_failed().unwrap().sources,
+            [PathBuf::from("src/proj/f")]
+        );
+    }
 }

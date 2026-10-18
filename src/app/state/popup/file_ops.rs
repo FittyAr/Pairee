@@ -174,7 +174,7 @@ impl CopyMovePromptState {
     /// Focus model shared by the key handler and the renderer.
     pub const FORM: FormLayout = FormLayout::new(Self::ROW_COUNT, Self::BUTTON_SUBMIT);
     /// Choices of the "already existing files" row.
-    pub const EXISTING_CHOICES: usize = 4;
+    pub const EXISTING_CHOICES: usize = 5;
     /// Choices of the symbolic-links row.
     pub const SYMLINK_CHOICES: usize = 3;
 
@@ -220,6 +220,36 @@ impl CopyMovePromptState {
         })
     }
 
+    /// The "already existing" choices, in order (the row's labels follow).
+    const EXISTING_MODES: [&'static str; Self::EXISTING_CHOICES] =
+        ["ask", "overwrite", "skip", "overwrite_older", "rename"];
+
+    /// Starts the choices from the transfer settings (`options`), so the
+    /// dialog proposes what a copy without it would do.
+    pub fn with_options(mut self, options: &TransferOptions) -> Self {
+        let mode = match options.conflict_resolution.as_str() {
+            "keep_both" => "rename",
+            other => other,
+        };
+        self.already_existing = Self::EXISTING_MODES
+            .iter()
+            .position(|m| *m == mode)
+            .unwrap_or(0);
+        self.symlink_mode = if options.skip_symlinks {
+            2
+        } else if options.follow_symlinks {
+            1
+        } else {
+            0
+        };
+        self.copy_access_mode = options.preserve_permissions;
+        self.copy_extended_attributes = options.preserve_attributes;
+        self.disable_write_cache = options.direct_io;
+        self.produce_sparse_files = options.produce_sparse_files;
+        self.use_copy_on_write = options.use_copy_on_write;
+        self
+    }
+
     /// Applies the dialog choices on top of the settings-derived `options`.
     pub fn apply_to(&self, options: &mut TransferOptions) {
         options.direct_io = self.disable_write_cache;
@@ -227,14 +257,12 @@ impl CopyMovePromptState {
         options.preserve_attributes = self.copy_extended_attributes;
         options.produce_sparse_files = self.produce_sparse_files;
         options.use_copy_on_write = self.use_copy_on_write;
-        options.conflict_resolution = match self.already_existing {
-            1 => "overwrite",
-            2 => "skip",
-            3 => "overwrite_older",
-            4 => "rename",
-            _ => "ask",
-        }
-        .to_string();
+        options.conflict_resolution = Self::EXISTING_MODES
+            .get(self.already_existing)
+            .copied()
+            .unwrap_or("ask")
+            .to_string();
+        // Copy links as links, copy what they point to, or leave them out.
         (options.skip_symlinks, options.follow_symlinks) = match self.symlink_mode {
             1 => (false, true),
             2 => (true, false),
@@ -260,6 +288,44 @@ fn default_destination(src_paths: &[PathBuf], dest_dir: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The dialog starts from the transfer settings and, untouched, hands
+    /// them back unchanged; every "already existing" choice is reachable.
+    #[test]
+    fn the_dialog_proposes_the_transfer_settings() {
+        for (mode, skip, follow) in [
+            ("skip", false, true),
+            ("rename", true, false),
+            ("overwrite_older", false, false),
+        ] {
+            let settings = TransferOptions {
+                conflict_resolution: mode.into(),
+                skip_symlinks: skip,
+                follow_symlinks: follow,
+                preserve_attributes: true,
+                ..TransferOptions::default()
+            };
+            let p = CopyMovePromptState::new(TransferPromptOp::Copy, Vec::new(), "dst".into())
+                .with_options(&settings);
+            let mut applied = TransferOptions::default();
+            p.apply_to(&mut applied);
+            assert_eq!(applied.conflict_resolution, mode);
+            assert_eq!(
+                (applied.skip_symlinks, applied.follow_symlinks),
+                (skip, follow)
+            );
+            assert!(applied.preserve_attributes);
+        }
+        let mut p = CopyMovePromptState::new(TransferPromptOp::Copy, Vec::new(), "dst".into());
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..CopyMovePromptState::EXISTING_CHOICES {
+            p.toggle(CopyMovePromptState::ROW_EXISTING);
+            let mut o = TransferOptions::default();
+            p.apply_to(&mut o);
+            seen.insert(o.conflict_resolution);
+        }
+        assert!(seen.contains("rename"), "{seen:?}");
+    }
 
     #[test]
     fn single_source_prefills_its_name() {
@@ -304,6 +370,9 @@ mod tests {
         assert!(options.follow_symlinks && !options.skip_symlinks);
         assert!(options.preserve_attributes);
         assert_eq!(options.filter_mask.as_deref(), Some("*.rs"));
+        p.toggle(CopyMovePromptState::ROW_EXISTING);
+        p.apply_to(&mut options);
+        assert_eq!(options.conflict_resolution, "rename");
         p.toggle(CopyMovePromptState::ROW_EXISTING);
         assert_eq!(p.already_existing, 0);
     }

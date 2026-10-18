@@ -3,10 +3,15 @@ use crate::config::localization::t;
 use crate::ui::popup::kit::{self, FocusStyles};
 use ratatui::{Frame, layout::Rect, style::Style, widgets::Paragraph};
 
-const EXISTING_KEYS: [&str; Prompt::EXISTING_CHOICES] =
-    ["opt_ask", "opt_overwrite", "opt_skip", "opt_append"];
+const EXISTING_KEYS: [&str; Prompt::EXISTING_CHOICES] = [
+    "opt_ask",
+    "opt_overwrite",
+    "opt_skip",
+    "opt_overwrite_older",
+    "opt_rename",
+];
 const SYMLINK_KEYS: [&str; Prompt::SYMLINK_CHOICES] =
-    ["opt_smartly_copy", "opt_copy_link", "opt_copy_target"];
+    ["opt_copy_link", "opt_copy_target", "opt_skip_links"];
 
 /// Option rows (chunks 1..=12): choices, checkboxes, filter and separators.
 /// Chunk `n + 1` shows dialog row `n` for rows 1..=8; row 9 (filter) sits

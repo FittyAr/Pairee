@@ -5,10 +5,10 @@ use super::link;
 use crate::app::context::AppContext;
 use crate::app::state::file_clipboard::{ClipMode, FileClipboard};
 use crate::app::state::{AppState, PopupType};
-use crate::app::transfer_submit::submit_simple;
+use crate::app::transfer_submit::submit_job;
 use crate::config::localization::t;
 use crate::fs::LinkKind;
-use crate::fs::transfer::job::TransferOperation;
+use crate::fs::transfer::job::{TransferJob, TransferOperation};
 use crate::fs::transfer::transfer_options_from_settings;
 use crate::keybindings::Action;
 
@@ -64,15 +64,12 @@ fn paste(state: &mut AppState, context: &AppContext, overwrite: bool) {
         ClipMode::Cut => TransferOperation::Move,
     };
     let dst_ssh = active.source.remote().cloned();
-    submit_simple(
-        state,
-        operation,
-        clip.paths,
-        dest,
-        options,
-        clip.source.remote().cloned(),
-        dst_ssh,
-    );
+    // The panel folder is where the items go, even when it shares its
+    // name with an item pasted into it.
+    let job = TransferJob::new(operation, clip.paths, dest, options)
+        .with_remotes(clip.source.remote().cloned(), dst_ssh)
+        .into_folder();
+    submit_job(state, job);
     if clip.mode == ClipMode::Cut {
         state.file_clipboard = None;
     }

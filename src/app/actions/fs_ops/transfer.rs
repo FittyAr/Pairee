@@ -39,12 +39,12 @@ pub fn start(
         TransferPromptOp::Copy => confirmations.confirm_copy,
         TransferPromptOp::Move => confirmations.confirm_move,
     };
+    let options = transfer_options_from_settings(&context.config.settings);
     if confirm {
-        let mut prompt = CopyMovePromptState::new(op, targets, dest_dir);
+        let mut prompt = CopyMovePromptState::new(op, targets, dest_dir).with_options(&options);
         prompt.endpoints = Some(endpoints);
         state.dialogs.replace(PopupType::TransferPrompt(prompt));
     } else {
-        let options = transfer_options_from_settings(&context.config.settings);
         let (src_ssh, dst_ssh) = endpoints;
         // The panel folder is where the items go, even when it shares its
         // name with the single item copied into it.

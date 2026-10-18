@@ -94,6 +94,26 @@ impl TransferQueue {
         }
     }
 
+    /// Moves the queued job `job_id` ahead of every other queued job, so
+    /// it runs next; `false` when it is not queued.
+    pub fn move_to_front(&self, job_id: Uuid) -> bool {
+        let mut jobs = self.jobs.lock_safe();
+        let Some(idx) = jobs
+            .iter()
+            .position(|j| j.id == job_id && j.status == TransferJobStatus::Queued)
+        else {
+            return false;
+        };
+        let first = jobs
+            .iter()
+            .position(|j| j.status == TransferJobStatus::Queued)
+            .unwrap_or(idx);
+        if let Some(job) = jobs.remove(idx) {
+            jobs.insert(first, job);
+        }
+        true
+    }
+
     pub fn get_all(&self) -> Vec<TransferJob> {
         let jobs = self.jobs.lock_safe();
         jobs.iter().cloned().collect()

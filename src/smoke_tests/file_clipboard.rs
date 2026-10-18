@@ -68,3 +68,21 @@ fn cut_pasted_in_place_and_clear_do_nothing() {
     h.settle();
     assert_eq!(names_in(&h, "work/left"), ["a.txt"]);
 }
+
+/// A folder pasted into a panel folder of the same name nests inside it
+/// (as F5 does), instead of merging into it.
+#[test]
+fn a_folder_pasted_into_a_same_named_folder_nests() {
+    let mut h = Harness::new();
+    h.write("work/left/project/f.txt", "new");
+    h.write("work/right/project/keep.txt", "keep");
+    h.reread().focus("project");
+    h.dispatch(Action::Yank);
+    h.dispatch(Action::ChangePanel);
+    h.focus("project").keys("Enter");
+    h.dispatch(Action::Paste);
+    h.wait_until("nested copy", |h| {
+        h.exists("work/right/project/project/f.txt")
+    });
+    assert!(!h.exists("work/right/project/f.txt"));
+}

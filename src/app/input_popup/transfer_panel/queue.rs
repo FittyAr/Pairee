@@ -87,7 +87,7 @@ fn apply_to_job(
     match op {
         QueueOp::TogglePause => {
             toggle_pause(transfer, jobs, job);
-            // Starting a queued job moves it to the top: keep it selected.
+            // A queued job moves ahead of the others: keep it selected.
             if let Some(idx) = queue.get_all().iter().position(|j| j.id == job.id) {
                 transfer.queue_cursor = idx;
             }
@@ -137,13 +137,15 @@ fn is_running(status: &TransferJobStatus) -> bool {
     )
 }
 
-/// Resuming a paused job or starting a queued one pauses every other job;
-/// a running job is paused.
+/// Resuming a paused job pauses the running ones; a running job is
+/// paused; a queued job moves to the front of the queue, to run next. The
+/// engine runs one job at a time: pausing the running job for a queued
+/// one would only stall both.
 fn toggle_pause(transfer: &TransferUIState, jobs: &[TransferJob], job: &TransferJob) {
     let queue = &transfer.engine.queue;
     match job.status {
         TransferJobStatus::Paused => {
-            pause_others(transfer, jobs, job);
+            pause_running(transfer, jobs, job);
             job.is_paused.store(false, Ordering::SeqCst);
             queue.update_job(job.id, |j| j.status = TransferJobStatus::Transferring);
         }
@@ -152,44 +154,37 @@ fn toggle_pause(transfer: &TransferUIState, jobs: &[TransferJob], job: &Transfer
             queue.update_job(job.id, |j| j.status = TransferJobStatus::Paused);
         }
         TransferJobStatus::Queued => {
-            pause_others(transfer, jobs, job);
             job.is_paused.store(false, Ordering::SeqCst);
-            queue.reorder(job.id, -(jobs.len() as i32));
+            queue.move_to_front(job.id);
         }
         _ => {}
     }
 }
 
-fn pause_others(transfer: &TransferUIState, jobs: &[TransferJob], job: &TransferJob) {
-    for other_job in jobs.iter().filter(|other| other.id != job.id) {
+/// Pauses the jobs other than `job` that are running (queued ones keep
+/// their turn and start unpaused).
+fn pause_running(transfer: &TransferUIState, jobs: &[TransferJob], job: &TransferJob) {
+    for other_job in jobs
+        .iter()
+        .filter(|other| other.id != job.id && is_running(&other.status))
+    {
         other_job.is_paused.store(true, Ordering::SeqCst);
-        transfer.engine.queue.update_job(other_job.id, |j| {
-            if is_running(&j.status) {
-                j.status = TransferJobStatus::Paused;
-            }
-        });
+        transfer
+            .engine
+            .queue
+            .update_job(other_job.id, |j| j.status = TransferJobStatus::Paused);
     }
 }
 
 /// Queues a new job with the files that failed in `job`.
 fn retry_failed(transfer: &mut TransferUIState, job: &TransferJob) {
-    let res = &job.results;
-    if res.failed_files.is_empty() {
+    let Some(new_job) = job.retry_failed() else {
         return;
-    }
-    let failed_sources: Vec<std::path::PathBuf> =
-        res.failed_files.iter().map(|f| f.src.clone()).collect();
-    let new_job = TransferJob::new(
-        job.operation,
-        failed_sources,
-        job.destination.clone(),
-        job.options.clone(),
-    );
+    };
+    let failed = job.results.failed_files.len();
     transfer.engine.queue.update_job(job.id, |j| {
-        j.log_lines.push(format!(
-            "Re-enqueueing {} failed files...",
-            res.failed_files.len()
-        ));
+        j.log_lines
+            .push(format!("Re-enqueueing {failed} failed files..."));
     });
     transfer.engine.submit_job(new_job);
 }
@@ -287,5 +282,45 @@ mod tests {
             TransferViewMode::Expanded,
             "back to the panel"
         );
+    }
+
+    /// P on a queued job makes it run next without pausing the running
+    /// one (the engine runs one job at a time).
+    #[tokio::test]
+    async fn starting_a_queued_job_does_not_pause_the_running_one() {
+        let mut state = AppState::new(".".into(), ".".into());
+        crate::app::transfer_submit::ensure_transfer_ui(&mut state);
+        let ts = state.transfer.as_mut().unwrap();
+        let job = |status| {
+            let mut job = TransferJob::new(
+                TransferOperation::Copy,
+                Vec::new(),
+                Default::default(),
+                Default::default(),
+            );
+            job.status = status;
+            job
+        };
+        let (running, waiting, queued) = (
+            job(TransferJobStatus::Transferring),
+            job(TransferJobStatus::Queued),
+            job(TransferJobStatus::Queued),
+        );
+        let ids = (running.id, waiting.id, queued.id);
+        for j in [running, waiting, queued] {
+            ts.engine.queue.enqueue(j);
+        }
+        let jobs = ts.engine.queue.get_all();
+        toggle_pause(ts, &jobs, &jobs[2]);
+        let all = ts.engine.queue.get_all();
+        let get = |id| all.iter().find(|j| j.id == id).unwrap();
+        assert_eq!(get(ids.0).status, TransferJobStatus::Transferring);
+        assert!(!get(ids.0).is_paused.load(Ordering::SeqCst));
+        assert!(!get(ids.1).is_paused.load(Ordering::SeqCst));
+        let first_queued = all
+            .iter()
+            .find(|j| j.status == TransferJobStatus::Queued)
+            .unwrap();
+        assert_eq!(first_queued.id, ids.2, "runs next");
     }
 }
