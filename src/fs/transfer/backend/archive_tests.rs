@@ -178,13 +178,52 @@ async fn moves_into_and_out_of_tar_and_7z_archives() {
     fs::create_dir(&out).unwrap();
     fs::write(out.join("a.txt"), b"in the way").unwrap();
     let sources = vec![seven.join("sub"), seven.join("a.txt")];
-    run(job(TransferOperation::Move, sources, out.clone()))
-        .await
-        .unwrap();
+    let mut moving = job(TransferOperation::Move, sources, out.clone());
+    moving.options.conflict_resolution = "skip".into();
+    run(moving).await.unwrap();
     assert_eq!(fs::read(out.join("sub").join("b.txt")).unwrap(), b"bravo");
     assert_eq!(fs::read(out.join("a.txt")).unwrap(), b"in the way");
     let left: Vec<String> = sorted_names(&seven);
     assert_eq!(left, ["a.txt"], "a skipped entry stays in the archive");
+}
+
+/// Copying out of an archive onto existing files follows the conflict
+/// setting like a local copy: skip, overwrite or rename; a whole-archive
+/// Extract job does the same.
+#[tokio::test]
+async fn copying_out_resolves_existing_files() {
+    for (mode, kept, extra) in [
+        ("skip", &b"in the way"[..], None),
+        ("overwrite", &b"alpha"[..], None),
+        ("rename", &b"in the way"[..], Some("a (1).txt")),
+    ] {
+        for op in [TransferOperation::Copy, TransferOperation::Extract] {
+            let dir = tempfile::tempdir().unwrap();
+            let zip = dir.path().join("a.zip");
+            write_zip(&zip, SAMPLE_TREE);
+            let out = dir.path().join("out");
+            fs::create_dir(&out).unwrap();
+            fs::write(out.join("a.txt"), b"in the way").unwrap();
+            let sources = match op {
+                TransferOperation::Copy => vec![zip.join("a.txt"), zip.join("sub")],
+                _ => vec![zip.clone()],
+            };
+            let mut copy = job(op, sources, out.clone()).into_folder();
+            copy.options.conflict_resolution = mode.into();
+            run(copy).await.unwrap();
+            assert_eq!(fs::read(out.join("a.txt")).unwrap(), kept, "{mode} {op:?}");
+            assert_eq!(fs::read(out.join("sub/b.txt")).unwrap(), b"bravo");
+            if let Some(name) = extra {
+                assert_eq!(fs::read(out.join(name)).unwrap(), b"alpha", "{mode}");
+            }
+            let leftovers: Vec<_> = fs::read_dir(&out)
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_name().to_string_lossy().ends_with(".pairee-old"))
+                .collect();
+            assert!(leftovers.is_empty(), "no file set aside is left");
+        }
+    }
 }
 
 /// Copies a local `a.txt` ("new") into a zip already holding `a.txt`

@@ -48,7 +48,13 @@ impl ArchiveReader for SevenZReader {
                 return Ok(false);
             }
             match visit(&meta(entry), data) {
-                Ok(Visit::Continue) => Ok(true),
+                // What the visitor left unread is read to its end: the
+                // checksum of a solid block covers every entry in it, so an
+                // entry passed over would fail the whole block.
+                Ok(Visit::Continue) => match std::io::copy(data, &mut std::io::sink()) {
+                    Ok(_) => Ok(true),
+                    Err(e) => Err(sevenz_rust2::Error::Io(e, "".into())),
+                },
                 Ok(Visit::Stop) => {
                     stopped = true;
                     Ok(false)

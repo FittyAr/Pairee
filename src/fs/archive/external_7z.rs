@@ -1,13 +1,27 @@
-//! External 7z binary extraction fallback (e.g. for Rar, Iso formats).
+//! Formats read through an external 7-Zip (Strategy for [`ArchiveReader`]):
+//! RAR, ISO images, CAB, WIM and the other formats without a native
+//! reader, and 7z archives the native reader cannot decode (see
+//! [`super::fallback`]).
+//!
+//! Entries are listed with `7z l -slt`. Reading them unpacks only the
+//! wanted ones into a private temporary folder (validated first: no path
+//! traversal, no entry below a file entry, size and entry limits), whose
+//! files are then streamed to the visitor in archive order; the folder
+//! goes away afterwards. The visitor writes through the same
+//! [`super::safe_extract::ExtractGuard`] as every native format.
 
 use anyhow::{Result, anyhow};
 use std::collections::HashSet;
+use std::io::{Read, Write as _};
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
+use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit, Visitor};
 use super::safe_extract::ExtractGuard;
 use crate::config::localization::{t, t_fill};
-use crate::fs::external_tools::get_external_7z_path;
-use crate::fs::progress::ArchiveReport;
+use crate::fs::external_tools::{SevenZipTool, find_7z};
+
+pub struct External7zReader;
 
 /// One entry of `7z l -slt` output.
 #[derive(Debug, PartialEq)]
@@ -15,11 +29,37 @@ struct ListedEntry {
     path: String,
     size: u64,
     is_dir: bool,
+    modified: Option<std::time::SystemTime>,
+}
+
+impl ListedEntry {
+    fn meta(&self) -> EntryMeta {
+        EntryMeta {
+            name: self.path.clone(),
+            kind: if self.is_dir {
+                EntryKind::Dir
+            } else {
+                EntryKind::File
+            },
+            size: self.size,
+            modified: self.modified,
+            mode: None,
+        }
+    }
+}
+
+/// `7z` reads its local times as `2026-10-18 08:40:49[.fraction]`.
+fn listed_time(value: &str) -> Option<std::time::SystemTime> {
+    let seconds = value.get(..19)?;
+    let naive = chrono::NaiveDateTime::parse_from_str(seconds, "%Y-%m-%d %H:%M:%S").ok()?;
+    let local = naive.and_local_timezone(chrono::Local).earliest()?;
+    Some(local.into())
 }
 
 /// Parses the technical listing (`7z l -slt`). Only blocks after the
 /// `----------` separator describe entries; the block before it describes
-/// the archive itself.
+/// the archive itself. Alternate data streams (`file:stream`) are left
+/// out: they are not files of their own.
 fn parse_listing(stdout: &str) -> Result<Vec<ListedEntry>> {
     let text = stdout.replace("\r\n", "\n");
     let (_, body) = text
@@ -31,19 +71,33 @@ fn parse_listing(stdout: &str) -> Result<Vec<ListedEntry>> {
         let mut path = None;
         let mut size = 0u64;
         let mut is_dir = false;
+        let mut modified = None;
+        let mut stream = false;
         for line in block.lines() {
-            if let Some(v) = line.strip_prefix("Path = ") {
-                path = Some(v.trim().to_string());
-            } else if let Some(v) = line.strip_prefix("Size = ") {
-                size = v.trim().parse().unwrap_or(0);
-            } else if let Some(v) = line.strip_prefix("Folder = ") {
-                is_dir = v.trim() == "+";
-            } else if let Some(v) = line.strip_prefix("Attributes = ") {
-                is_dir |= v.trim_start().starts_with('D');
+            let Some((key, value)) = line.split_once(" = ").or_else(|| {
+                // `Size = ` with nothing after it loses the trailing space.
+                line.strip_suffix(" =").map(|key| (key, ""))
+            }) else {
+                continue;
+            };
+            let value = value.trim();
+            match key {
+                "Path" => path = Some(value.to_string()),
+                "Size" => size = value.parse().unwrap_or(0),
+                "Folder" => is_dir |= value == "+",
+                "Attributes" => is_dir |= value.starts_with('D'),
+                "Modified" => modified = listed_time(value),
+                "Alternate Stream" => stream = value == "+",
+                _ => {}
             }
         }
-        if let Some(path) = path {
-            entries.push(ListedEntry { path, size, is_dir });
+        if let Some(path) = path.filter(|p| !p.is_empty() && !stream) {
+            entries.push(ListedEntry {
+                path,
+                size,
+                is_dir,
+                modified,
+            });
         }
     }
     Ok(entries)
@@ -52,7 +106,7 @@ fn parse_listing(stdout: &str) -> Result<Vec<ListedEntry>> {
 /// Validates every listed entry before 7z is allowed to write anything:
 /// path traversal, existing links in the destination, entries nested under
 /// a non-directory entry (e.g. an archived symlink), and size/count limits.
-fn preflight_listing(entries: &[ListedEntry], guard: &mut ExtractGuard) -> Result<()> {
+fn preflight_listing(entries: &[&ListedEntry], guard: &mut ExtractGuard) -> Result<()> {
     let mut leaves: HashSet<PathBuf> = HashSet::new();
     let mut rels = Vec::with_capacity(entries.len());
     for entry in entries {
@@ -71,114 +125,210 @@ fn preflight_listing(entries: &[ListedEntry], guard: &mut ExtractGuard) -> Resul
     Ok(())
 }
 
-pub fn extract_via_external_7z(
-    archive_path: &Path,
-    dest_dir: &Path,
-    report: &mut ArchiveReport,
-) -> Result<()> {
-    let bin_path = get_external_7z_path().ok_or_else(|| anyhow!(t("archive_7z_path_unknown")))?;
-    if !bin_path.exists() && cfg!(target_os = "windows") {
-        return Err(anyhow!(t("archive_7z_not_downloaded")));
+/// The 7-Zip to run, or why there is none.
+fn tool() -> Result<SevenZipTool> {
+    find_7z().ok_or_else(|| anyhow!(t("archive_7z_missing")))
+}
+
+/// A `7z` command that never waits on the console: no password prompt
+/// (stdin is closed), UTF-8 names in and out.
+fn command(tool: &SevenZipTool, op: &str) -> Command {
+    let mut cmd = Command::new(&tool.path);
+    cmd.arg(op).arg("-y").arg("-sccUTF-8").stdin(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // No console window flashing up for every listing.
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
     }
+    cmd
+}
 
-    let mut guard = ExtractGuard::new(dest_dir)?;
-
-    // Fail closed: without a successful listing nothing has been validated,
-    // so the archive is never handed to 7z for extraction.
-    let list_output = std::process::Command::new(&bin_path)
-        .arg("l")
-        .arg("-slt")
-        .arg(archive_path)
-        .output()?;
-    if !list_output.status.success() {
-        return Err(anyhow!(t("archive_7z_list_failed")));
+/// Why `tool` could not read `archive`: its own message, and a hint when
+/// the bundled reduced 7-Zip (no RAR, ISO...) is all there is.
+fn tool_error(tool: &SevenZipTool, key: &str, stderr: &[u8]) -> anyhow::Error {
+    let detail = String::from_utf8_lossy(stderr);
+    let detail = detail
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut message = t(key);
+    if !detail.is_empty() {
+        message = format!("{message}: {detail}");
     }
-    let entries = parse_listing(&String::from_utf8_lossy(&list_output.stdout))?;
-    if let Err(e) = preflight_listing(&entries, &mut guard) {
-        report.failed(archive_path, e.to_string());
-        return Err(e);
+    if !tool.full {
+        message = format!("{message}\n{}", t("archive_7z_full_needed"));
     }
+    anyhow!(message)
+}
 
-    report.ensure_running()?;
-    // 7z extracts everything at once: the archive is the one entry shown.
-    report.entry(&crate::fs::file_name_lossy(archive_path), 0, 1);
+fn list(tool: &SevenZipTool, archive: &Path) -> Result<Vec<ListedEntry>> {
+    let output = command(tool, "l").arg("-slt").arg(archive).output()?;
+    if !output.status.success() {
+        return Err(tool_error(tool, "archive_7z_list_failed", &output.stderr));
+    }
+    parse_listing(&String::from_utf8_lossy(&output.stdout))
+}
 
-    // `-aos`: skip files that already exist instead of overwriting them.
-    let mut child = std::process::Command::new(&bin_path)
-        .arg("x")
-        .arg("-y")
-        .arg("-aos")
-        .arg(format!("-o{}", dest_dir.to_string_lossy()))
-        .arg(archive_path)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .spawn()?;
+/// Runs `cmd` to its end, killing it once `cancelled` says so. Returns
+/// its exit status and what it wrote to stderr.
+fn run(
+    mut cmd: Command,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<(std::process::ExitStatus, Vec<u8>)> {
+    let mut child = cmd.stdout(Stdio::null()).stderr(Stdio::piped()).spawn()?;
     // Drained concurrently: an unread stderr pipe fills up (64 KiB) and
-    // blocks 7z on its next warning, so the extraction would never end.
+    // blocks 7z on its next warning, so it would never end.
     let stderr = drain_stderr(child.stderr.take());
-
     let status = loop {
-        if report.is_cancelled() {
+        if cancelled() {
             let _ = child.kill();
             let _ = child.wait();
             return Err(crate::fs::error::cancelled());
         }
         match child.try_wait()? {
             Some(status) => break status,
-            None => std::thread::sleep(std::time::Duration::from_millis(50)),
+            None => std::thread::sleep(std::time::Duration::from_millis(30)),
         }
     };
+    Ok((status, stderr.join().unwrap_or_default()))
+}
 
-    let stderr = stderr.join().unwrap_or_default();
-    match ExtractOutcome::of(status.code()) {
-        ExtractOutcome::Failed => {
-            let detail = stderr.trim();
-            if detail.is_empty() {
-                return Err(anyhow!(t("archive_7z_extract_failed")));
+impl External7zReader {
+    /// Unpacks `chosen` (all entries when `everything`) into `out`.
+    fn unpack(
+        tool: &SevenZipTool,
+        archive: &Path,
+        chosen: &[&ListedEntry],
+        everything: bool,
+        out: &Path,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<()> {
+        let mut cmd = command(tool, "x");
+        cmd.arg("-bso0")
+            .arg("-bsp0")
+            .arg(format!("-o{}", out.display()));
+        // Kept until 7z is done with it.
+        let mut names = None;
+        if !everything {
+            // Names are taken literally (`-spd`: `[`, `*` are no wildcards),
+            // one per line, so no command line grows too long.
+            let mut file = tempfile::Builder::new()
+                .prefix("pairee_7z_names_")
+                .tempfile()?;
+            for entry in chosen {
+                writeln!(file, "{}", entry.path)?;
             }
-            return Err(anyhow!("{}: {detail}", t("archive_7z_extract_failed")));
+            file.flush()?;
+            // Closed (Windows does not let 7z open it while it is open
+            // here); removed once dropped.
+            names = Some(file.into_temp_path());
         }
-        ExtractOutcome::Warnings => report.warned(archive_path, "archive_7z_warnings"),
-        ExtractOutcome::Clean => {}
-    }
-
-    guard.report_skipped(report);
-    Ok(())
-}
-
-/// How a finished `7z x` run is read from its exit code.
-#[derive(Debug, PartialEq)]
-enum ExtractOutcome {
-    Clean,
-    /// Exit code 1: non-fatal warnings (a file was locked, a checksum of a
-    /// skipped file...). Everything else was extracted.
-    Warnings,
-    Failed,
-}
-
-impl ExtractOutcome {
-    fn of(code: Option<i32>) -> Self {
-        match code {
-            Some(0) => Self::Clean,
-            Some(1) => Self::Warnings,
-            _ => Self::Failed,
+        // Archive paths are absolute: never taken for a switch.
+        cmd.arg(archive);
+        if let Some(file) = &names {
+            cmd.arg("-spd")
+                .arg("-scsUTF-8")
+                .arg(format!("@{}", file.display()));
+        }
+        let (status, stderr) = run(cmd, cancelled)?;
+        drop(names);
+        match status.code() {
+            // 1: warnings (a file could not be read); what is missing
+            // shows up when it is opened.
+            Some(0 | 1) => Ok(()),
+            _ => Err(tool_error(tool, "archive_7z_extract_failed", &stderr)),
         }
     }
 }
 
-/// Reads the child's stderr to its end on its own thread (lossy UTF-8,
-/// capped so a chatty tool cannot grow memory).
-fn drain_stderr(pipe: Option<std::process::ChildStderr>) -> std::thread::JoinHandle<String> {
-    use std::io::Read;
+impl ArchiveReader for External7zReader {
+    fn entries(&self, archive: &Path) -> Result<Vec<EntryMeta>> {
+        let tool = tool()?;
+        Ok(list(&tool, archive)?
+            .iter()
+            .map(ListedEntry::meta)
+            .collect())
+    }
+
+    fn visit(&self, archive: &Path, visit: &mut Visitor) -> Result<()> {
+        self.visit_matching(archive, &|_| true, &|| false, visit)
+    }
+
+    fn visit_matching(
+        &self,
+        archive: &Path,
+        wanted: &dyn Fn(&str) -> bool,
+        cancelled: &dyn Fn() -> bool,
+        visit: &mut Visitor,
+    ) -> Result<()> {
+        let tool = tool()?;
+        let entries = list(&tool, archive)?;
+        let chosen: Vec<&ListedEntry> = entries.iter().filter(|e| wanted(&e.path)).collect();
+        if chosen.is_empty() {
+            return Ok(());
+        }
+        let scratch = tempfile::Builder::new().prefix("pairee_7z_").tempdir()?;
+        let out = scratch.path();
+        // Fail closed: nothing is unpacked unless every entry is safe.
+        preflight_listing(&chosen, &mut ExtractGuard::new(out)?)?;
+        let everything = chosen.len() == entries.len();
+        Self::unpack(&tool, archive, &chosen, everything, out, cancelled)?;
+
+        for entry in chosen {
+            let rel = ExtractGuard::sanitize(&entry.path)?;
+            let meta = entry.meta();
+            let next = if entry.is_dir {
+                visit(&meta, &mut std::io::empty())?
+            } else {
+                let mut file = std::fs::File::open(out.join(&rel)).map_err(|e| {
+                    anyhow!(t_fill(
+                        "archive_7z_entry_missing",
+                        &[&entry.path, &e.to_string()]
+                    ))
+                })?;
+                visit(&meta, &mut file)?
+            };
+            if next == Visit::Stop {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn count_hint(&self, archive: &Path) -> usize {
+        tool()
+            .and_then(|tool| list(&tool, archive))
+            .map_or(0, |entries| entries.len())
+    }
+
+    fn test(&self, archive: &Path) -> Result<()> {
+        let tool = tool()?;
+        let mut cmd = command(&tool, "t");
+        cmd.arg("-bso0").arg("-bsp0").arg(archive);
+        let (status, stderr) = run(cmd, &|| false)?;
+        if status.success() {
+            return Ok(());
+        }
+        Err(tool_error(&tool, "archive_7z_test_failed", &stderr))
+    }
+}
+
+/// Reads the child's stderr to its end on its own thread (capped so a
+/// chatty tool cannot grow memory).
+fn drain_stderr(pipe: Option<std::process::ChildStderr>) -> std::thread::JoinHandle<Vec<u8>> {
     std::thread::spawn(move || {
         let Some(mut pipe) = pipe else {
-            return String::new();
+            return Vec::new();
         };
         let mut text = Vec::new();
         let _ = (&mut pipe).take(16 * 1024).read_to_end(&mut text);
         // Keep consuming so the child never blocks on a full pipe.
         let _ = std::io::copy(&mut pipe, &mut std::io::sink());
-        String::from_utf8_lossy(&text).into_owned()
+        text
     })
 }
 
@@ -186,34 +336,25 @@ fn drain_stderr(pipe: Option<std::process::ChildStderr>) -> std::thread::JoinHan
 mod tests {
     use super::*;
 
-    const LISTING: &str = "7-Zip 26.01\r\n\r\nListing archive: C:\\a.rar\r\n\r\n--\r\nPath = C:\\a.rar\r\nType = Rar\r\n\r\n----------\r\nPath = docs\r\nFolder = +\r\nSize = 0\r\n\r\nPath = docs\\readme.txt\r\nFolder = -\r\nSize = 12\r\n\r\n";
+    const LISTING: &str = "7-Zip 26.01\r\n\r\nListing archive: C:\\a.rar\r\n\r\n--\r\nPath = C:\\a.rar\r\nType = Rar\r\n\r\n----------\r\nPath = docs\r\nFolder = +\r\nSize = \r\nModified = 2026-10-18 08:40:49.4852309\r\n\r\nPath = docs\\readme.txt\r\nFolder = -\r\nSize = 12\r\n\r\nPath = docs\\readme.txt:Zone.Identifier\r\nSize = 3\r\nAlternate Stream = +\r\n\r\n";
 
-    #[test]
-    fn parse_listing_skips_archive_header() {
-        let entries = parse_listing(LISTING).unwrap();
-        assert_eq!(
-            entries,
-            vec![
-                ListedEntry {
-                    path: "docs".into(),
-                    size: 0,
-                    is_dir: true
-                },
-                ListedEntry {
-                    path: "docs\\readme.txt".into(),
-                    size: 12,
-                    is_dir: false
-                },
-            ]
-        );
+    fn entry(path: &str, size: u64, is_dir: bool) -> ListedEntry {
+        ListedEntry {
+            path: path.into(),
+            size,
+            is_dir,
+            modified: None,
+        }
     }
 
     #[test]
-    fn exit_code_one_is_a_warning_not_a_failure() {
-        assert_eq!(ExtractOutcome::of(Some(0)), ExtractOutcome::Clean);
-        assert_eq!(ExtractOutcome::of(Some(1)), ExtractOutcome::Warnings);
-        assert_eq!(ExtractOutcome::of(Some(2)), ExtractOutcome::Failed);
-        assert_eq!(ExtractOutcome::of(None), ExtractOutcome::Failed);
+    fn parse_listing_skips_archive_header_and_streams() {
+        let entries = parse_listing(LISTING).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].path, "docs");
+        assert!(entries[0].is_dir);
+        assert!(entries[0].modified.is_some());
+        assert_eq!(entries[1], entry("docs\\readme.txt", 12, false));
     }
 
     #[test]
@@ -224,24 +365,22 @@ mod tests {
     #[test]
     fn preflight_rejects_traversal_nesting_and_bombs() {
         let dir = tempfile::tempdir().unwrap();
-        let entry = |path: &str, size, is_dir| ListedEntry {
-            path: path.into(),
-            size,
-            is_dir,
+        let check = |entries: &[ListedEntry], guard: &mut ExtractGuard| {
+            preflight_listing(&entries.iter().collect::<Vec<_>>(), guard)
         };
 
         let mut guard = ExtractGuard::new(dir.path()).unwrap();
-        assert!(preflight_listing(&[entry("../x", 1, false)], &mut guard).is_err());
+        assert!(check(&[entry("../x", 1, false)], &mut guard).is_err());
 
         let mut guard = ExtractGuard::new(dir.path()).unwrap();
         let nested = [entry("link", 0, false), entry("link/pwn", 1, false)];
-        assert!(preflight_listing(&nested, &mut guard).is_err());
+        assert!(check(&nested, &mut guard).is_err());
 
         let mut guard = ExtractGuard::with_limits(dir.path(), 100, 10).unwrap();
-        assert!(preflight_listing(&[entry("big", 101, false)], &mut guard).is_err());
+        assert!(check(&[entry("big", 101, false)], &mut guard).is_err());
 
         let mut guard = ExtractGuard::new(dir.path()).unwrap();
         let ok = [entry("docs", 0, true), entry("docs/a.txt", 5, false)];
-        assert!(preflight_listing(&ok, &mut guard).is_ok());
+        assert!(check(&ok, &mut guard).is_ok());
     }
 }

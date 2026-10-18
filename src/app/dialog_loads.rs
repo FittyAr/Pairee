@@ -30,7 +30,7 @@ enum Loaded {
 pub enum ArchiveRead {
     /// Show its contents in the viewer.
     List,
-    /// Only check it reads (integrity test).
+    /// Decompress every entry without writing it (integrity test).
     Test,
 }
 
@@ -76,7 +76,12 @@ pub fn open_tree(state: &mut AppState, root: PathBuf, caller: TreeViewCaller, pu
 pub fn read_archive(state: &mut AppState, path: PathBuf, what: ArchiveRead) {
     state.dialogs.replace(PopupType::info(reading_message()));
     state.dialog_loads.job.start(move |_| {
-        let listing = crate::fs::archive::list_archive_files(&path).map_err(|e| e.to_string());
+        let listing = match what {
+            ArchiveRead::List => crate::fs::archive::list_archive_files(&path),
+            // Every entry is decompressed (checksums verified), not only listed.
+            ArchiveRead::Test => crate::fs::archive::test_archive(&path).map(|()| Vec::new()),
+        }
+        .map_err(|e| e.to_string());
         Loaded::Archive {
             path,
             what,

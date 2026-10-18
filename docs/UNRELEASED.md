@@ -7,6 +7,9 @@
 
 ### Improved
 
+- Archives: RAR, ISO, CAB, WIM, ARJ, LZH, CPIO, RPM, DEB, XAR, DMG, VHD/VHDX, SquashFS, CHM, split `.001` archives and single `.gz`/`.bz2`/`.xz`/`.zst`/`.lzma` files open as folders (view, Quick View, copy out with `F5`, extract) through an installed 7-Zip, which also reads the 7z archives with codecs the built-in reader lacks (Deflate64...). Without a full 7-Zip, a message says to install it.
+- Archives: **Extract** unpacks every selected archive (not only the one under the cursor) and says so when there is none; **Test** decompresses every entry instead of only listing them.
+
 ### Changed
 
 - Pairee now uses the shared FittyAr folders on every platform. Windows: the program in `%LOCALAPPDATA%\Programs\FittyAr\Pairee` and the settings in `%APPDATA%\FittyAr\Pairee`. Linux: the program in `~/.local/lib/FittyAr/Pairee` (with the `pairee` command still in `~/.local/bin`), the settings in `~/.config/FittyAr/Pairee`, the log in `~/.cache/FittyAr/Pairee` and the plugin data in `~/.local/share/FittyAr/Pairee` (following the `XDG_*` variables). macOS: `~/Library/Application Support/FittyAr/Pairee` and `~/Library/Caches/FittyAr/Pairee`. The folders of earlier versions are moved into place on the first start, by the installers or by the next self-update; nothing is deleted.
@@ -19,6 +22,11 @@
 ### Removed
 
 ### Fixed
+
+- Archives: copying out of a 7z (`F5`) or viewing one of its files failed with a checksum error when other entries of the same solid block were passed over.
+- Archives: RAR and ISO extraction failed with the 7-Zip Pairee downloads (it cannot read them); an installed 7-Zip is now used first.
+- Archives: copying out of an archive and **Extract** follow the conflict setting (overwrite, skip, rename, ask) instead of silently skipping files that already exist.
+- Transfers: a job that fails, or ends with files that could not be copied, shows why; before, the minimized transfer bar vanished without a word.
 
 - Updater: a copy installed from the Microsoft Store is recognized (`WindowsApps` folder) and points to the Store for updates instead of trying to replace itself in a read-only folder.
 

@@ -10,7 +10,8 @@
 //! * never overwrites an existing file or link — such entries are skipped
 //!   and reported via [`ExtractGuard::skipped`] — except one this very
 //!   extraction wrote: a later entry of the same name replaces it, as tar
-//!   archives updated with `tar -u` expect;
+//!   archives updated with `tar -u` expect, and the regular files the user
+//!   chose to replace ([`ExtractGuard::replace_existing`]);
 //! * caps the number of entries and the total uncompressed bytes written,
 //!   aborting decompression bombs early.
 
@@ -43,6 +44,10 @@ pub struct ExtractGuard {
     /// Files and links this extraction created (a later entry of the same
     /// name replaces them).
     written: HashSet<PathBuf>,
+    /// Entries (relative paths) whose existing regular file is replaced.
+    replace: HashSet<PathBuf>,
+    /// Replaced files, renamed aside until their new copy is complete.
+    aside: std::collections::HashMap<PathBuf, PathBuf>,
 }
 
 impl ExtractGuard {
@@ -67,7 +72,16 @@ impl ExtractGuard {
             entries: 0,
             skipped: Vec::new(),
             written: HashSet::new(),
+            replace: HashSet::new(),
+            aside: std::collections::HashMap::new(),
         })
+    }
+
+    /// The entries `rels` replace a regular file already at their path
+    /// (the user's answer to the conflict); links and folders in the way
+    /// still make them skipped.
+    pub fn replace_existing(&mut self, rels: impl IntoIterator<Item = PathBuf>) {
+        self.replace.extend(rels);
     }
 
     /// Entries that were skipped because something already existed there.
@@ -168,6 +182,13 @@ impl ExtractGuard {
                 fs::remove_file(&target)?;
                 Ok(Some(target))
             }
+            Ok(meta) if meta.is_file() && self.replace.contains(rel) => {
+                // Kept aside until the new file is complete: a failed or
+                // cancelled write puts the old one back.
+                let aside = set_aside(&target, &meta)?;
+                self.aside.insert(target.clone(), aside);
+                Ok(Some(target))
+            }
             Ok(_) => {
                 tracing::warn!("extract: skipping existing {}", target.display());
                 self.skipped.push(rel.to_path_buf());
@@ -197,10 +218,28 @@ impl ExtractGuard {
                 Ok(Some((f, target)))
             }
             Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+                self.restore_aside(&target);
                 self.skipped.push(rel.to_path_buf());
                 Ok(None)
             }
-            Err(e) => Err(e.into()),
+            Err(e) => {
+                self.restore_aside(&target);
+                Err(e.into())
+            }
+        }
+    }
+
+    /// The file replaced at `target` is no longer needed.
+    fn drop_aside(&mut self, target: &Path) {
+        if let Some(aside) = self.aside.remove(target) {
+            let _ = fs::remove_file(aside);
+        }
+    }
+
+    /// Puts the file replaced at `target` back (its new copy failed).
+    fn restore_aside(&mut self, target: &Path) {
+        if let Some(aside) = self.aside.remove(target) {
+            let _ = fs::rename(aside, target);
         }
     }
 
@@ -218,10 +257,15 @@ impl ExtractGuard {
             return Ok(None);
         };
         match self.copy_limited(data, &mut out, cancelled) {
-            Ok(_) => Ok(Some(out)),
+            Ok(_) => {
+                self.drop_aside(&target);
+                Ok(Some(out))
+            }
             Err(e) => {
                 drop(out);
                 let _ = fs::remove_file(&target);
+                self.written.remove(&target);
+                self.restore_aside(&target);
                 Err(e)
             }
         }
@@ -232,7 +276,11 @@ impl ExtractGuard {
     #[cfg(unix)]
     pub fn create_symlink(&mut self, rel: &Path, link_target: &Path) -> Result<()> {
         if let Some(target) = self.prepare_leaf(rel)? {
-            std::os::unix::fs::symlink(link_target, &target)?;
+            if let Err(e) = std::os::unix::fs::symlink(link_target, &target) {
+                self.restore_aside(&target);
+                return Err(e.into());
+            }
+            self.drop_aside(&target);
             self.written.insert(target);
         }
         Ok(())
@@ -295,6 +343,22 @@ impl ExtractGuard {
         }
         Ok(written)
     }
+}
+
+/// Renames the existing file `target` to a hidden name next to it (made
+/// writable first: Windows cannot rename over or delete a read-only file
+/// later).
+fn set_aside(target: &Path, meta: &fs::Metadata) -> Result<PathBuf> {
+    if meta.permissions().readonly() {
+        let mut writable = meta.permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        writable.set_readonly(false);
+        fs::set_permissions(target, writable)?;
+    }
+    let name = crate::fs::file_name_lossy(target);
+    let aside = target.with_file_name(format!(".{name}.{}.pairee-old", uuid::Uuid::new_v4()));
+    fs::rename(target, &aside)?;
+    Ok(aside)
 }
 
 /// `Err` when the local filesystem cannot store the entry name `part` as it

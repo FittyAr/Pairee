@@ -1,11 +1,11 @@
-//! Archival operation runner (compress, extract) with cooperative cancellation.
+//! Archive operation runner (compress, and the archive jobs of
+//! [`super::super::archive_vfs`]) with cooperative cancellation.
 
 use super::super::super::events::TransferEvent;
 use super::super::super::job::TransferResults;
 use crate::config::localization::t;
 use crate::fs::progress::ArchiveReport;
 use crate::fs::transfer::control::JobControl;
-use crate::fs::transfer::control::done;
 use anyhow::anyhow;
 use std::path::PathBuf;
 
@@ -21,37 +21,6 @@ pub async fn run_compress(
         "error_compression_failed",
     )
     .await
-}
-
-pub async fn run_extract(
-    sources: Vec<PathBuf>,
-    destination_dir: PathBuf,
-    control: JobControl,
-) -> Result<TransferResults, anyhow::Error> {
-    let archive = sources
-        .first()
-        .cloned()
-        .ok_or_else(|| anyhow!("Extract requires an archive path in sources"))?;
-    let dest = destination_dir.clone();
-    let archive_for_complete = archive.clone();
-
-    let mut results = run_archive_blocking(
-        control,
-        1,
-        move |report| crate::fs::archive::extract_archive(&archive, &dest, report),
-        "error_extraction_failed",
-    )
-    .await?;
-
-    if results.completed_files.is_empty() && results.failed_files.is_empty() {
-        results.completed_files.push(done(
-            &archive_for_complete,
-            destination_dir,
-            0,
-            std::time::Instant::now(),
-        ));
-    }
-    Ok(results)
 }
 
 /// Runs a blocking archive operation that reports to the job through an

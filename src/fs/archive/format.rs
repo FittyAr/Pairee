@@ -50,6 +50,35 @@ pub trait ArchiveReader: Send + Sync {
     /// Streams the entries in archive order to `visit` until it stops.
     fn visit(&self, archive: &Path, visit: &mut Visitor) -> Result<()>;
 
+    /// Like [`Self::visit`], for the entries whose stored name `wanted`
+    /// keeps. Formats read through an external tool unpack only those
+    /// (polling `cancelled` while the tool runs).
+    fn visit_matching(
+        &self,
+        archive: &Path,
+        wanted: &dyn Fn(&str) -> bool,
+        _cancelled: &dyn Fn() -> bool,
+        visit: &mut Visitor,
+    ) -> Result<()> {
+        self.visit(archive, &mut |meta, data| {
+            if wanted(&meta.name) {
+                visit(meta, data)
+            } else {
+                Ok(Visit::Continue)
+            }
+        })
+    }
+
+    /// Decompresses every entry without writing it anywhere: `Err` when
+    /// the archive is damaged (checksums are verified where the format
+    /// stores them).
+    fn test(&self, archive: &Path) -> Result<()> {
+        self.visit(archive, &mut |_, data| {
+            std::io::copy(data, &mut std::io::sink())?;
+            Ok(Visit::Continue)
+        })
+    }
+
     /// Number of entries when it is known without reading the whole
     /// archive (progress totals); 0 when unknown.
     fn count_hint(&self, _archive: &Path) -> usize {

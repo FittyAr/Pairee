@@ -12,7 +12,7 @@ use std::path::Path;
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
-    _context: &mut AppContext,
+    context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     let Some(ArchiveCommandsMenu {
         archive_path,
@@ -39,20 +39,25 @@ pub fn handle(
         },
     };
     let archive_path = archive_path.clone();
-    execute_option(state, &archive_path, chosen);
+    execute_option(state, context, &archive_path, chosen);
     Ok(None)
 }
 
-fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) {
+fn execute_option(
+    state: &mut AppState,
+    context: &AppContext,
+    archive_path: &Path,
+    cursor_idx: usize,
+) {
     state.dialogs.clear();
     match cursor_idx {
         0 => read_archive(state, archive_path.to_path_buf(), ArchiveRead::List),
         1 => read_archive(state, archive_path.to_path_buf(), ArchiveRead::Test),
         2 => {
             let dest = state.get_active_panel().current_path.clone();
-            extract::extract_to(state, archive_path, dest);
+            extract::extract_to(state, context, archive_path, dest);
         }
-        3 => extract::extract_to_other_panel(state, archive_path),
+        3 => extract::extract_to_other_panel(state, context, archive_path),
         _ => {}
     }
 }

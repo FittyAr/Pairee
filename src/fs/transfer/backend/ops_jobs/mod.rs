@@ -1,4 +1,4 @@
-//! Wipe / Compress / Extract / ApplyCommand / Restore backends for the
+//! Wipe / Compress / ApplyCommand / Restore backends for the
 //! Transfer Engine.
 //!
 //! Pattern: **Strategy** (per-op runner); archive loops report and check
@@ -24,7 +24,6 @@ pub async fn run_ops_job(
     match operation {
         TransferOperation::Wipe => blocking(move || wipe::run_wipe(sources, control)).await,
         TransferOperation::Compress => archive::run_compress(sources, destination, control).await,
-        TransferOperation::Extract => archive::run_extract(sources, destination, control).await,
         TransferOperation::ApplyCommand => {
             let template = shell_template
                 .filter(|s| !s.trim().is_empty())

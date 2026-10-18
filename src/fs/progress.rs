@@ -61,11 +61,6 @@ impl ArchiveReport {
         self.skipped_because(rel, "archive_entry_skipped_unsupported");
     }
 
-    /// `name` finished with a non-fatal warning (the text under `key`).
-    pub fn warned(&mut self, name: &Path, key: &str) {
-        self.skipped_because(name, key);
-    }
-
     /// The entry `rel` was not written, for the reason under `key`.
     fn skipped_because(&mut self, rel: &Path, key: &str) {
         self.announce(0);
@@ -81,10 +76,6 @@ impl ArchiveReport {
         self.announce(0);
         self.ctl
             .file_failed(&mut self.results, failed(name, PathBuf::new(), error));
-    }
-
-    pub fn is_cancelled(&self) -> bool {
-        self.ctl.is_cancelled()
     }
 
     /// `Err` once the job was cancelled (cooperative cancel point).

@@ -229,7 +229,7 @@ impl TransferOperation {
     pub fn uses_ops_backend(self) -> bool {
         matches!(
             self,
-            Self::Wipe | Self::Compress | Self::Extract | Self::ApplyCommand | Self::Restore
+            Self::Wipe | Self::Compress | Self::ApplyCommand | Self::Restore
         )
     }
 }

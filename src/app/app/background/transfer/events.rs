@@ -1,6 +1,8 @@
 use crate::app::context::AppContext;
-use crate::app::state::popup::TransferPanel;
+use crate::app::state::popup::{ErrorMessage, TransferPanel};
+use crate::app::state::types::PopupType;
 use crate::app::state::{AppState, TransferUIState};
+use crate::config::localization::t;
 use crate::fs::transfer::events::TransferEvent;
 use crate::fs::transfer::job::TransferResults;
 use uuid::Uuid;
@@ -46,6 +48,16 @@ pub fn handle_transfer_event(
             if context.config.settings.transfer.auto_report {
                 save_report(transfer, context, job_id, &results);
             }
+            if let Some(first) = results.failed_files.first() {
+                let message = t("transfer_files_failed")
+                    .replacen("{}", &results.failed_files.len().to_string(), 1)
+                    .replacen("{}", &first.src.to_string_lossy(), 1)
+                    .replacen("{}", &first.error, 1);
+                show_failure(state, message);
+            }
+            let Some(transfer) = state.transfer.as_mut() else {
+                return;
+            };
             // Where the job wrote: the drive an "eject" post-action ejects.
             let destination = results.completed_files.last().map(|f| f.dst.clone());
             effects.finished.push((job_id, Some(results)));
@@ -62,10 +74,15 @@ pub fn handle_transfer_event(
                 }
             }
         }
-        TransferEvent::JobFailed { .. } => {
+        TransferEvent::JobFailed { error, .. } => {
             effects.finished.push((job_id, None));
             effects.term_forwards.push((job_id, None));
             effects.refresh_needed = true;
+            // The panel bar is gone once nothing runs: without this the
+            // job would end without a word.
+            if error != t("transfer_job_cancelled") {
+                show_failure(state, error);
+            }
         }
         TransferEvent::ConflictDetected { file, conflict, .. } => {
             transfer.active_conflict_info = Some((job_id, file, conflict));
@@ -78,6 +95,17 @@ pub fn handle_transfer_event(
             effects.refresh_needed = true;
         }
         _ => {}
+    }
+}
+
+/// Shows why a job failed, once (a failure can be reported twice).
+fn show_failure(state: &mut AppState, message: String) {
+    let shown = state
+        .dialogs
+        .iter()
+        .any(|d| matches!(d, PopupType::Error(ErrorMessage(text)) if *text == message));
+    if !shown {
+        state.dialogs.replace(PopupType::error(message));
     }
 }
 

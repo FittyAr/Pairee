@@ -31,8 +31,10 @@ fn detect_format_uses_case_insensitive_extension() {
         ("a.tar.xz", "tarxz"),
         ("a.txz", "tarxz"),
         ("a.7z", "7z"),
-        ("a.rar", "rar"),
-        ("a.iso", "iso"),
+        ("a.rar", "RAR"),
+        ("a.ISO", "ISO"),
+        ("a.cab", "CAB"),
+        ("a.7z.001", "Split"),
         ("a.txt", "none"),
         ("noext", "none"),
     ];
@@ -44,8 +46,7 @@ fn detect_format_uses_case_insensitive_extension() {
             ArchiveFormat::TarBz2 => "tarbz2",
             ArchiveFormat::TarXz => "tarxz",
             ArchiveFormat::SevenZ => "7z",
-            ArchiveFormat::Rar => "rar",
-            ArchiveFormat::Iso => "iso",
+            ArchiveFormat::External(label) => label,
             ArchiveFormat::Unsupported => "none",
         };
         assert_eq!(got, want, "{name}");
@@ -125,15 +126,31 @@ fn extraction_stops_when_cancelled() {
     assert!(!dest.join("a.txt").exists());
 }
 
+/// A compressed tar opens with the native tar reader; a bare compressed
+/// file through 7-Zip (a folder holding that one file).
 #[test]
-fn only_compressed_tars_are_browsable() {
-    use super::is_browsable;
-    for name in ["a.tar.bz2", "a.tbz", "a.tar.xz", "a.TXZ", "a.tgz"] {
+fn compressed_tars_and_single_files_are_browsable() {
+    let tar = browsable_reader(Path::new("a.tar.gz")).unwrap() as *const dyn ArchiveReader;
+    for name in [
+        "a.tar.bz2",
+        "a.tbz",
+        "a.tar.xz",
+        "a.TXZ",
+        "a.tgz",
+        "a.rar",
+        "a.iso",
+    ] {
         assert!(is_browsable(Path::new(name)), "{name}");
     }
     for name in ["notes.txt.bz2", "dump.xz", "file.gz"] {
-        assert!(!is_browsable(Path::new(name)), "{name}");
+        let reader = browsable_reader(Path::new(name)).unwrap() as *const dyn ArchiveReader;
+        assert!(!std::ptr::addr_eq(reader, tar), "{name}");
+        assert!(
+            std::ptr::addr_eq(reader, &EXTERNAL as &dyn ArchiveReader as *const _),
+            "{name}"
+        );
     }
+    assert!(!is_browsable(Path::new("notes.txt")));
 }
 
 #[test]

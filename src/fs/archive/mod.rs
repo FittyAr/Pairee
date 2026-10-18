@@ -1,13 +1,17 @@
 //! Archive detection, extraction, browsing and compression.
 //!
-//! Native formats (zip, tar, tar.gz, tar.bz2, tar.xz, 7z) implement [`ArchiveReader`]
-//! (Strategy); extraction ([`extract`]), the folder tree used to browse an
-//! archive in a panel ([`ArchiveVfs`]) and listings all run on it. Rar and
-//! ISO images are extracted by an external 7-Zip.
+//! Every format implements [`ArchiveReader`] (Strategy); extraction
+//! ([`extract`]), the folder tree used to browse an archive in a panel
+//! ([`ArchiveVfs`]), listings and tests all run on it. Zip, tar (plain,
+//! gzip, bzip2, xz) and 7z are read natively; RAR, ISO images and the other
+//! formats 7-Zip knows are read through an external 7-Zip
+//! ([`external_7z`]), which also reads the 7z archives the native reader
+//! cannot decode ([`fallback`]).
 
 pub mod edit;
 pub mod external_7z;
 pub mod extract;
+pub mod fallback;
 pub mod format;
 pub mod index;
 pub mod nested;
@@ -27,7 +31,6 @@ pub mod zip_ops;
 pub mod zip_write;
 
 pub use edit::{ArchiveEdit, EntrySource};
-pub use external_7z::extract_via_external_7z;
 pub use format::ArchiveReader;
 pub use vfs::ArchiveVfs;
 pub use zip_ops::compress_zip;
@@ -37,7 +40,8 @@ use std::path::{Path, PathBuf};
 
 use crate::config::localization::t;
 use crate::fs::progress::ArchiveReport;
-use extract::{everything, extract_entries};
+pub use extract::Existing;
+use extract::extract_entries;
 
 static ZIP: zip_ops::ZipReader = zip_ops::ZipReader;
 static TAR: tar_ops::TarReader = tar_ops::TarReader {
@@ -52,7 +56,43 @@ static TAR_BZ2: tar_ops::TarReader = tar_ops::TarReader {
 static TAR_XZ: tar_ops::TarReader = tar_ops::TarReader {
     compression: tar_ops::TarCompression::Xz,
 };
-static SEVEN_Z: sevenz_ops::SevenZReader = sevenz_ops::SevenZReader;
+static SEVEN_Z_NATIVE: sevenz_ops::SevenZReader = sevenz_ops::SevenZReader;
+static EXTERNAL: external_7z::External7zReader = external_7z::External7zReader;
+static SEVEN_Z: fallback::Fallback = fallback::Fallback {
+    native: &SEVEN_Z_NATIVE,
+    external: &EXTERNAL,
+};
+
+/// Formats read only through an external 7-Zip: extension and the name
+/// shown in previews. The full 7-Zip reads them all; the reduced `7za`
+/// only CAB (see [`crate::fs::external_tools::SevenZipTool`]).
+const EXTERNAL_FORMATS: &[(&str, &str)] = &[
+    ("rar", "RAR"),
+    ("iso", "ISO"),
+    ("cab", "CAB"),
+    ("wim", "WIM"),
+    ("swm", "WIM"),
+    ("esd", "WIM"),
+    ("arj", "ARJ"),
+    ("lzh", "LZH"),
+    ("lha", "LZH"),
+    ("cpio", "CPIO"),
+    ("rpm", "RPM"),
+    ("deb", "DEB"),
+    ("xar", "XAR"),
+    ("dmg", "DMG"),
+    ("vhd", "VHD"),
+    ("vhdx", "VHDX"),
+    ("squashfs", "SquashFS"),
+    ("cramfs", "CramFS"),
+    ("chm", "CHM"),
+    ("udf", "UDF"),
+    ("zst", "Zstandard"),
+    ("tzst", "Zstandard"),
+    ("lzma", "LZMA"),
+    // The first part of a split archive (`backup.7z.001`).
+    ("001", "Split"),
+];
 
 pub enum ArchiveFormat {
     Zip,
@@ -61,13 +101,13 @@ pub enum ArchiveFormat {
     TarBz2,
     TarXz,
     SevenZ,
-    Rar,
-    Iso,
+    /// Read through an external 7-Zip; the preview label.
+    External(&'static str),
     Unsupported,
 }
 
 impl ArchiveFormat {
-    /// The native reader of this format (`None` for external-only formats).
+    /// The reader of this format.
     pub fn reader(&self) -> Option<&'static dyn ArchiveReader> {
         match self {
             Self::Zip => Some(&ZIP),
@@ -76,7 +116,8 @@ impl ArchiveFormat {
             Self::TarBz2 => Some(&TAR_BZ2),
             Self::TarXz => Some(&TAR_XZ),
             Self::SevenZ => Some(&SEVEN_Z),
-            Self::Rar | Self::Iso | Self::Unsupported => None,
+            Self::External(_) => Some(&EXTERNAL),
+            Self::Unsupported => None,
         }
     }
 
@@ -89,7 +130,8 @@ impl ArchiveFormat {
             Self::TarBz2 => Some("TarBz2"),
             Self::TarXz => Some("TarXz"),
             Self::SevenZ => Some("7Z"),
-            Self::Rar | Self::Iso | Self::Unsupported => None,
+            Self::External(label) => Some(label),
+            Self::Unsupported => None,
         }
     }
 }
@@ -98,22 +140,27 @@ pub fn detect_format(path: &Path) -> ArchiveFormat {
     let Some(ext) = path.extension() else {
         return ArchiveFormat::Unsupported;
     };
-    match ext.to_string_lossy().to_lowercase().as_str() {
+    let ext = ext.to_string_lossy().to_lowercase();
+    match ext.as_str() {
         "zip" => ArchiveFormat::Zip,
         "tar" => ArchiveFormat::Tar,
         "gz" | "tgz" => ArchiveFormat::TarGz,
         "bz2" | "tbz2" | "tbz" => ArchiveFormat::TarBz2,
         "xz" | "txz" => ArchiveFormat::TarXz,
         "7z" => ArchiveFormat::SevenZ,
-        "rar" => ArchiveFormat::Rar,
-        "iso" => ArchiveFormat::Iso,
-        _ => ArchiveFormat::Unsupported,
+        other => EXTERNAL_FORMATS
+            .iter()
+            .find(|(e, _)| *e == other)
+            .map_or(ArchiveFormat::Unsupported, |(_, label)| {
+                ArchiveFormat::External(label)
+            }),
     }
 }
 
 /// The reader of an archive that can be browsed as a folder. A bare `.gz`,
-/// `.bz2` or `.xz` is a single compressed file, not a folder: only the
-/// `.tar.*` names and their short forms (`.tgz`, `.tbz2`, `.tbz`, `.txz`).
+/// `.bz2` or `.xz` is a single compressed file, not a tar (only the
+/// `.tar.*` names and their short forms `.tgz`, `.tbz2`, `.tbz`, `.txz`
+/// are): 7-Zip shows it as a folder holding that one file.
 pub fn browsable_reader(path: &Path) -> Option<&'static dyn ArchiveReader> {
     let format = detect_format(path);
     let name = crate::fs::file_name_lossy(path).to_lowercase();
@@ -125,7 +172,7 @@ pub fn browsable_reader(path: &Path) -> Option<&'static dyn ArchiveReader> {
         _ => true,
     };
     if !is_tar {
-        return None;
+        return Some(&EXTERNAL);
     }
     format.reader()
 }
@@ -148,33 +195,37 @@ pub fn split_archive_path(path: &Path) -> Option<(PathBuf, PathBuf)> {
         })
 }
 
+/// Extracts the whole archive (tests; jobs go through the transfer engine).
+#[cfg(test)]
 pub fn extract_archive(
     archive_path: &Path,
     dest_dir: &Path,
     report: &mut ArchiveReport,
 ) -> Result<()> {
-    let format = detect_format(archive_path);
-    match format.reader() {
-        Some(reader) => extract_entries(reader, archive_path, dest_dir, &everything, report),
-        None if matches!(format, ArchiveFormat::Rar | ArchiveFormat::Iso) => {
-            extract_via_external_7z(archive_path, dest_dir, report)
-        }
-        None => Err(anyhow!(t("archive_unsupported_format"))),
-    }
+    extract_selected(
+        archive_path,
+        Path::new(""),
+        &[PathBuf::new()],
+        dest_dir,
+        &Existing::default(),
+        report,
+    )
 }
 
 /// Extracts `selected` (paths inside `archive`, files or folders with
-/// everything below them) into `dest_dir`, each relative to the archive
-/// folder `base` (the folder the panel shows).
+/// everything below them; the empty path is the whole archive) into
+/// `dest_dir`, each relative to the archive folder `base` (the folder the
+/// panel shows). `existing` says what to do with destinations that are
+/// already there.
 pub fn extract_selected(
     archive: &Path,
     base: &Path,
     selected: &[PathBuf],
     dest_dir: &Path,
+    existing: &Existing,
     report: &mut ArchiveReport,
 ) -> Result<()> {
-    let reader =
-        browsable_reader(archive).ok_or_else(|| anyhow!(t("archive_unsupported_format")))?;
+    let reader = reader_of(archive)?;
     let select = |rel: &Path| {
         selected
             .iter()
@@ -182,10 +233,23 @@ pub fn extract_selected(
             .then(|| rel.strip_prefix(base).ok().map(Path::to_path_buf))
             .flatten()
     };
-    extract_entries(reader, archive, dest_dir, &select, report)
+    extract_entries(reader, archive, dest_dir, &select, existing, report)
+}
+
+/// The reader of a browsable `archive`, or why there is none.
+fn reader_of(archive: &Path) -> Result<&'static dyn ArchiveReader> {
+    browsable_reader(archive).ok_or_else(|| anyhow!(t("archive_unsupported_format")))
+}
+
+/// Decompresses the whole archive to check it (see [`ArchiveReader::test`]).
+pub fn test_archive(path: &Path) -> Result<()> {
+    reader_of(path)?.test(path)
 }
 
 pub fn list_archive_files(path: &Path) -> Result<Vec<String>> {
-    let reader = browsable_reader(path).ok_or_else(|| anyhow!(t("archive_unsupported_format")))?;
-    Ok(reader.entries(path)?.into_iter().map(|e| e.name).collect())
+    Ok(reader_of(path)?
+        .entries(path)?
+        .into_iter()
+        .map(|e| e.name)
+        .collect())
 }

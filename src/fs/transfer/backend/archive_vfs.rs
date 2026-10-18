@@ -1,6 +1,7 @@
 //! Transfers that start or end inside an archive file (Strategy picked by
-//! the engine from the job's paths): copying out extracts the selected
-//! entries through the safe extractor, copying in and deleting rewrite the
+//! the engine from the job's paths): copying out — and extracting a whole
+//! archive — extracts the selected entries through the safe extractor
+//! (existing files are resolved by the job's conflict setting first), copying in and deleting rewrite the
 //! archive in place (zip, tar and 7z). A move is the copy followed by the
 //! removal of what was copied (see [`super::archive_move`]). Other
 //! combinations are refused with a message.
@@ -12,7 +13,7 @@ use super::super::options::TransferOptions;
 use super::ops_jobs::archive::run_archive_blocking;
 use crate::config::localization::t;
 use crate::fs::archive::{
-    ArchiveEdit, ArchiveVfs, EntrySource, extract_selected, split_archive_path,
+    ArchiveEdit, ArchiveVfs, EntrySource, Existing, extract_selected, split_archive_path,
 };
 use crate::fs::progress::ArchiveReport;
 use crate::fs::transfer::control::JobControl;
@@ -68,7 +69,13 @@ fn in_nested(inner: &Path, itself: bool) -> bool {
 /// The archive plan for `job`, `None` when no path of it is inside an
 /// archive (or it runs on a remote connection), or the reason it cannot run.
 pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
-    if job.remote.is_some() || !job.operation.uses_local_worker() {
+    if job.remote.is_some() {
+        return None;
+    }
+    if job.operation == TransferOperation::Extract {
+        return Some(extract_plan(job));
+    }
+    if !job.operation.uses_local_worker() {
         return None;
     }
     let destination = target_folder(job);
@@ -132,6 +139,21 @@ pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
             }))
         }
         _ => refused(),
+    }
+}
+
+/// Extracting the whole archive (the job's one source) into its
+/// destination folder.
+fn extract_plan(job: &TransferJob) -> Result<ArchivePlan, String> {
+    match job.sources.as_slice() {
+        [archive] if crate::fs::archive::is_browsable(archive) => Ok(ArchivePlan::Extract {
+            archive: archive.clone(),
+            base: PathBuf::new(),
+            selected: vec![PathBuf::new()],
+            dest: job.destination.clone(),
+            moving: false,
+        }),
+        _ => Err(t("archive_unsupported_format")),
     }
 }
 
@@ -204,11 +226,13 @@ pub async fn run(
             moving,
         } => {
             let total = selected.len();
+            let existing =
+                extract_conflicts(&archive, &base, &selected, &dest, &conflicts, &control).await?;
             run_archive_blocking(
                 control,
                 total,
                 move |report| {
-                    extract_selected(&archive, &base, &selected, &dest, report)?;
+                    extract_selected(&archive, &base, &selected, &dest, &existing, report)?;
                     if !moving {
                         return Ok(());
                     }
@@ -325,6 +349,100 @@ async fn resolve_conflicts(
     }
     edit.add = kept;
     Ok(())
+}
+
+/// Applies the job's conflict setting to the files of `selected` (paths in
+/// `archive`, placed below `dest` relative to `base`) that already exist
+/// in `dest`.
+async fn extract_conflicts(
+    archive: &Path,
+    base: &Path,
+    selected: &[PathBuf],
+    dest: &Path,
+    setup: &ConflictSetup,
+    control: &JobControl,
+) -> anyhow::Result<Existing> {
+    let clashes = {
+        let (archive, base, selected, dest) = (
+            archive.to_path_buf(),
+            base.to_path_buf(),
+            selected.to_vec(),
+            dest.to_path_buf(),
+        );
+        tokio::task::spawn_blocking(move || clashing_files(&archive, &base, &selected, &dest))
+            .await??
+    };
+    let mut existing = Existing::default();
+    if clashes.is_empty() {
+        return Ok(existing);
+    }
+    let vfs = ArchiveVfs::open(archive.to_path_buf())
+        .ok_or_else(|| anyhow!(t("vfs_action_unsupported")))?;
+    let mut resolver = ConflictResolver {
+        options: &setup.options,
+        ctl: control,
+        slot: &setup.slot,
+        src_fs: &vfs,
+        dst_fs: &LocalVfs,
+        auto: None,
+    };
+    // Skips are reported by the extraction (a move keeps those entries).
+    let mut ignored = TransferResults::default();
+    for (inner, rel) in clashes {
+        let target = dest.join(&rel);
+        let mut dst = target.clone();
+        match resolver
+            .resolve(&archive.join(&inner), &mut dst, &mut ignored)
+            .await?
+        {
+            ConflictAction::Skip => {
+                existing.skip.insert(rel);
+            }
+            ConflictAction::Proceed if dst == target => {
+                existing.replace.insert(rel);
+            }
+            ConflictAction::Proceed => {
+                let renamed = dst.strip_prefix(dest).map(Path::to_path_buf)?;
+                existing.rename.insert(rel, renamed);
+            }
+        }
+    }
+    Ok(existing)
+}
+
+/// The file entries of `selected` whose destination below `dest` already
+/// holds something other than a folder: (path in the archive, path below
+/// `dest`).
+fn clashing_files(
+    archive: &Path,
+    base: &Path,
+    selected: &[PathBuf],
+    dest: &Path,
+) -> anyhow::Result<Vec<(PathBuf, PathBuf)>> {
+    let reader = crate::fs::archive::browsable_reader(archive)
+        .ok_or_else(|| anyhow!(t("archive_unsupported_format")))?;
+    let mut seen = std::collections::HashSet::new();
+    let mut clashes = Vec::new();
+    for entry in reader.entries(archive)? {
+        if entry.kind == crate::fs::archive::format::EntryKind::Dir {
+            continue;
+        }
+        let Ok(inner) = crate::fs::archive::safe_extract::ExtractGuard::sanitize(&entry.name)
+        else {
+            continue;
+        };
+        if !selected.iter().any(|s| inner.starts_with(s)) {
+            continue;
+        }
+        let Ok(rel) = inner.strip_prefix(base).map(Path::to_path_buf) else {
+            continue;
+        };
+        let taken = std::fs::symlink_metadata(dest.join(&rel)).is_ok_and(|m| !m.is_dir());
+        if taken && seen.insert(rel.clone()) {
+            clashes.push((inner, rel));
+        }
+    }
+    Ok(clashes)
 }
 
 /// Rewrites `archive` with `edit`, reporting each added entry.

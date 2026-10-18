@@ -3,7 +3,7 @@ use crate::app::state::popup::ArchiveCommandsMenu;
 use crate::config::localization::t;
 
 pub fn handle(state: &mut AppState) -> bool {
-    if let Some(archive_path) = super::extract::cursor_file(state) {
+    if let Some(archive_path) = super::extract::cursor_archive(state) {
         state.dialogs.replace(ArchiveCommandsMenu {
             archive_path,
             items: vec![

@@ -27,15 +27,65 @@ const DOWNLOAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120
 /// ask) must not download and write the same file at once.
 static BOOTSTRAP: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-/// Gets the local path where `7za.exe` (or `7z`) should reside.
+/// Where the downloaded `7za.exe` lives (Windows; elsewhere the system's
+/// 7-Zip is used, see [`find_7z`]).
 pub fn get_external_7z_path() -> Option<PathBuf> {
-    if cfg!(target_os = "windows") {
-        let proj_dirs = ProjectDirs::from("com", "FittyAr", "Pairee")?;
-        Some(proj_dirs.data_dir().join("bin").join("7za.exe"))
-    } else {
-        // On Linux/macOS, we rely on the system's `7z` or `7za` command
-        Some(PathBuf::from("7z"))
+    if !cfg!(target_os = "windows") {
+        return None;
     }
+    let proj_dirs = ProjectDirs::from("com", "FittyAr", "Pairee")?;
+    Some(proj_dirs.data_dir().join("bin").join("7za.exe"))
+}
+
+/// A 7-Zip command-line program.
+#[derive(Debug, Clone)]
+pub struct SevenZipTool {
+    pub path: PathBuf,
+    /// It reads every format 7-Zip knows (`7z`, `7zz`). The standalone
+    /// `7za` Pairee downloads reads only 7z, zip, tar, gzip, bzip2, xz and
+    /// cab archives: no RAR, no ISO images.
+    pub full: bool,
+}
+
+/// The 7-Zip to run for archives without a native reader: an installed
+/// full 7-Zip (on `PATH`, or in its usual Windows folder) when there is
+/// one, else the reduced standalone `7za` (downloaded on Windows, from
+/// `PATH` elsewhere).
+pub fn find_7z() -> Option<SevenZipTool> {
+    let (full_names, reduced) = if cfg!(windows) {
+        (&["7z.exe", "7zz.exe"][..], get_external_7z_path())
+    } else {
+        (&["7zz", "7z"][..], in_path(&["7za"]))
+    };
+    in_path(full_names)
+        .or_else(installed_7z)
+        .map(|path| SevenZipTool { path, full: true })
+        .or_else(|| {
+            reduced
+                .filter(|p| p.is_file())
+                .map(|path| SevenZipTool { path, full: false })
+        })
+}
+
+/// The first of `names` found in a `PATH` folder.
+fn in_path(names: &[&str]) -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .flat_map(|dir| names.iter().map(move |name| dir.join(name)))
+        .find(|candidate| candidate.is_file())
+}
+
+/// 7-Zip installed in its default folder (Windows; not added to `PATH`
+/// by its installer).
+fn installed_7z() -> Option<PathBuf> {
+    if !cfg!(windows) {
+        return None;
+    }
+    ["ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"]
+        .iter()
+        .filter_map(std::env::var_os)
+        .map(|dir| PathBuf::from(dir).join("7-Zip").join("7z.exe"))
+        .find(|candidate| candidate.is_file())
 }
 
 /// Downloads and extracts the 7-Zip standalone executable on Windows.

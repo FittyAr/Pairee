@@ -49,7 +49,7 @@ pub fn handle_fs_action(
         Action::RenameBasename => rename::handle(state, context, true),
         Action::MultiRename => multi_rename::handle(state),
         Action::CompressFiles => compress::handle(state, context),
-        Action::ExtractArchive => extract::handle(state),
+        Action::ExtractArchive => extract::handle(state, context),
         Action::MkDir => mkdir::handle(state, CreateKind::Folder),
         Action::NewFile => mkdir::handle(state, CreateKind::File),
         Action::Create => mkdir::handle(state, CreateKind::Auto),
