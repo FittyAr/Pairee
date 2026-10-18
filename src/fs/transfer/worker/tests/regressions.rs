@@ -15,20 +15,34 @@ fn overwrite() -> TransferOptions {
 }
 
 /// FS-01: both panels on one folder, F5 / F6 with "overwrite" used to
-/// truncate (copy) or delete (move) the file.
+/// truncate (copy) or delete (move) the file. A copy is refused; a move
+/// has nothing to do (skipped).
 #[tokio::test]
 async fn a_file_copied_or_moved_onto_itself_is_refused_and_kept() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("a.txt");
     std::fs::write(&file, b"precious").unwrap();
-    for operation in [TransferOperation::Copy, TransferOperation::Move] {
-        let results = run(job(operation, &[&file], dir.path(), overwrite()))
-            .await
-            .unwrap();
-        assert_eq!(results.failed_files.len(), 1, "{operation:?}");
-        assert!(results.completed_files.is_empty());
-        assert_eq!(std::fs::read(&file).unwrap(), b"precious");
-    }
+    let copy = run(job(
+        TransferOperation::Copy,
+        &[&file],
+        dir.path(),
+        overwrite(),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(copy.failed_files.len(), 1);
+    assert!(copy.completed_files.is_empty());
+    let moved = run(job(
+        TransferOperation::Move,
+        &[&file],
+        dir.path(),
+        overwrite(),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(moved.skipped_files.len(), 1);
+    assert!(moved.failed_files.is_empty() && moved.completed_files.is_empty());
+    assert_eq!(std::fs::read(&file).unwrap(), b"precious");
     // "Rename" makes a duplicate next to it instead.
     let rename = TransferOptions {
         conflict_resolution: "rename".into(),
@@ -412,4 +426,38 @@ async fn a_folder_named_like_the_destination_folder_nests_inside_it() {
         b"data"
     );
     assert!(!panel.join("f.txt").exists());
+}
+
+/// F6 with both panels on one folder and the pre-filled `…/a.txt` kept:
+/// the user used to be asked to overwrite the file with itself (and
+/// "overwrite" then failed). It is skipped without asking.
+#[tokio::test]
+async fn a_file_moved_onto_itself_is_skipped_without_asking() {
+    use crate::fs::transfer::events::{EventSender, TransferEvent};
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("a.txt");
+    std::fs::write(&file, b"precious").unwrap();
+    let job = job(
+        TransferOperation::Move,
+        &[&file],
+        &file,
+        TransferOptions::default(),
+    );
+    let (tx, mut rx) = EventSender::channel();
+    let asked = tokio::spawn(async move {
+        let mut asked = false;
+        while let Some(event) = rx.recv().await {
+            asked |= matches!(event, TransferEvent::ConflictDetected { .. });
+        }
+        asked
+    });
+    let run = super::super::TransferWorker::for_job(job, tx).run();
+    let results = tokio::time::timeout(std::time::Duration::from_secs(10), run)
+        .await
+        .expect("the move waited for an answer")
+        .unwrap();
+    assert!(!asked.await.unwrap());
+    assert_eq!(results.skipped_files.len(), 1);
+    assert!(results.failed_files.is_empty());
+    assert_eq!(std::fs::read(&file).unwrap(), b"precious");
 }

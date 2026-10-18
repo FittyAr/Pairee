@@ -109,6 +109,9 @@ fn apply_job_event(job: &mut TransferJob, log: &OperationLog, event: &TransferEv
             job.log_lines
                 .push(format!("[{}] Job completed successfully", job_id));
         }
+        TransferEvent::Warning { message, .. } => {
+            job.log_lines.push(format!("⚠ {message}"));
+        }
         TransferEvent::JobFailed { job_id, error } => {
             job.log_lines
                 .push(format!("[{}] Job failed: {}", job_id, error));

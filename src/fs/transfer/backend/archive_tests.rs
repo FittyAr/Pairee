@@ -60,6 +60,7 @@ fn plans_follow_the_paths_of_the_job() {
         base: PathBuf::from("sub"),
         items: vec![PathBuf::from("sub").join("b.txt")],
         rename_to: rename_to.map(Into::into),
+        ..Default::default()
     };
     assert_eq!(
         plan(&extract).unwrap().unwrap(),

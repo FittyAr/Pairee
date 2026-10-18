@@ -99,7 +99,7 @@ impl TransferWorker {
         options: &TransferOptions,
     ) -> anyhow::Result<ScanOutcome> {
         if self.pairs.is_some() {
-            return Ok(scan_pairs(roots, &self.control));
+            return Ok(scan_pairs(roots));
         }
         let request = ScanRequest {
             roots,
@@ -124,6 +124,7 @@ impl TransferWorker {
             roots = fast_move::rename_roots(roots, &options, ctl, &mut results);
         }
         let scan = self.scan(&roots, &options)?;
+        scan.announce(ctl, results.completed_files.len());
 
         if self.operation == TransferOperation::Delete {
             return delete_phase::run_delete_phase(&self.sources, scan, &options, ctl).await;

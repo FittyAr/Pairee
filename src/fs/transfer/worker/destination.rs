@@ -66,10 +66,9 @@ pub(super) fn warn_low_space(destination: &Path, needed: u64, ctl: &JobControl) 
     if free >= needed {
         return;
     }
-    ctl.emit(TransferEvent::FileSkipped {
+    ctl.emit(TransferEvent::Warning {
         job_id: ctl.job_id,
-        file: destination.to_path_buf(),
-        reason: t("transfer_low_space_warning")
+        message: t("transfer_low_space_warning")
             .replacen("{}", &bytesize::ByteSize(needed).to_string(), 1)
             .replacen("{}", &bytesize::ByteSize(free).to_string(), 1),
     });

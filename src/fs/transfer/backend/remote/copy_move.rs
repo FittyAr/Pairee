@@ -98,7 +98,9 @@ async fn scan_blocking(
             same_fs: fs.same_fs,
             dst_links: false,
         };
-        scan(&request, &ctl)
+        let out = scan(&request, &ctl)?;
+        out.announce(&ctl, 0);
+        Ok(out)
     })
     .await
 }

@@ -8,6 +8,8 @@
 //! The engine picks a backend from job operation, optional remote endpoints
 //! and whether a path lies inside an archive file.
 
+#[cfg(test)]
+mod archive_job_tests;
 mod archive_move;
 #[cfg(test)]
 mod archive_tests;

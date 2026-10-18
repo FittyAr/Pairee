@@ -97,7 +97,17 @@ fn is_plain_path(rel: &Path) -> bool {
     rel.components().all(|c| matches!(c, Component::Normal(_)))
 }
 
-/// Scans the sources of `req`, reporting progress through `ctl`. Fails only
+impl ScanOutcome {
+    /// Announces the job's totals: what the scan found, plus the `done`
+    /// files the job already finished without scanning them (fast
+    /// renames), so the progress never reads "3/0".
+    pub fn announce(&self, ctl: &JobControl, done: usize) {
+        ctl.scan_complete(self.mappings.len() + done, self.total_bytes);
+    }
+}
+
+/// Scans the sources of `req`, reporting progress through `ctl` (the
+/// caller announces the totals, [`ScanOutcome::announce`]). Fails only
 /// when the job is cancelled.
 pub fn scan(req: &ScanRequest, ctl: &JobControl) -> anyhow::Result<ScanOutcome> {
     ctl.emit(super::events::TransferEvent::ScanProgress {
@@ -107,16 +117,14 @@ pub fn scan(req: &ScanRequest, ctl: &JobControl) -> anyhow::Result<ScanOutcome> 
     let mut scanner = Scanner {
         req,
         ctl,
-        filter: TransferFilter::parse(req.options.filter_mask.as_deref().unwrap_or("")),
+        filter: TransferFilter::of(req.options),
         out: ScanOutcome::default(),
     };
     for (src, dst) in req.roots {
         ctl.ensure_running()?;
         scanner.source(src, dst.clone())?;
     }
-    let out = scanner.out;
-    ctl.scan_complete(out.mappings.len(), out.total_bytes);
-    Ok(out)
+    Ok(scanner.out)
 }
 
 /// Walks the sources of one job, collecting mappings and totals.

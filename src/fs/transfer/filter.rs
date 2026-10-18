@@ -18,6 +18,11 @@ pub struct TransferFilter {
 }
 
 impl TransferFilter {
+    /// The filter of a job (its mask; no mask lets everything through).
+    pub fn of(options: &super::options::TransferOptions) -> Self {
+        Self::parse(options.filter_mask.as_deref().unwrap_or(""))
+    }
+
     /// Parsea una cadena de filtros a un TransferFilter.
     /// Soporta múltiples patrones separados por `;`.
     /// Si empieza por `!` es exclusión.
@@ -64,6 +69,14 @@ impl TransferFilter {
         self.rules
             .iter()
             .any(|rule| matches!(rule, FilterRule::ExcludeGlob(pat) if glob_matches(pat, name)))
+    }
+
+    /// True when one of the folders `folders` names (each component) is
+    /// excluded: what lies below it is left out.
+    pub fn excludes_folder_in(&self, folders: &Path) -> bool {
+        folders
+            .components()
+            .any(|c| self.excludes(&c.as_os_str().to_string_lossy()))
     }
 
     /// Comprueba si un archivo cumple las reglas del filtro.

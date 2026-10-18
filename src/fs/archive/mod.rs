@@ -221,14 +221,7 @@ pub fn extract_selected(
     report: &mut ArchiveReport,
 ) -> Result<()> {
     let reader = reader_of(archive)?;
-    extract_entries(
-        reader,
-        archive,
-        dest_dir,
-        &|inner| selection.place(inner),
-        existing,
-        report,
-    )
+    extract_entries(reader, archive, dest_dir, selection, existing, report)
 }
 
 /// The reader of a browsable `archive`, or why there is none.

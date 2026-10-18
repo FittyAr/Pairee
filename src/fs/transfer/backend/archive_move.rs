@@ -3,7 +3,7 @@
 //! that: an entry the extraction skipped (something was in the way) stays
 //! in the archive, a source the conflict setting left out stays on disk.
 
-use super::archive_vfs::apply_edit;
+use super::archive_vfs::{Placed, apply_edit};
 use crate::config::localization::t;
 use crate::fs::archive::{ArchiveEdit, ArchiveVfs, EntrySource, Selection};
 use crate::fs::progress::ArchiveReport;
@@ -16,22 +16,28 @@ pub fn editable(archive: &Path) -> bool {
 }
 
 /// Removes from `archive` the entries `selection` took that were
-/// extracted in full.
+/// extracted in full: the selected items, or only the file entries
+/// `taken` when a filter left others out.
 pub fn remove_extracted(
     archive: &Path,
     selection: &Selection,
+    taken: Option<&Vec<Placed>>,
     report: &mut ArchiveReport,
 ) -> anyhow::Result<()> {
-    let edit = extracted_removal(selection, report);
+    let edit = extracted_removal(selection, taken, report);
     if edit.remove.is_empty() {
         return Ok(());
     }
     apply_edit(archive, &edit, report)
 }
 
-/// The selected entries none of whose files was skipped or failed (they
-/// are reported by where they were going).
-fn extracted_removal(selection: &Selection, report: &ArchiveReport) -> ArchiveEdit {
+/// The candidates none of whose files was skipped or failed (they are
+/// reported by where they were going).
+fn extracted_removal(
+    selection: &Selection,
+    taken: Option<&Vec<Placed>>,
+    report: &ArchiveReport,
+) -> ArchiveEdit {
     let results = report.results();
     let left: Vec<&Path> = results
         .skipped_files
@@ -39,14 +45,20 @@ fn extracted_removal(selection: &Selection, report: &ArchiveReport) -> ArchiveEd
         .map(|s| s.src.as_path())
         .chain(results.failed_files.iter().map(|f| f.src.as_path()))
         .collect();
-    let remove = selection
-        .items
-        .iter()
-        .filter(|item| {
-            let rel = selection.place(item).unwrap_or_else(|| item.to_path_buf());
-            !left.iter().any(|l| l.starts_with(&rel))
-        })
-        .cloned()
+    let candidates: Vec<Placed> = taken.cloned().unwrap_or_else(|| {
+        selection
+            .items
+            .iter()
+            .map(|item| {
+                let rel = selection.place(item).unwrap_or_else(|| item.to_path_buf());
+                (item.clone(), rel)
+            })
+            .collect()
+    });
+    let remove = candidates
+        .into_iter()
+        .filter(|(_, rel)| !left.iter().any(|l| l.starts_with(rel)))
+        .map(|(inner, _)| inner)
         .collect();
     ArchiveEdit {
         remove,

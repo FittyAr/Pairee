@@ -32,6 +32,10 @@
 - Transfers: starting a queued job (`P`) no longer pauses the running one, which stalled the whole queue, and really moves it ahead of the other queued jobs.
 - Copy/Move dialog: it starts from the transfer settings (conflict mode, links, attributes) instead of overriding them; "Rename" can be chosen, and the choices are labelled by what they do ("Overwrite older" read "Append", "Copy link" and "Copy target" were swapped).
 - Archives: one item copied out of or into an archive under a name typed in the dialog gets that name instead of a new folder of that name; a renamed copy never takes the name of another extracted file; copies between an archive and a remote panel are refused up front instead of failing file by file.
+- Archives: the Copy/Move dialog's filter applies when copying into or out of an archive; `F6` of a folder into a zip with `*.txt` used to pack every file and then delete them all from disk, and now packs and deletes only the matching ones (a filtered move out of an archive likewise removes only what it extracted).
+- Transfers: `F6` of a file onto itself (both panels on one folder, name kept) is skipped as "already there" instead of asking to overwrite the file with itself and then failing.
+- Transfers: progress totals match the work: moves done as instant renames no longer read "3/0", extracting a few entries counts those entries instead of the whole archive (1 file read 1/5000), and the low-disk-space warning is a log line instead of a skipped file.
+- Archives: archive jobs report real paths (the archive file and the folder written to), so the automatic transfer report is saved next to the extracted files instead of in Pairee's working folder, and the "eject" post-action finds the drive.
 
 - Updater: a copy installed from the Microsoft Store is recognized (`WindowsApps` folder) and points to the Store for updates instead of trying to replace itself in a read-only folder.
 

@@ -3,14 +3,13 @@
 //! rename) is expanded into its files when it cannot be renamed back.
 
 use super::{FileMapping, ScanOutcome};
-use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::job::FailedFile;
 use crate::fs::vfs::LocalVfs;
 use crate::fs::walk::{WalkOptions, Walker};
 use std::path::{Path, PathBuf};
 
 /// Mappings and destination folders of `pairs` (local only).
-pub fn scan_pairs(pairs: &[(PathBuf, PathBuf)], ctl: &JobControl) -> ScanOutcome {
+pub fn scan_pairs(pairs: &[(PathBuf, PathBuf)]) -> ScanOutcome {
     let mut out = ScanOutcome::default();
     for (from, to) in pairs {
         let Ok(meta) = from.symlink_metadata() else {
@@ -30,7 +29,6 @@ pub fn scan_pairs(pairs: &[(PathBuf, PathBuf)], ctl: &JobControl) -> ScanOutcome
         };
         push(&mut out, (from.clone(), to.clone(), size));
     }
-    ctl.scan_complete(out.mappings.len(), out.total_bytes);
     out
 }
 

@@ -1,3 +1,4 @@
+mod progress;
 mod regressions;
 
 use std::path::Path;

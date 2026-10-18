@@ -97,16 +97,20 @@ pub fn compress_zip(
     }
     crate::fs::transfer::part::write_atomically(
         dest_archive,
-        |part| write_zip(&sources, part, report).map_err(io::Error::other),
+        |part| write_zip(&sources, (part, dest_archive), report).map_err(io::Error::other),
         |from, to| fs::rename(from, to),
         crate::fs::transfer::part::discard,
     )
     .map_err(Into::into)
 }
 
-/// Writes the zip of `sources` to `out` (see [`compress_zip`]); the file
-/// `out` itself is never packed.
-fn write_zip(sources: &[PathBuf], out: &Path, report: &mut ArchiveReport) -> Result<()> {
+/// Writes the zip of `sources` to `out` (see [`compress_zip`]), the
+/// temporary file of `archive`; the file `out` itself is never packed.
+fn write_zip(
+    sources: &[PathBuf],
+    (out, archive): (&Path, &Path),
+    report: &mut ArchiveReport,
+) -> Result<()> {
     let mut zip = zip::ZipWriter::new(fs::File::create(out)?);
     let total_files = sources.len();
     let mut added = 0usize;
@@ -115,7 +119,7 @@ fn write_zip(sources: &[PathBuf], out: &Path, report: &mut ArchiveReport) -> Res
                         path: &Path,
                         name: String|
      -> Result<()> {
-        report.entry(&name, added, total_files);
+        report.entry(path, archive.join(&name), added, total_files);
         let mut file = fs::File::open(path)?;
         zip.start_file(name, file_options(file.metadata()?.len()))?;
         io::copy(&mut file, zip)?;

@@ -122,10 +122,12 @@ fn save_report(
     } else {
         crate::fs::transfer::report::generate_html_report(results, &format!("Job {}", job_id))
     };
+    // The nearest folder on disk: a file copied into an archive has its
+    // archive's folder.
     let dest_dir = results
         .completed_files
         .first()
-        .and_then(|f| f.dst.parent())
+        .and_then(|f| f.dst.ancestors().skip(1).find(|p| p.is_dir()))
         .unwrap_or(std::path::Path::new("."));
     if let Ok(report_path) = crate::fs::transfer::report::save_report(&content, format, dest_dir) {
         transfer.engine.queue.update_job(job_id, |job| {

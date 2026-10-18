@@ -11,21 +11,19 @@ use std::path::{Path, PathBuf};
 use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit};
 use super::safe_extract::ExtractGuard;
 use crate::fs::progress::ArchiveReport;
-
-/// Maps an entry's sanitized relative path to where it is written below
-/// the destination, or `None` to leave it out.
-pub type Selector<'a> = dyn Fn(&Path) -> Option<PathBuf> + 'a;
+use crate::fs::transfer::filter::TransferFilter;
 
 /// Which entries an extraction takes and where they go: `items` (paths
 /// inside the archive, files or folders with everything below them; the
 /// empty path is the whole archive) relative to the archive folder `base`
 /// (the folder the panel shows), the one item under another name when
-/// `rename_to` is set.
+/// `rename_to` is set, and only the entries the job's `filter` keeps.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Selection {
     pub base: PathBuf,
     pub items: Vec<PathBuf>,
     pub rename_to: Option<std::ffi::OsString>,
+    pub filter: TransferFilter,
 }
 
 impl Selection {
@@ -51,6 +49,38 @@ impl Selection {
         parts.next()?;
         Some(Path::new(name).join(parts.as_path()))
     }
+
+    /// Where the entry `meta` (stored at `inner`) goes below the
+    /// destination, `None` when it is not selected or the filter leaves it
+    /// out. As in a copy between folders, the filter excludes folders
+    /// below the selected items by name and applies in full to files.
+    pub fn take(&self, inner: &Path, meta: &EntryMeta) -> Option<PathBuf> {
+        let rel = self.place(inner)?;
+        if self.filter.rules.is_empty() {
+            return Some(rel);
+        }
+        let below = self
+            .items
+            .iter()
+            .filter_map(|item| inner.strip_prefix(item).ok())
+            .min_by_key(|below| below.components().count())?;
+        let kept = match meta.kind {
+            EntryKind::Dir => !self.filter.excludes_folder_in(below),
+            _ => {
+                !self
+                    .filter
+                    .excludes_folder_in(below.parent().unwrap_or(Path::new("")))
+                    && self.filter.matches(inner, meta.size, meta.modified)
+            }
+        };
+        kept.then_some(rel)
+    }
+
+    /// Every entry, unfiltered: the archive's own entry count is the
+    /// number of entries extracted.
+    fn is_whole(&self) -> bool {
+        *self == Self::whole()
+    }
 }
 
 /// What to do with files whose destination already exists, by their path
@@ -66,36 +96,44 @@ pub struct Existing {
     pub replace: HashSet<PathBuf>,
 }
 
-/// The selected, non-empty destination path of the entry named `name`.
-fn chosen(select: &Selector, name: &str) -> Option<PathBuf> {
-    let rel = ExtractGuard::sanitize(name).ok()?;
-    select(&rel).filter(|r| !r.as_os_str().is_empty())
-}
-
-/// Extracts the entries of `archive` chosen by `select` into `dest`.
-/// Entries that are never materialised are reported as skipped.
+/// Extracts the entries of `archive` that `selection` takes into `dest`.
+/// Entries that are never materialised are reported as skipped. The
+/// progress total is the archive's entry count for a whole extraction;
+/// otherwise the job announces its own.
 pub fn extract_entries(
     reader: &dyn ArchiveReader,
     archive: &Path,
     dest: &Path,
-    select: &Selector,
+    selection: &Selection,
     existing: &Existing,
     report: &mut ArchiveReport,
 ) -> Result<()> {
     let mut guard = ExtractGuard::new(dest)?;
     guard.replace_existing(existing.replace.iter().cloned());
-    let total_files = reader.count_hint(archive);
+    let total_files = if selection.is_whole() {
+        reader.count_hint(archive)
+    } else {
+        0
+    };
     let mut files_copied = 0usize;
     let cancel = report.cancel_flag();
     let cancelled = || cancel.load(std::sync::atomic::Ordering::Relaxed);
     // Unsafe names are not filtered out here: the visitor rejects them.
-    let wanted =
-        |name: &str| ExtractGuard::sanitize(name).is_err() || chosen(select, name).is_some();
+    let wanted = |name: &str| {
+        ExtractGuard::sanitize(name).map_or(true, |rel| {
+            selection
+                .place(&rel)
+                .is_some_and(|r| !r.as_os_str().is_empty())
+        })
+    };
     reader.visit_matching(archive, &wanted, &cancelled, &mut |meta, data| {
         report.ensure_running()?;
         guard.count_entry()?;
-        let rel = ExtractGuard::sanitize(&meta.name)?;
-        let Some(rel) = select(&rel).filter(|r| !r.as_os_str().is_empty()) else {
+        let inner = ExtractGuard::sanitize(&meta.name)?;
+        let Some(rel) = selection
+            .take(&inner, meta)
+            .filter(|r| !r.as_os_str().is_empty())
+        else {
             return Ok(Visit::Continue);
         };
         if existing.skip.contains(&rel) {
@@ -103,7 +141,12 @@ pub fn extract_entries(
             return Ok(Visit::Continue);
         }
         let rel = existing.rename.get(&rel).cloned().unwrap_or(rel);
-        report.entry(&crate::fs::file_name_lossy(&rel), files_copied, total_files);
+        report.entry(
+            &archive.join(&inner),
+            dest.join(&rel),
+            files_copied,
+            total_files,
+        );
         files_copied += 1;
         if !write_entry(&mut guard, &rel, meta, data, &cancelled)? {
             // Reported, so a move out of the archive keeps the entry.

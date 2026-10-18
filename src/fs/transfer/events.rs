@@ -51,6 +51,12 @@ pub enum TransferEvent {
         file: PathBuf,
         reason: String,
     },
+    /// Something the user should know about the job that is not about one
+    /// file (low disk space): logged, never counted.
+    Warning {
+        job_id: Uuid,
+        message: String,
+    },
     VerifyStarted {
         job_id: Uuid,
         file: PathBuf,
@@ -95,6 +101,7 @@ impl TransferEvent {
             | Self::CommandOutput { job_id, .. }
             | Self::FileFailed { job_id, .. }
             | Self::FileSkipped { job_id, .. }
+            | Self::Warning { job_id, .. }
             | Self::VerifyStarted { job_id, .. }
             | Self::VerifyProgress { job_id, .. }
             | Self::JobCompleted { job_id, .. }

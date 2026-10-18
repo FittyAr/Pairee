@@ -40,13 +40,13 @@ impl ArchiveReport {
         }
     }
 
-    /// The entry `name` (number `index` of `total`; 0 when unknown) is
-    /// written.
-    pub fn entry(&mut self, name: &str, index: usize, total: usize) {
+    /// The entry read from `src` (number `index` of `total`; 0 when
+    /// unknown) is written to `dst`: real paths, so the job's report and
+    /// post-actions know where it went.
+    pub fn entry(&mut self, src: &Path, dst: PathBuf, index: usize, total: usize) {
         self.announce(total);
-        let path = PathBuf::from(name);
-        self.ctl.file_started(&path, index);
-        let result = done(&path, path.clone(), 0, Instant::now());
+        self.ctl.file_started(src, index);
+        let result = done(src, dst, 0, Instant::now());
         self.ctl.file_completed(&mut self.results, result);
     }
 

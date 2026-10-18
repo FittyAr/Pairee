@@ -165,6 +165,21 @@ impl<'a> CopyJob<'a> {
             }
             Ok(_) => {}
         }
+        // A file moved onto itself is already where it goes: nothing to
+        // ask (overwriting it with itself would fail). A new letter case is
+        // a rename, not this.
+        if self.operation == TransferOperation::Move
+            && src.file_name() == dst.file_name()
+            && self.is_itself(src, &dst)
+        {
+            let reason = t("transfer_already_in_place").replacen("{}", &src.to_string_lossy(), 1);
+            let skipped = SkippedFile {
+                src: src.to_path_buf(),
+                reason,
+            };
+            self.ctl.file_skipped(&mut self.results, skipped);
+            return Ok(None);
+        }
         let action = self
             .conflicts
             .resolve(src, &mut dst, &mut self.results)
@@ -172,12 +187,17 @@ impl<'a> CopyJob<'a> {
         if let ConflictAction::Skip = action {
             return Ok(None);
         }
-        if self.fs.same_fs && guard::same_entry(self.fs.dst.as_ref(), src, &dst) {
+        if self.is_itself(src, &dst) {
             let error = t("error_copy_onto_itself").replacen("{}", &src.to_string_lossy(), 1);
             self.fail(failure(src, &dst, error, 0))?;
             return Ok(None);
         }
         Ok(Some(dst))
+    }
+
+    /// `dst` is the file `src` itself.
+    fn is_itself(&self, src: &Path, dst: &Path) -> bool {
+        self.fs.same_fs && guard::same_entry(self.fs.dst.as_ref(), src, dst)
     }
 
     /// Records a file that could not be transferred; with "halt on error"
