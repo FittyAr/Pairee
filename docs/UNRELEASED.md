@@ -27,6 +27,11 @@
 - Archives: RAR and ISO extraction failed with the 7-Zip Pairee downloads (it cannot read them); an installed 7-Zip is now used first.
 - Archives: copying out of an archive and **Extract** follow the conflict setting (overwrite, skip, rename, ask) instead of silently skipping files that already exist.
 - Transfers: a job that fails, or ends with files that could not be copied, shows why; before, the minimized transfer bar vanished without a word.
+- Transfers: Paste treats the panel folder as the destination, like `F5`: a folder pasted into a folder of the same name nests instead of merging into it (and, after Cut, deleting the source).
+- Transfers: **Retry failed** retries each failed file where it was going (keeping its folders) instead of flat in the destination, and remote or archive jobs keep their connection.
+- Transfers: starting a queued job (`P`) no longer pauses the running one, which stalled the whole queue, and really moves it ahead of the other queued jobs.
+- Copy/Move dialog: it starts from the transfer settings (conflict mode, links, attributes) instead of overriding them; "Rename" can be chosen, and the choices are labelled by what they do ("Overwrite older" read "Append", "Copy link" and "Copy target" were swapped).
+- Archives: one item copied out of or into an archive under a name typed in the dialog gets that name instead of a new folder of that name; a renamed copy never takes the name of another extracted file; copies between an archive and a remote panel are refused up front instead of failing file by file.
 
 - Updater: a copy installed from the Microsoft Store is recognized (`WindowsApps` folder) and points to the Store for updates instead of trying to replace itself in a read-only folder.
 

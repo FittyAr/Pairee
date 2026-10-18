@@ -5,33 +5,33 @@
 
 use super::archive_vfs::apply_edit;
 use crate::config::localization::t;
-use crate::fs::archive::{ArchiveEdit, ArchiveVfs, EntrySource};
+use crate::fs::archive::{ArchiveEdit, ArchiveVfs, EntrySource, Selection};
 use crate::fs::progress::ArchiveReport;
 use crate::fs::vfs::Vfs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// The archive can lose entries (moving out of it is possible).
 pub fn editable(archive: &Path) -> bool {
     ArchiveVfs::open(archive.to_path_buf()).is_some_and(|vfs| vfs.capabilities().remove)
 }
 
-/// Removes from `archive` the `selected` entries (relative to the archive
-/// folder `base`) that were extracted in full.
+/// Removes from `archive` the entries `selection` took that were
+/// extracted in full.
 pub fn remove_extracted(
     archive: &Path,
-    base: &Path,
-    selected: &[PathBuf],
+    selection: &Selection,
     report: &mut ArchiveReport,
 ) -> anyhow::Result<()> {
-    let edit = extracted_removal(base, selected, report);
+    let edit = extracted_removal(selection, report);
     if edit.remove.is_empty() {
         return Ok(());
     }
     apply_edit(archive, &edit, report)
 }
 
-/// The selected entries none of whose files was skipped or failed.
-fn extracted_removal(base: &Path, selected: &[PathBuf], report: &ArchiveReport) -> ArchiveEdit {
+/// The selected entries none of whose files was skipped or failed (they
+/// are reported by where they were going).
+fn extracted_removal(selection: &Selection, report: &ArchiveReport) -> ArchiveEdit {
     let results = report.results();
     let left: Vec<&Path> = results
         .skipped_files
@@ -39,11 +39,12 @@ fn extracted_removal(base: &Path, selected: &[PathBuf], report: &ArchiveReport) 
         .map(|s| s.src.as_path())
         .chain(results.failed_files.iter().map(|f| f.src.as_path()))
         .collect();
-    let remove = selected
+    let remove = selection
+        .items
         .iter()
         .filter(|item| {
-            let rel = item.strip_prefix(base).unwrap_or(item);
-            !left.iter().any(|l| l.starts_with(rel))
+            let rel = selection.place(item).unwrap_or_else(|| item.to_path_buf());
+            !left.iter().any(|l| l.starts_with(&rel))
         })
         .cloned()
         .collect();

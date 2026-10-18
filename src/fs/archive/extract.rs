@@ -16,6 +16,43 @@ use crate::fs::progress::ArchiveReport;
 /// the destination, or `None` to leave it out.
 pub type Selector<'a> = dyn Fn(&Path) -> Option<PathBuf> + 'a;
 
+/// Which entries an extraction takes and where they go: `items` (paths
+/// inside the archive, files or folders with everything below them; the
+/// empty path is the whole archive) relative to the archive folder `base`
+/// (the folder the panel shows), the one item under another name when
+/// `rename_to` is set.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Selection {
+    pub base: PathBuf,
+    pub items: Vec<PathBuf>,
+    pub rename_to: Option<std::ffi::OsString>,
+}
+
+impl Selection {
+    /// Every entry of the archive.
+    pub fn whole() -> Self {
+        Self {
+            items: vec![PathBuf::new()],
+            ..Self::default()
+        }
+    }
+
+    /// Where the entry at `inner` goes below the destination, `None` when
+    /// it is not selected.
+    pub fn place(&self, inner: &Path) -> Option<PathBuf> {
+        if !self.items.iter().any(|item| inner.starts_with(item)) {
+            return None;
+        }
+        let rel = inner.strip_prefix(&self.base).ok()?;
+        let Some(name) = &self.rename_to else {
+            return Some(rel.to_path_buf());
+        };
+        let mut parts = rel.components();
+        parts.next()?;
+        Some(Path::new(name).join(parts.as_path()))
+    }
+}
+
 /// What to do with files whose destination already exists, by their path
 /// below the destination (the answers to the job's conflict setting).
 /// Files in none of the sets are never overwritten: they are skipped.

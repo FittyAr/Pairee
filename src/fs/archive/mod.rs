@@ -40,8 +40,8 @@ use std::path::{Path, PathBuf};
 
 use crate::config::localization::t;
 use crate::fs::progress::ArchiveReport;
-pub use extract::Existing;
 use extract::extract_entries;
+pub use extract::{Existing, Selection};
 
 static ZIP: zip_ops::ZipReader = zip_ops::ZipReader;
 static TAR: tar_ops::TarReader = tar_ops::TarReader {
@@ -204,40 +204,35 @@ pub fn extract_archive(
 ) -> Result<()> {
     extract_selected(
         archive_path,
-        Path::new(""),
-        &[PathBuf::new()],
+        &Selection::whole(),
         dest_dir,
         &Existing::default(),
         report,
     )
 }
 
-/// Extracts `selected` (paths inside `archive`, files or folders with
-/// everything below them; the empty path is the whole archive) into
-/// `dest_dir`, each relative to the archive folder `base` (the folder the
-/// panel shows). `existing` says what to do with destinations that are
-/// already there.
+/// Extracts the entries `selection` takes into `dest_dir`; `existing` says
+/// what to do with destinations that are already there.
 pub fn extract_selected(
     archive: &Path,
-    base: &Path,
-    selected: &[PathBuf],
+    selection: &Selection,
     dest_dir: &Path,
     existing: &Existing,
     report: &mut ArchiveReport,
 ) -> Result<()> {
     let reader = reader_of(archive)?;
-    let select = |rel: &Path| {
-        selected
-            .iter()
-            .any(|s| rel.starts_with(s))
-            .then(|| rel.strip_prefix(base).ok().map(Path::to_path_buf))
-            .flatten()
-    };
-    extract_entries(reader, archive, dest_dir, &select, existing, report)
+    extract_entries(
+        reader,
+        archive,
+        dest_dir,
+        &|inner| selection.place(inner),
+        existing,
+        report,
+    )
 }
 
 /// The reader of a browsable `archive`, or why there is none.
-fn reader_of(archive: &Path) -> Result<&'static dyn ArchiveReader> {
+pub fn reader_of(archive: &Path) -> Result<&'static dyn ArchiveReader> {
     browsable_reader(archive).ok_or_else(|| anyhow!(t("archive_unsupported_format")))
 }
 

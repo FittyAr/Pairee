@@ -53,15 +53,35 @@ fn plans_follow_the_paths_of_the_job() {
     let extract = job(
         TransferOperation::Copy,
         vec![zip.join("sub").join("b.txt")],
-        out,
-    );
+        out.clone(),
+    )
+    .into_folder();
+    let selection = |rename_to: Option<&str>| crate::fs::archive::Selection {
+        base: PathBuf::from("sub"),
+        items: vec![PathBuf::from("sub").join("b.txt")],
+        rename_to: rename_to.map(Into::into),
+    };
     assert_eq!(
         plan(&extract).unwrap().unwrap(),
         ArchivePlan::Extract {
             archive: zip.clone(),
-            base: PathBuf::from("sub"),
-            selected: vec![PathBuf::from("sub").join("b.txt")],
-            dest: dir.path().join("out"),
+            selection: selection(None),
+            dest: out.clone(),
+            moving: false,
+        }
+    );
+    // A typed destination that is no folder names the copy itself.
+    let renamed = job(
+        TransferOperation::Copy,
+        vec![zip.join("sub").join("b.txt")],
+        out.join("c.txt"),
+    );
+    assert_eq!(
+        plan(&renamed).unwrap().unwrap(),
+        ArchivePlan::Extract {
+            archive: zip.clone(),
+            selection: selection(Some("c.txt")),
+            dest: out,
             moving: false,
         }
     );
@@ -224,6 +244,109 @@ async fn copying_out_resolves_existing_files() {
             assert!(leftovers.is_empty(), "no file set aside is left");
         }
     }
+}
+
+/// One item copied out of or into an archive under a name typed in the
+/// dialog lands under that name (not in a new folder of that name); a
+/// renamed copy never takes the name of another extracted file.
+#[tokio::test]
+async fn a_single_item_can_be_renamed_on_the_way() {
+    let dir = tempfile::tempdir().unwrap();
+    let zip = dir.path().join("a.zip");
+    write_zip(
+        &zip,
+        &[
+            ("a.txt", b"one"),
+            ("a (1).txt", b"two"),
+            ("sub/b.txt", b"b"),
+        ],
+    );
+    let out = dir.path().join("out");
+    fs::create_dir(&out).unwrap();
+    run(job(
+        TransferOperation::Copy,
+        vec![zip.join("a.txt")],
+        out.join("x.txt"),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(fs::read(out.join("x.txt")).unwrap(), b"one");
+    run(job(
+        TransferOperation::Copy,
+        vec![zip.join("sub")],
+        out.join("folder"),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(fs::read(out.join("folder/b.txt")).unwrap(), b"b");
+
+    let local = dir.path().join("note.txt");
+    fs::write(&local, b"n").unwrap();
+    run(job(
+        TransferOperation::Copy,
+        vec![local],
+        zip.join("sub").join("renamed.txt"),
+    ))
+    .await
+    .unwrap();
+    let names = sorted_names(&zip);
+    assert!(names.contains(&"sub/renamed.txt".to_string()), "{names:?}");
+
+    // `a.txt` exists: renamed past the archive's own `a (1).txt`.
+    let clash = dir.path().join("clash");
+    fs::create_dir(&clash).unwrap();
+    fs::write(clash.join("a.txt"), b"mine").unwrap();
+    let mut copy = job(
+        TransferOperation::Copy,
+        vec![zip.join("a.txt"), zip.join("a (1).txt")],
+        clash.clone(),
+    );
+    copy.options.conflict_resolution = "rename".into();
+    run(copy).await.unwrap();
+    assert_eq!(fs::read(clash.join("a.txt")).unwrap(), b"mine");
+    assert_eq!(fs::read(clash.join("a (1).txt")).unwrap(), b"two");
+    assert_eq!(fs::read(clash.join("a (2).txt")).unwrap(), b"one");
+}
+
+/// Archives are read with local tools: a copy between one and a remote
+/// panel is refused up front instead of failing file by file.
+#[test]
+fn archives_and_remote_panels_do_not_mix() {
+    use crate::config::settings::RemoteKind;
+    use crate::fs::remote::{RemoteConn, RemoteInfo};
+    let dir = tempfile::tempdir().unwrap();
+    let zip = dir.path().join("a.zip");
+    write_zip(&zip, SAMPLE_TREE);
+    let conn = RemoteConn::new(
+        std::sync::Arc::new(crate::fs::vfs::LocalVfs),
+        RemoteInfo {
+            kind: RemoteKind::Sftp,
+            host: "h".into(),
+            port: Some(22),
+            username: "me".into(),
+        },
+    );
+    let out_of = job(
+        TransferOperation::Copy,
+        vec![zip.join("a.txt")],
+        "/srv".into(),
+    )
+    .with_remotes(None, Some(conn.clone()));
+    assert!(plan(&out_of).unwrap().is_err());
+    let into = job(
+        TransferOperation::Copy,
+        vec!["/srv/a.txt".into()],
+        zip.clone(),
+    )
+    .with_remotes(Some(conn.clone()), None);
+    assert!(plan(&into).unwrap().is_err());
+    let plain = job(
+        TransferOperation::Copy,
+        vec![dir.path().join("x")],
+        "/srv".into(),
+    )
+    .with_remotes(None, Some(conn));
+    assert!(plan(&plain).is_none());
 }
 
 /// Copies a local `a.txt` ("new") into a zip already holding `a.txt`
