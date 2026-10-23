@@ -41,7 +41,7 @@ Installs to `%LOCALAPPDATA%\Programs\FittyAr\Pairee` (added to the user PATH).
 ```bash
 curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
 ```
-Installs to `~/.local/lib/FittyAr/Pairee` with a `pairee` command in `~/.local/bin`.
+Installs to `~/.local/lib/FittyAr/Pairee` with a `pairee` command in `~/.local/bin`, added to the PATH of every shell (bash, zsh, fish, ksh, tcsh), so `pairee` runs from any new terminal.
 
 ## Where Pairee keeps its files
 - Windows: `%APPDATA%\FittyAr\Pairee` (`config`, `cache`, `plugin-data`).
