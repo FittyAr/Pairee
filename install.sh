@@ -59,6 +59,17 @@ PREVIOUS_CONFIG_DIR="$CONFIG_BASE/pairee"
 PREVIOUS_CACHE_DIR="$CACHE_BASE/pairee"
 PREVIOUS_DATA_DIR="$DATA_BASE/pairee"
 
+# ~/.local/bin is on the PATH of new terminals only on some distributions,
+# and on Ubuntu only from the next login when the folder did not exist yet.
+# So the startup file of each shell gets a block, between these markers, that
+# adds it when missing; the uninstaller removes the block. fish gets a file of
+# its own in conf.d.
+PATH_BLOCK_BEGIN="# >>> pairee PATH >>>"
+PATH_BLOCK_END="# <<< pairee PATH <<<"
+FISH_PATH_FILE="$CONFIG_BASE/fish/conf.d/pairee.fish"
+# The `pairee` link root also gets, as /usr/local/bin is on its PATH already.
+SYSTEM_LINK="/usr/local/bin/pairee"
+
 DEBUG_MODE=false
 UNINSTALL_MODE=false
 SKIP_SIGNATURE=false
@@ -196,6 +207,11 @@ uninstall() {
 
     FOUND=""
     for bin in "$USER_BIN" "$SYS_BIN_1" "$SYS_BIN_2"; do
+        # The /usr/local/bin link of a root install is that install.
+        if [ "$bin" = "$SYSTEM_LINK" ] && [ -L "$bin" ] \
+            && [ "$(readlink "$bin")" = "$LIB_DIR/pairee" ]; then
+            continue
+        fi
         if [ -f "$bin" ]; then
             FOUND="$FOUND $bin"
         fi
@@ -258,6 +274,8 @@ uninstall() {
             if [ -L "$BIN_DIR/pairee" ]; then
                 rm -f "$BIN_DIR/pairee"
             fi
+            remove_system_link
+            remove_path_blocks
         fi
     done
 
@@ -481,6 +499,8 @@ install_files() {
     ln -s "$LIB_DIR/pairee" "$STAGED_BIN"
     mv -f "$STAGED_BIN" "$BIN_DIR/pairee"
     STAGED_BIN=""
+    link_system_command
+    add_bin_dir_to_path
 
     if [ -d "${PKG_FOLDER}/lang" ]; then
         cp -r "${PKG_FOLDER}/lang/"* "$CONFIG_DIR/lang/"
@@ -500,17 +520,137 @@ print_summary() {
     echo "Settings: ${BLUE}${CONFIG_DIR}/${NC}"
     echo ""
 
-    case ":$PATH:" in
-        *:"$BIN_DIR":*) ;;
-        *)
-            echo "${BLUE}Note: '${BIN_DIR}' is not in your PATH.${NC}"
-            echo "Please add it to your shell configuration (e.g. ~/.bashrc or ~/.zshrc):"
-            echo "  ${GREEN}export PATH=\"\$PATH:\$HOME/.local/bin\"${NC}"
-            echo ""
-            ;;
-    esac
+    # A script cannot change the PATH of the shell that runs it: this
+    # terminal only finds `pairee` when the folder was already there.
+    if command_in_path; then
+        echo "Run Pairee by typing: ${GREEN}pairee${NC}"
+    else
+        echo "Run Pairee by typing ${GREEN}pairee${NC} in a new terminal"
+        echo "(in this one: ${GREEN}${BIN_DIR}/pairee${NC})."
+    fi
+}
 
-    echo "Run Pairee by typing: ${GREEN}pairee${NC}"
+# Whether the current PATH finds the `pairee` command of this install.
+command_in_path() {
+    case ":$PATH:" in
+        *:"$BIN_DIR":* | *:"$BIN_DIR/":*) return 0 ;;
+    esac
+    [ -L "$SYSTEM_LINK" ] && [ "$(readlink "$SYSTEM_LINK")" = "$LIB_DIR/pairee" ]
+}
+
+# ─── PATH ────────────────────────────────────────────────────────────────────
+
+# The startup files to add the block to, one per line: those of the user's
+# shells, created when their shell is the login one. ~/.profile is read by
+# login shells and by most desktop sessions; bash reads ~/.bash_profile or
+# ~/.bash_login instead when they exist, and ~/.bashrc in new terminals.
+path_rc_files() {
+    LOGIN_SHELL=$(basename "${SHELL:-sh}")
+    ZSH_DIR=$(xdg_base "${ZDOTDIR:-}" "$HOME")
+    echo "$HOME/.profile"
+    for rc in "$HOME/.bash_profile" "$HOME/.bash_login"; do
+        if [ -f "$rc" ]; then echo "$rc"; fi
+    done
+    if [ -f "$HOME/.bashrc" ] || [ "$LOGIN_SHELL" = "bash" ]; then
+        echo "$HOME/.bashrc"
+    fi
+    if [ -f "$ZSH_DIR/.zshrc" ] || [ "$LOGIN_SHELL" = "zsh" ]; then
+        echo "$ZSH_DIR/.zshrc"
+    fi
+    for rc in "$HOME/.kshrc" "$HOME/.mkshrc"; do
+        if [ -f "$rc" ]; then echo "$rc"; fi
+    done
+}
+
+# The csh/tcsh startup files to add the block to (their syntax differs).
+csh_rc_files() {
+    for rc in "$HOME/.tcshrc" "$HOME/.cshrc"; do
+        if [ -f "$rc" ]; then echo "$rc"; fi
+    done
+    case $(basename "${SHELL:-sh}") in
+        tcsh) [ -f "$HOME/.tcshrc" ] || [ -f "$HOME/.cshrc" ] || echo "$HOME/.tcshrc" ;;
+        csh) [ -f "$HOME/.cshrc" ] || echo "$HOME/.cshrc" ;;
+    esac
+}
+
+# append_path_block <file> <line>: adds the marked block unless the file
+# has it. A file that cannot be written (a read-only dotfile) is reported
+# and skipped.
+append_path_block() {
+    if [ -f "$1" ] && grep -qxF "$PATH_BLOCK_BEGIN" "$1" 2> /dev/null; then
+        return 0
+    fi
+    # Keep the last line of the file a line of its own.
+    if [ -s "$1" ] && [ -n "$(tail -c 1 "$1")" ]; then
+        NEWLINE="
+"
+    else
+        NEWLINE=""
+    fi
+    if printf '%s%s\n%s\n%s\n' "$NEWLINE" "$PATH_BLOCK_BEGIN" "$2" "$PATH_BLOCK_END" >> "$1" 2> /dev/null; then
+        echo "Added ${BIN_DIR} to PATH in $1"
+    else
+        echo "${YELLOW}Could not write $1; add ${BIN_DIR} to PATH there yourself.${NC}"
+    fi
+}
+
+add_bin_dir_to_path() {
+    # shellcheck disable=SC2016 # expanded by the shell that reads the file
+    SH_LINE='case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac'
+    # shellcheck disable=SC2016
+    CSH_LINE='if ( ":${PATH}:" !~ *":${HOME}/.local/bin:"* ) setenv PATH "${HOME}/.local/bin:${PATH}"'
+    # shellcheck disable=SC2016
+    FISH_LINE='contains -- $HOME/.local/bin $PATH; or set -gx PATH $HOME/.local/bin $PATH'
+    path_rc_files | while IFS= read -r rc; do
+        append_path_block "$rc" "$SH_LINE"
+    done
+    csh_rc_files | while IFS= read -r rc; do
+        append_path_block "$rc" "$CSH_LINE"
+    done
+    if command -v fish > /dev/null 2>&1 || [ -d "$CONFIG_BASE/fish" ]; then
+        if mkdir -p "$(dirname "$FISH_PATH_FILE")" 2> /dev/null \
+            && printf '%s\n' "$PATH_BLOCK_BEGIN" "$FISH_LINE" "$PATH_BLOCK_END" > "$FISH_PATH_FILE" 2> /dev/null; then
+            echo "Added ${BIN_DIR} to PATH in $FISH_PATH_FILE"
+        else
+            echo "${YELLOW}Could not write $FISH_PATH_FILE; add ${BIN_DIR} to PATH there yourself.${NC}"
+        fi
+    fi
+}
+
+# Removes the marked block from every startup file that has it, keeping the
+# file itself (and a symlink to it) in place.
+remove_path_blocks() {
+    { path_rc_files; csh_rc_files; } | while IFS= read -r rc; do
+        if [ -f "$rc" ] && grep -qxF "$PATH_BLOCK_BEGIN" "$rc" 2> /dev/null; then
+            STRIPPED=$(mktemp)
+            if sed "/^${PATH_BLOCK_BEGIN}\$/,/^${PATH_BLOCK_END}\$/d" "$rc" > "$STRIPPED" \
+                && cat "$STRIPPED" > "$rc"; then
+                echo "Removed the PATH entry from $rc"
+            fi
+            rm -f "$STRIPPED"
+        fi
+    done
+    if [ -f "$FISH_PATH_FILE" ] && grep -qxF "$PATH_BLOCK_BEGIN" "$FISH_PATH_FILE"; then
+        rm -f "$FISH_PATH_FILE"
+    fi
+}
+
+# As root, also links /usr/local/bin/pairee (on root's PATH everywhere),
+# unless something else is there.
+link_system_command() {
+    [ "$(id -u)" -eq 0 ] || return 0
+    if [ -e "$SYSTEM_LINK" ] && [ ! -L "$SYSTEM_LINK" ]; then
+        return 0
+    fi
+    mkdir -p "$(dirname "$SYSTEM_LINK")"
+    ln -sf "$LIB_DIR/pairee" "$SYSTEM_LINK"
+}
+
+# Removes the /usr/local/bin link of link_system_command, never another file.
+remove_system_link() {
+    if [ -L "$SYSTEM_LINK" ] && [ "$(readlink "$SYSTEM_LINK")" = "$LIB_DIR/pairee" ]; then
+        rm -f "$SYSTEM_LINK"
+    fi
 }
 
 main() {

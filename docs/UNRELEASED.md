@@ -23,6 +23,7 @@
 
 ### Fixed
 
+- Linux installer: `pairee` starts from any new terminal right after `install.sh`, without exporting `PATH` by hand. The installer adds `~/.local/bin` to the `PATH` in the startup files of bash, zsh, fish, ksh and tcsh (on Ubuntu the folder was only picked up at the next login), links `/usr/local/bin/pairee` when run as root, and `uninstall` undoes both.
 - Archives: copying out of a 7z (`F5`) or viewing one of its files failed with a checksum error when other entries of the same solid block were passed over.
 - Archives: RAR and ISO extraction failed with the 7-Zip Pairee downloads (it cannot read them); an installed 7-Zip is now used first.
 - Archives: copying out of an archive and **Extract** follow the conflict setting (overwrite, skip, rename, ask) instead of silently skipping files that already exist.

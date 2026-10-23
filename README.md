@@ -75,7 +75,7 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (Win
     ```
     The installer verifies the release signature with [`minisign`](https://jedisct1.github.io/minisign/): the installed one, or else the official build, which it downloads itself (version and SHA-256 pinned in the script). Add `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) to accept the download on its SHA-256 checksum alone.
 
-    The program goes to `~/.local/lib/FittyAr/Pairee` with a `pairee` command in `~/.local/bin` (an install of an earlier version, the program itself in `~/.local/bin`, is moved there by the installer or the next self-update); translations and help go to the settings folder.
+    The program goes to `~/.local/lib/FittyAr/Pairee` with a `pairee` command in `~/.local/bin`, which the installer adds to the `PATH` of bash, zsh, fish, ksh and tcsh (and of `/usr/local/bin` too when run as root), so `pairee` starts from any new terminal with no extra steps (an install of an earlier version, the program itself in `~/.local/bin`, is moved there by the installer or the next self-update); translations and help go to the settings folder.
   * **Build from Source (Debug/Source Mode):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug

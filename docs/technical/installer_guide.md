@@ -39,6 +39,18 @@ moved into place, never deleted. The self-updater replaces the file behind
 the link, and moves a program still in `~/.local/bin` to the FittyAr folder
 (`src/update/installer/unix.rs`).
 
+`~/.local/bin` is not on the `PATH` of new terminals everywhere (on Ubuntu
+`~/.profile` adds it only at the next login, and only when the folder
+already existed), so the installer appends a block between
+`# >>> pairee PATH >>>` and `# <<< pairee PATH <<<` that adds it when missing
+to `~/.profile`, `~/.bash_profile`/`~/.bash_login` (when present),
+`~/.bashrc`, `$ZDOTDIR/.zshrc`, `~/.kshrc`/`~/.mkshrc` and
+`~/.tcshrc`/`~/.cshrc` (each when present or the login shell's), and writes
+`$XDG_CONFIG_HOME/fish/conf.d/pairee.fish` when fish is installed. Run as
+root, it also links `/usr/local/bin/pairee`. `uninstall` removes the blocks,
+the fish file and that link. A script cannot change the `PATH` of the
+terminal running it, so the summary gives the full path for that one.
+
 ---
 
 ## 3. Linux: Debian/Ubuntu Package (.deb)
