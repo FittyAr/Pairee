@@ -2,7 +2,7 @@
 # Pairee installer for Linux (x86_64 and aarch64).
 #
 #   curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
-#   ... | sh -s -- [debug] [uninstall] [--insecure-skip-signature] [--verify-only]
+#   ... | sh -s -- [debug] [uninstall] [--insecure-skip-signature] [--verify-only] [--sudo-command]
 #
 # Installs the static (musl) binary to ~/.local/lib/FittyAr/Pairee (all
 # FittyAr apps share the FittyAr folder) with a `pairee` link in ~/.local/bin,
@@ -13,6 +13,13 @@
 # those places) is moved into place automatically; nothing is deleted. The
 # settings folders stay where they are while the release being installed is
 # 0.11.0 or older, which still reads them there.
+#
+# `sudo pairee`: sudo looks programs up in its own secure_path, which leaves
+# ~/.local/bin out. Run as root, the installer links /usr/local/bin/pairee.
+# Run as a user, it offers (or, with --sudo-command, makes without asking) a
+# root-owned copy in /usr/local/lib/FittyAr/Pairee linked from
+# /usr/local/bin/pairee, through sudo: root never runs a program the user
+# can replace. Later installs refresh that copy, and uninstall removes it.
 #
 # The download is checked against its SHA-256 and its minisign signature.
 # When minisign is not installed, its official release (jedisct1/minisign) is
@@ -69,11 +76,14 @@ PATH_BLOCK_END="# <<< pairee PATH <<<"
 FISH_PATH_FILE="$CONFIG_BASE/fish/conf.d/pairee.fish"
 # The `pairee` link root also gets, as /usr/local/bin is on its PATH already.
 SYSTEM_LINK="/usr/local/bin/pairee"
+# The root-owned copy that `sudo pairee` runs for a user installation.
+SUDO_LIB_DIR="/usr/local/lib/FittyAr/Pairee"
 
 DEBUG_MODE=false
 UNINSTALL_MODE=false
 SKIP_SIGNATURE=false
 VERIFY_ONLY=false
+SUDO_COMMAND=false
 # Set by confirm_overwrite; the settings are deleted only once the download
 # is verified, so a failed install never costs the user their configuration.
 CLEAR_CONFIG=false
@@ -165,7 +175,8 @@ parse_args() {
             uninstall | --uninstall) UNINSTALL_MODE=true ;;
             --insecure-skip-signature) SKIP_SIGNATURE=true ;;
             --verify-only) VERIFY_ONLY=true ;;
-            *) die "Unknown argument '$arg'. Usage: install.sh [debug] [uninstall] [--insecure-skip-signature] [--verify-only]" ;;
+            --sudo-command) SUDO_COMMAND=true ;;
+            *) die "Unknown argument '$arg'. Usage: install.sh [debug] [uninstall] [--insecure-skip-signature] [--verify-only] [--sudo-command]" ;;
         esac
     done
 }
@@ -207,9 +218,11 @@ uninstall() {
 
     FOUND=""
     for bin in "$USER_BIN" "$SYS_BIN_1" "$SYS_BIN_2"; do
-        # The /usr/local/bin link of a root install is that install.
+        # The /usr/local/bin link of a root install, or of the copy that
+        # sudo runs, is part of this install.
         if [ "$bin" = "$SYSTEM_LINK" ] && [ -L "$bin" ] \
-            && [ "$(readlink "$bin")" = "$LIB_DIR/pairee" ]; then
+            && { [ "$(readlink "$bin")" = "$LIB_DIR/pairee" ] \
+                || [ "$(readlink "$bin")" = "$SUDO_LIB_DIR/pairee" ]; }; then
             continue
         fi
         if [ -f "$bin" ]; then
@@ -275,6 +288,7 @@ uninstall() {
                 rm -f "$BIN_DIR/pairee"
             fi
             remove_system_link
+            remove_sudo_command
             remove_path_blocks
         fi
     done
@@ -357,13 +371,18 @@ find_minisign() {
     chmod +x "$MINISIGN"
 }
 
+# Whether there is a terminal to ask on. /dev/tty can exist without a
+# controlling terminal (CI, containers).
+has_tty() {
+    [ -c /dev/tty ] && (: < /dev/tty) 2> /dev/null
+}
+
 confirm_overwrite() {
     if [ ! -f "$LIB_DIR/pairee" ] && [ ! -f "$BIN_DIR/pairee" ]         && [ ! -d "$CONFIG_DIR" ] && [ ! -d "$PREVIOUS_CONFIG_DIR" ]; then
         return 0
     fi
     echo "${YELLOW}Warning: Pairee is already installed.${NC}"
-    # /dev/tty can exist without a controlling terminal (CI, containers).
-    if ! { [ -c /dev/tty ] && (: < /dev/tty) 2> /dev/null; }; then
+    if ! has_tty; then
         echo "Non-interactive shell detected. Overwriting existing installation..."
         return 0
     fi
@@ -500,6 +519,7 @@ install_files() {
     mv -f "$STAGED_BIN" "$BIN_DIR/pairee"
     STAGED_BIN=""
     link_system_command
+    install_sudo_command
     add_bin_dir_to_path
 
     if [ -d "${PKG_FOLDER}/lang" ]; then
@@ -518,6 +538,9 @@ print_summary() {
     echo "Program:  ${BLUE}${LIB_DIR}/pairee${NC}"
     echo "Command:  ${BLUE}${BIN_DIR}/pairee${NC}"
     echo "Settings: ${BLUE}${CONFIG_DIR}/${NC}"
+    if [ -f "$SUDO_LIB_DIR/pairee" ]; then
+        echo "sudo:     ${BLUE}${SUDO_LIB_DIR}/pairee${NC} (sudo pairee)"
+    fi
     echo ""
 
     # A script cannot change the PATH of the shell that runs it: this
@@ -651,6 +674,75 @@ remove_system_link() {
     if [ -L "$SYSTEM_LINK" ] && [ "$(readlink "$SYSTEM_LINK")" = "$LIB_DIR/pairee" ]; then
         rm -f "$SYSTEM_LINK"
     fi
+}
+
+# The /usr/local/bin link is free for the copy that sudo runs: absent, or
+# already a link to that copy.
+sudo_link_free() {
+    if [ -L "$SYSTEM_LINK" ]; then
+        [ "$(readlink "$SYSTEM_LINK")" = "$SUDO_LIB_DIR/pairee" ]
+    else
+        [ ! -e "$SYSTEM_LINK" ]
+    fi
+}
+
+# A user installation: makes `sudo pairee` work with a root-owned copy of
+# the program in $SUDO_LIB_DIR, linked from $SYSTEM_LINK (sudo's
+# secure_path has /usr/local/bin, not ~/.local/bin). The copy is refreshed
+# when it exists, made with --sudo-command, and offered otherwise.
+install_sudo_command() {
+    [ "$(id -u)" -ne 0 ] || return 0
+    if [ ! -f "$SUDO_LIB_DIR/pairee" ] && [ "$SUDO_COMMAND" != "true" ]; then
+        if ! command -v sudo > /dev/null 2>&1 || ! has_tty; then
+            return 0
+        fi
+        printf "Make 'sudo pairee' work too (a root-owned copy in %s; asks for your password)? [y/N]: " "$SUDO_LIB_DIR"
+        read -r SUDO_ANSWER < /dev/tty || SUDO_ANSWER="n"
+        case "$SUDO_ANSWER" in
+            [yY] | [yY][eE][sS]) ;;
+            *)
+                echo "Skipped; run the installer with --sudo-command to add it later."
+                return 0
+                ;;
+        esac
+    fi
+    if ! command -v sudo > /dev/null 2>&1; then
+        echo "${YELLOW}sudo is not installed; 'sudo pairee' was not set up.${NC}"
+        return 0
+    fi
+    if ! sudo_link_free; then
+        echo "${YELLOW}${SYSTEM_LINK} is another program; 'sudo pairee' runs that one.${NC}"
+        return 0
+    fi
+    echo "Installing the copy that 'sudo pairee' runs (${SUDO_LIB_DIR})..."
+    # Staged and renamed, as for the user's copy; root owns every piece.
+    # shellcheck disable=SC2016 # expanded by the root shell
+    if sudo sh -c 'mkdir -p "$1" && cp "$2" "$1/.pairee.new" && chmod 755 "$1/.pairee.new" && mv -f "$1/.pairee.new" "$1/pairee" && ln -sfn "$1/pairee" "$3"' \
+        sh "$SUDO_LIB_DIR" "$LIB_DIR/pairee" "$SYSTEM_LINK"; then
+        echo "'sudo pairee' runs ${SUDO_LIB_DIR}/pairee"
+    else
+        echo "${YELLOW}Could not install ${SUDO_LIB_DIR}/pairee; 'sudo pairee' was not set up.${NC}"
+    fi
+}
+
+# Removes the copy of install_sudo_command and its link (never another
+# file); a user uninstall asks for the password through sudo.
+remove_sudo_command() {
+    [ -d "$SUDO_LIB_DIR" ] || return 0
+    if [ "$(id -u)" -eq 0 ]; then
+        AS_ROOT=""
+    elif command -v sudo > /dev/null 2>&1; then
+        echo "Removing ${SUDO_LIB_DIR} (asks for your password)..."
+        AS_ROOT="sudo"
+    else
+        echo "${YELLOW}Remove ${SUDO_LIB_DIR} and ${SYSTEM_LINK} as root.${NC}"
+        return 0
+    fi
+    if [ -L "$SYSTEM_LINK" ] && [ "$(readlink "$SYSTEM_LINK")" = "$SUDO_LIB_DIR/pairee" ]; then
+        $AS_ROOT rm -f "$SYSTEM_LINK"
+    fi
+    $AS_ROOT rm -rf "$SUDO_LIB_DIR"
+    $AS_ROOT rmdir "$(dirname "$SUDO_LIB_DIR")" 2> /dev/null || true
 }
 
 main() {

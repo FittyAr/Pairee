@@ -29,23 +29,6 @@ pub fn is_elevated() -> bool {
     unsafe { geteuid() == 0 }
 }
 
-#[cfg(target_os = "windows")]
-pub fn acquire_admin_privileges() -> Result<()> {
-    Ok(())
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn acquire_admin_privileges() -> Result<()> {
-    let status = run_sudo(
-        "Requesting administrator privileges...",
-        &[std::ffi::OsStr::new("-v")],
-    );
-    match status {
-        Ok(s) if s.success() => Ok(()),
-        _ => anyhow::bail!("Failed to acquire admin privileges via sudo"),
-    }
-}
-
 /// Leaves the TUI, runs `sudo args` on the user's terminal (so it can ask
 /// for the password) and restores the TUI afterwards.
 #[cfg(not(target_os = "windows"))]

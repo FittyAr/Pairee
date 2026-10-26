@@ -188,24 +188,38 @@ fn cancel_transfers(state: &AppState) {
     }
 }
 
-/// Elevates and repeats the failed mkdir / rename. Returns the error message.
+/// Repeats the failed mkdir / rename / delete in the elevated helper (sudo
+/// on Linux and macOS, UAC on Windows). Returns the error message.
 fn retry_as_admin(
     state: &mut AppState,
     paths: Vec<PathBuf>,
     op_kind: AdminOpKind,
 ) -> Result<(), String> {
-    crate::fs::acquire_admin_privileges()
-        .map_err(|e| format!("{} {}", t("error_acquire_admin_failed"), e))?;
+    use crate::fs::FsOperation;
     if cfg!(not(target_os = "windows")) {
+        // sudo asks for the password on the terminal, outside the TUI.
         state.redraw.needs_clear = true;
     }
-    match op_kind {
-        AdminOpKind::MkDir => paths.iter().try_for_each(|path| {
-            crate::fs::create_directory(path, true)
-                .map_err(|e| format!("{} {}", t("error_mkdir_failed"), e))
-        }),
-        AdminOpKind::Rename { src, target } => {
-            std::fs::rename(&src, &target).map_err(|e| format!("{} {}", t("error_rename_error"), e))
-        }
-    }
+    let (ops, error_key) = match op_kind {
+        AdminOpKind::MkDir => (
+            paths
+                .into_iter()
+                .map(|path| FsOperation::MkDir { path })
+                .collect(),
+            "error_mkdir_failed",
+        ),
+        // The helper renames, as this process could not.
+        AdminOpKind::Rename { src, target } => (
+            vec![FsOperation::Move { src, dst: target }],
+            "error_rename_error",
+        ),
+        AdminOpKind::Delete { .. } => (
+            paths
+                .into_iter()
+                .map(|path| FsOperation::Delete { path })
+                .collect(),
+            "error_delete_as_admin_failed",
+        ),
+    };
+    crate::fs::run_in_elevated_helper(ops).map_err(|e| format!("{} {e:#}", t(error_key)))
 }

@@ -122,15 +122,20 @@ impl DialogView for ConfirmUninstallPlugin {
 
 impl DialogView for ConfirmRetryAsAdmin {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
-        let text_key = match self.op_kind {
-            AdminOpKind::MkDir => "prompt_sudo_mkdir_text",
-            AdminOpKind::Rename { .. } => "prompt_sudo_rename_text",
+        let (size, body) = match &self.op_kind {
+            AdminOpKind::MkDir => ((65, 8), t("prompt_sudo_mkdir_text")),
+            AdminOpKind::Rename { .. } => ((65, 8), t("prompt_sudo_rename_text")),
+            // Taller: the reason names the path that was refused.
+            AdminOpKind::Delete { reason } => (
+                (70, 13),
+                t("prompt_sudo_delete_text").replacen("{}", reason, 1),
+            ),
         };
         kit::TextBox {
-            size: (65, 8),
+            size,
             title: t("prompt_sudo_title"),
             border: kit::fg(cx.theme.ui.warning),
-            body: t(text_key).into(),
+            body: body.into(),
             body_style: cx.theme.popup_fg(),
         }
         .render_wrapped(f, cx.area, cx.theme);

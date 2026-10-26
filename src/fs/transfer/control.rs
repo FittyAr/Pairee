@@ -216,5 +216,24 @@ pub fn failed(src: &Path, dst: PathBuf, error: String) -> FailedFile {
         dst,
         error,
         retries: 0,
+        denied: false,
+    }
+}
+
+/// Failure record of `src` from a system error, marked when the system
+/// refused it for lack of permission.
+pub fn failed_io(src: &Path, dst: PathBuf, error: &std::io::Error) -> FailedFile {
+    FailedFile {
+        denied: error.kind() == std::io::ErrorKind::PermissionDenied,
+        ..failed(src, dst, error.to_string())
+    }
+}
+
+/// Failure record of a folder a walk could not read (or a loop).
+pub fn walk_failed(error: &crate::fs::walk::WalkError) -> FailedFile {
+    let path = error.path().unwrap_or(Path::new(""));
+    FailedFile {
+        denied: error.is_denied(),
+        ..failed(path, PathBuf::new(), error.to_string())
     }
 }

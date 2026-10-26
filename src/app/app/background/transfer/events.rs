@@ -48,12 +48,11 @@ pub fn handle_transfer_event(
             if context.config.settings.transfer.auto_report {
                 save_report(transfer, context, job_id, &results);
             }
-            if let Some(first) = results.failed_files.first() {
-                let message = t("transfer_files_failed")
-                    .replacen("{}", &results.failed_files.len().to_string(), 1)
-                    .replacen("{}", &first.src.to_string_lossy(), 1)
-                    .replacen("{}", &first.error, 1);
-                show_failure(state, message);
+            let failure = transfer.engine.queue.get(job_id).and_then(|job| {
+                crate::app::actions::fs_ops::delete::failure_popup(&job, &results.failed_files)
+            });
+            if let Some(popup) = failure {
+                show_failure(state, popup);
             }
             let Some(transfer) = state.transfer.as_mut() else {
                 return;
@@ -81,7 +80,7 @@ pub fn handle_transfer_event(
             // The panel bar is gone once nothing runs: without this the
             // job would end without a word.
             if error != t("transfer_job_cancelled") {
-                show_failure(state, error);
+                show_failure(state, PopupType::error(error));
             }
         }
         TransferEvent::ConflictDetected { file, conflict, .. } => {
@@ -99,13 +98,16 @@ pub fn handle_transfer_event(
 }
 
 /// Shows why a job failed, once (a failure can be reported twice).
-fn show_failure(state: &mut AppState, message: String) {
-    let shown = state
-        .dialogs
-        .iter()
-        .any(|d| matches!(d, PopupType::Error(ErrorMessage(text)) if *text == message));
+fn show_failure(state: &mut AppState, popup: PopupType) {
+    let shown = match &popup {
+        PopupType::Error(ErrorMessage(message)) => state
+            .dialogs
+            .iter()
+            .any(|d| matches!(d, PopupType::Error(ErrorMessage(text)) if text == message)),
+        _ => false,
+    };
     if !shown {
-        state.dialogs.replace(PopupType::error(message));
+        state.dialogs.replace(popup);
     }
 }
 

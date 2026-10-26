@@ -251,6 +251,11 @@ pub enum AdminOpKind {
         src: std::path::PathBuf,
         target: std::path::PathBuf,
     },
+    /// Delete the paths (what a delete job could not remove), shown with
+    /// `reason`, the failure the job reported.
+    Delete {
+        reason: String,
+    },
 }
 
 pub use super::popup::{PopupType, Renderable};

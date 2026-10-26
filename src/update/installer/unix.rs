@@ -26,6 +26,9 @@ enum Target {
 pub(super) fn install(archive: &[u8]) -> Result<InstallResult> {
     let exe = live_exe_path(std::env::current_exe().context("cannot determine current exe path")?);
     let exe = resolve_link(&exe);
+    if crate::fs::is_elevated() && !root_may_update(&exe) {
+        anyhow::bail!(crate::config::localization::t("update_root_refused"));
+    }
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let target = target_for(&exe, home.as_deref(), cfg!(target_os = "linux"));
 
@@ -52,6 +55,16 @@ pub(super) fn install(archive: &[u8]) -> Result<InstallResult> {
         }
     }
     Ok(InstallResult::RestartRequired)
+}
+
+/// Whether root (`sudo pairee`) may replace `exe`: only when root owns it
+/// and its folder. The user's own copy (`~/.local/lib/FittyAr/Pairee`)
+/// replaced by root would end up root-owned, and the user could no longer
+/// update it; it is updated without sudo instead.
+fn root_may_update(exe: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let owned_by_root = |p: &Path| std::fs::metadata(p).is_ok_and(|m| m.uid() == 0);
+    owned_by_root(exe) && exe.parent().is_some_and(owned_by_root)
 }
 
 /// Linux reports a replaced binary as `<path> (deleted)`; the file to update
@@ -156,6 +169,16 @@ fn set_executable(path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn root_updates_only_a_program_root_owns() {
+        let dir = tempfile::tempdir().unwrap();
+        let exe = dir.path().join("pairee");
+        std::fs::write(&exe, b"old").unwrap();
+        // The test's own file: root's only when the tests run as root.
+        assert_eq!(root_may_update(&exe), crate::fs::is_elevated());
+        assert!(!root_may_update(&dir.path().join("missing")));
+    }
 
     #[test]
     fn a_replaced_binary_maps_back_to_its_path() {

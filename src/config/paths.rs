@@ -38,9 +38,9 @@ impl UserDir {
         }
         #[cfg(not(target_os = "windows"))]
         {
-            match BaseDirs::new() {
-                Some(dirs) => {
-                    let (new, previous) = self.unix_candidates(&dirs);
+            match Bases::current() {
+                Some(bases) => {
+                    let (new, previous) = self.unix_candidates(&bases);
                     adopt_previous(&new, &previous)
                 }
                 None => PathBuf::from("."),
@@ -59,11 +59,11 @@ impl UserDir {
     /// plugin data in one folder, as before) and `~/Library/Caches/FittyAr/Pairee`,
     /// replacing the `com.pairee.Pairee` folders.
     #[cfg(not(target_os = "windows"))]
-    fn unix_candidates(self, dirs: &BaseDirs) -> (PathBuf, PathBuf) {
+    fn unix_candidates(self, bases: &Bases) -> (PathBuf, PathBuf) {
         let base = match self {
-            Self::Config => dirs.config_dir(),
-            Self::Cache => dirs.cache_dir(),
-            Self::Data => dirs.data_dir(),
+            Self::Config => &bases.config,
+            Self::Cache => &bases.cache,
+            Self::Data => &bases.data,
         };
         let previous = if cfg!(target_os = "macos") {
             "com.pairee.Pairee"
@@ -78,6 +78,54 @@ impl UserDir {
         match self.subdir() {
             Some(sub) => base.join(sub),
             None => base,
+        }
+    }
+}
+
+/// The per-user base folders (settings, cache, data) of Linux and macOS.
+#[cfg(not(target_os = "windows"))]
+#[derive(Debug, PartialEq, Eq)]
+struct Bases {
+    config: PathBuf,
+    cache: PathBuf,
+    data: PathBuf,
+}
+
+#[cfg(not(target_os = "windows"))]
+impl Bases {
+    /// The folders of the account Pairee runs as. Root (`sudo pairee`)
+    /// ignores `HOME` and the `XDG_*` variables, which `sudo -E` or an
+    /// `env_keep` rule may carry over from the user: it keeps its own files
+    /// in its own home (from `/etc/passwd`), and never writes root-owned
+    /// files into the user's folders or reads the user's plugins.
+    fn current() -> Option<Self> {
+        if crate::fs::is_elevated()
+            && let Some(home) = crate::fs::identity::home_of(0)
+        {
+            return Some(Self::defaults_under(&home));
+        }
+        BaseDirs::new().map(|dirs| Self {
+            config: dirs.config_dir().to_path_buf(),
+            cache: dirs.cache_dir().to_path_buf(),
+            data: dirs.data_dir().to_path_buf(),
+        })
+    }
+
+    /// The default folders under `home`, as when no `XDG_*` variable is set.
+    fn defaults_under(home: &Path) -> Self {
+        if cfg!(target_os = "macos") {
+            let support = home.join("Library").join("Application Support");
+            Self {
+                config: support.clone(),
+                cache: home.join("Library").join("Caches"),
+                data: support,
+            }
+        } else {
+            Self {
+                config: home.join(".config"),
+                cache: home.join(".cache"),
+                data: home.join(".local").join("share"),
+            }
         }
     }
 }
@@ -352,20 +400,42 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn unix_folders_live_under_fittyar_and_replace_the_previous_ones() {
-        let Some(dirs) = BaseDirs::new() else { return };
+        let Some(bases) = Bases::current() else {
+            return;
+        };
         let previous = if cfg!(target_os = "macos") {
             "com.pairee.Pairee"
         } else {
             "pairee"
         };
         for (dir, base) in [
-            (UserDir::Config, dirs.config_dir()),
-            (UserDir::Cache, dirs.cache_dir()),
-            (UserDir::Data, dirs.data_dir()),
+            (UserDir::Config, &bases.config),
+            (UserDir::Cache, &bases.cache),
+            (UserDir::Data, &bases.data),
         ] {
-            let (new, old) = dir.unix_candidates(&dirs);
+            let (new, old) = dir.unix_candidates(&bases);
             assert_eq!(new, base.join("FittyAr").join("Pairee"), "{dir:?}");
             assert_eq!(old, base.join(previous), "{dir:?}");
+        }
+    }
+
+    /// Root (`sudo pairee`, `sudo -E pairee`) takes its folders from its own
+    /// home in `/etc/passwd`, whatever `HOME` and `XDG_*` say.
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn root_keeps_its_files_in_its_own_home() {
+        let bases = Bases::defaults_under(Path::new("/root"));
+        if cfg!(target_os = "macos") {
+            assert_eq!(bases.cache, Path::new("/root/Library/Caches"));
+            assert_eq!(bases.config, bases.data);
+        } else {
+            assert_eq!(bases.config, Path::new("/root/.config"));
+            assert_eq!(bases.cache, Path::new("/root/.cache"));
+            assert_eq!(bases.data, Path::new("/root/.local/share"));
+        }
+        if crate::fs::is_elevated() {
+            let home = crate::fs::identity::home_of(0).expect("root in /etc/passwd");
+            assert_eq!(Bases::current(), Some(Bases::defaults_under(&home)));
         }
     }
 }

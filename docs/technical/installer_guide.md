@@ -51,6 +51,17 @@ root, it also links `/usr/local/bin/pairee`. `uninstall` removes the blocks,
 the fish file and that link. A script cannot change the `PATH` of the
 terminal running it, so the summary gives the full path for that one.
 
+`sudo pairee` looks the command up in sudo's `secure_path`, which has
+`/usr/local/bin` but not `~/.local/bin`. A user installation therefore
+offers (or makes without asking, with `--sudo-command`) a root-owned copy in
+`/usr/local/lib/FittyAr/Pairee/pairee` linked from `/usr/local/bin/pairee`,
+installed through `sudo`; it is never a link to the user's own copy, which
+anything running as the user could replace and root would then run. Later
+installs refresh the copy when it exists, and `uninstall` removes it with
+its link (never a `/usr/local/bin/pairee` that is something else). Pairee
+running as root updates itself only when root owns the program, so that
+copy updates with `sudo pairee` and the user's with `pairee`.
+
 ---
 
 ## 3. Linux: Debian/Ubuntu Package (.deb)

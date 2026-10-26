@@ -28,7 +28,12 @@ pub fn remove_entry(path: &Path) -> io::Result<()> {
         if first.kind() != io::ErrorKind::PermissionDenied || make_writable(path, &meta).is_err() {
             return Err(first);
         }
-        remove(path)
+        // Still refused (on Unix the folder it is in decides): the entry
+        // keeps the permissions it had, and the first error is the reason.
+        remove(path).map_err(|_| {
+            let _ = std::fs::set_permissions(path, meta.permissions());
+            first
+        })
     })
 }
 

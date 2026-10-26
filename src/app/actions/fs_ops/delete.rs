@@ -1,8 +1,9 @@
 use crate::app::context::AppContext;
-use crate::app::state::popup::ConfirmDelete;
-use crate::app::state::{AppState, DialogStack, PopupType};
+use crate::app::state::popup::{ConfirmDelete, ConfirmRetryAsAdmin};
+use crate::app::state::{AdminOpKind, AppState, DialogStack, PopupType};
 use crate::app::transfer_submit::submit_simple;
-use crate::fs::transfer::job::TransferOperation;
+use crate::config::localization::t;
+use crate::fs::transfer::job::{FailedFile, TransferJob, TransferOperation};
 use crate::fs::transfer::options::TransferOptions;
 use std::path::PathBuf;
 
@@ -169,4 +170,56 @@ pub fn submit_keeping_dialogs(
     if !open.is_empty() {
         state.dialogs = open;
     }
+}
+
+/// What the user sees when `job` ends with `failed` items: the count, the
+/// first refused path and its reason. A permanent local delete that the
+/// system refused for lack of permission offers to delete what is left
+/// with administrator rights (unless Pairee already has them); everything
+/// else shows the reason.
+pub fn failure_popup(job: &TransferJob, failed: &[FailedFile]) -> Option<PopupType> {
+    let message = failure_message(job.operation, failed)?;
+    if !may_retry_as_admin(job, failed) {
+        return Some(PopupType::error(message));
+    }
+    // The sources still there: the elevated helper deletes each whole.
+    let paths: Vec<PathBuf> = job
+        .sources
+        .iter()
+        .filter(|p| crate::fs::stamp::entry_exists(p))
+        .cloned()
+        .collect();
+    if paths.is_empty() {
+        return Some(PopupType::error(message));
+    }
+    Some(PopupType::ConfirmRetryAsAdmin(ConfirmRetryAsAdmin {
+        paths,
+        op_kind: AdminOpKind::Delete { reason: message },
+    }))
+}
+
+/// "N items could not be deleted (transferred). First: path: reason",
+/// naming the first refused permission when there is one.
+fn failure_message(operation: TransferOperation, failed: &[FailedFile]) -> Option<String> {
+    let first = failed.iter().find(|f| f.denied).or(failed.first())?;
+    let key = match operation {
+        TransferOperation::Delete | TransferOperation::Wipe => "delete_items_failed",
+        _ => "transfer_files_failed",
+    };
+    Some(
+        t(key)
+            .replacen("{}", &failed.len().to_string(), 1)
+            .replacen("{}", &first.src.to_string_lossy(), 1)
+            .replacen("{}", &first.error, 1),
+    )
+}
+
+/// A permanent delete on the local disk that the system refused for lack
+/// of permission, run without administrator rights.
+fn may_retry_as_admin(job: &TransferJob, failed: &[FailedFile]) -> bool {
+    job.operation == TransferOperation::Delete
+        && !job.options.delete_to_recycle_bin
+        && job.remote.is_none()
+        && failed.iter().any(|f| f.denied)
+        && !crate::fs::is_elevated()
 }

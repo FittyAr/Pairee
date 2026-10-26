@@ -91,11 +91,18 @@ impl PluginLoadOptions {
     }
 }
 
-/// Secure Mode as plugins see it: on when the user enabled it, and also
-/// when `config.toml` could not be parsed (fail closed: the user's real
-/// choice is unknown, so the sandbox stays on).
+/// Secure Mode as plugins see it: on when the user enabled it, when
+/// `config.toml` could not be parsed (fail closed: the user's real choice
+/// is unknown, so the sandbox stays on), and when Pairee runs as root on
+/// Linux or macOS (`sudo pairee`), where a plugin would act as root.
 pub fn effective_secure_mode(config: &AppConfig) -> bool {
-    config.settings.secure_mode || config.settings_save_locked()
+    config.settings.secure_mode || config.settings_save_locked() || runs_as_root()
+}
+
+/// Pairee runs as root on Linux or macOS. An elevated Windows terminal is
+/// an ordinary administrator session there, and keeps the user's choice.
+fn runs_as_root() -> bool {
+    cfg!(unix) && crate::fs::is_elevated()
 }
 
 /// `true` unless the user disabled `name` in the Plugin Manager.
@@ -187,7 +194,8 @@ mod tests {
     #[test]
     fn unparsable_config_forces_secure_mode() {
         let mut config = AppConfig::default();
-        assert!(!effective_secure_mode(&config));
+        // Root always runs plugins in Secure Mode.
+        assert_eq!(effective_secure_mode(&config), runs_as_root());
         config.load_state = ConfigLoadState::SaveLocked;
         assert!(effective_secure_mode(&config));
         let dir = tempfile::tempdir().unwrap();
@@ -220,5 +228,14 @@ mod tests {
         let options = PluginLoadOptions::from_settings("demo", &settings, true);
         assert_eq!(options.settings.get("depth").map(String::as_str), Some("3"));
         assert!(options.secure_mode && !options.trusted);
+    }
+
+    /// As root on Unix (`sudo pairee`) plugins always run in Secure Mode.
+    #[test]
+    fn root_runs_plugins_in_secure_mode() {
+        let config = AppConfig::default();
+        assert!(!config.settings.secure_mode);
+        assert_eq!(effective_secure_mode(&config), runs_as_root());
+        assert_eq!(runs_as_root(), cfg!(unix) && crate::fs::is_elevated());
     }
 }

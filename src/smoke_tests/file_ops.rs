@@ -128,3 +128,49 @@ fn delete_to_trash_then_undo_and_redo() {
     h.keys("@undo_file_operation Enter");
     h.wait_until("restore again", |h| h.exists(&rel));
 }
+
+/// Deleting a folder the user may not remove (its parent is read-only)
+/// says which path was refused and why, and offers to retry with
+/// administrator rights; Esc leaves everything in place. Root ignores the
+/// permissions, so the test skips as root.
+#[cfg(unix)]
+#[test]
+fn a_refused_delete_says_why_and_offers_the_elevated_retry() {
+    use std::os::unix::fs::PermissionsExt;
+    if crate::fs::is_elevated() {
+        return;
+    }
+    let mut h = Harness::new();
+    h.write("work/left/locked/victim/f.txt", "x");
+    let locked = h.left().join("locked");
+    h.reread().focus("locked").keys("Enter");
+    h.wait_until("inside locked", |h| {
+        h.names().contains(&"victim".to_string())
+    });
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o555)).unwrap();
+    struct Restore(std::path::PathBuf);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o755));
+        }
+    }
+    let _restore = Restore(locked.clone());
+
+    h.focus("victim").keys("@delete Enter");
+    h.wait_until("the refusal", |h| h.state.dialogs.is_open());
+    match h.state.dialogs.top() {
+        Some(PopupType::ConfirmRetryAsAdmin(retry)) => {
+            assert_eq!(retry.paths, [locked.join("victim")]);
+            let crate::app::state::AdminOpKind::Delete { reason } = &retry.op_kind else {
+                panic!("not a delete: {:?}", retry.op_kind);
+            };
+            assert!(reason.contains("victim"), "{reason}");
+            assert!(reason.contains("ermission denied"), "{reason}");
+        }
+        other => panic!("expected the elevated retry, got {other:?}"),
+    }
+    h.assert_screen("victim");
+    h.keys("Esc");
+    assert!(h.state.dialogs.is_empty());
+    assert!(locked.join("victim").join("f.txt").exists());
+}

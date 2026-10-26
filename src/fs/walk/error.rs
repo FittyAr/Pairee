@@ -41,6 +41,16 @@ impl WalkError {
     pub fn is_cancelled(&self) -> bool {
         matches!(self, Self::Cancelled)
     }
+
+    /// The folder could not be read for lack of permission.
+    pub fn is_denied(&self) -> bool {
+        match self {
+            Self::Io { source, .. } | Self::Incomplete { source, .. } => {
+                source.kind() == std::io::ErrorKind::PermissionDenied
+            }
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Display for WalkError {

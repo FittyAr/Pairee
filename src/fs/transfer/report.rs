@@ -258,6 +258,7 @@ mod tests {
                 dst: PathBuf::new(),
                 error: "boom".into(),
                 retries: 2,
+                denied: false,
             }],
             ..TransferResults::default()
         }

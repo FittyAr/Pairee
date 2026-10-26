@@ -3,7 +3,7 @@
 //! rename) is expanded into its files when it cannot be renamed back.
 
 use super::{FileMapping, ScanOutcome};
-use crate::fs::transfer::job::FailedFile;
+use crate::fs::transfer::control::walk_failed;
 use crate::fs::vfs::LocalVfs;
 use crate::fs::walk::{WalkOptions, Walker};
 use std::path::{Path, PathBuf};
@@ -46,12 +46,7 @@ fn folder_pair(from: &Path, to: &Path, out: &mut ScanOutcome) {
         let item = match item {
             Ok(item) => item,
             Err(e) => {
-                out.refused.push(FailedFile {
-                    src: e.path().map(Path::to_path_buf).unwrap_or_default(),
-                    dst: PathBuf::new(),
-                    error: e.to_string(),
-                    retries: 0,
-                });
+                out.refused.push(walk_failed(&e));
                 continue;
             }
         };

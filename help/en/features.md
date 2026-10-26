@@ -93,6 +93,8 @@ Press `Shift+F6` (or **Files → Multi-Rename**) to rename every selected item (
 
 ### 2.5 Elevated Privilege Support (Sudo / Admin)
 * When a filesystem operation (delete, copy, move, mkdir) encounters a "Permission Denied" error, Pairee prompts you to retry with administrative privileges. It executes the action using an elevated helper process (`sudo` on Unix/Linux, UAC prompt on Windows) without needing to restart the application.
+* **Deleting what you may not delete:** a delete that the system refuses says how many items were left, the first refused path and why (for example `Permission denied`). A permanent delete on the local disk then offers to delete what is left with administrator rights (`Enter`) or to leave it (`Esc`). An item whose folder does not let it be removed (a read-only folder, or one that belongs to root) is refused as a whole before anything inside it is touched, so it is never left half empty. Sending to the trash cannot be elevated (it would go to root's trash): the message says why it failed, and a permanent delete (`Shift+Delete` in most keymaps) can then be retried as administrator.
+* **Running Pairee itself with `sudo` (Linux and macOS):** `sudo pairee` works on its own settings: root keeps its configuration, log, session and plugin data in its own home (`/root/.config/FittyAr/Pairee` and so on on Linux), whatever `HOME` and `XDG_*` say, so `sudo -E` never writes root-owned files into your folders or loads your plugins. Plugins always run in Secure Mode as root and a self-update is refused unless root owns the program (update your own copy without sudo). The Linux installer makes the `sudo pairee` command available (see the README).
 
 ---
 
@@ -178,7 +180,7 @@ Pairee features a fully integrated auto-update system that determines how your a
 ### 6.2 Platform & Package-Manager Actions
 Pairee checks 13 different installation paths to apply updates correctly:
 * **Direct Binaries:**
-  - **Linux / macOS (tar.gz):** Downloads and performs an atomic binary replacement in the active run path. A restart is prompted.
+  - **Linux / macOS (tar.gz):** Downloads and performs an atomic binary replacement in the active run path. A restart is prompted. Run as root (`sudo pairee`), Pairee only replaces a program that root owns, such as the copy the Linux installer made for `sudo`; your own copy is updated without sudo, so its files stay yours.
   - **Windows (ZIP):** Downloads the release and replaces the executable in place: Windows cannot overwrite a running program but can rename it, so the running `pairee.exe` is renamed aside, the new one takes its name (the old one is put back if that fails) and the leftover is removed on a later start. A restart is prompted.
   - **Windows (Inno Setup):** Downloads the installer and executes it silently in the background (`/VERYSILENT`).
 * **Package Managers:** If Pairee detects it was installed via a package manager (e.g., `apt`, `dnf`/`rpm`, `pacman`, `nix`, `snap`, `flatpak` on Linux, or `winget`, `scoop`, `chocolatey` on Windows), it displays the exact console command required to update Pairee (e.g., `winget upgrade FittyAr.Pairee` or `sudo apt-get install --only-upgrade pairee`). You can easily view this command to run it in your shell.

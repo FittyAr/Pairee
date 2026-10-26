@@ -20,7 +20,7 @@ mod tests;
 
 pub use pairs::scan_pairs;
 
-use super::control::JobControl;
+use super::control::{JobControl, failed, failed_io, walk_failed};
 use super::filter::TransferFilter;
 use super::job::DestinationKind;
 use super::job::{FailedFile, SkippedFile, TransferOperation};
@@ -170,12 +170,7 @@ impl Scanner<'_> {
     }
 
     fn refuse(&mut self, src: &Path, error: String) {
-        self.out.refused.push(FailedFile {
-            src: src.to_path_buf(),
-            dst: PathBuf::new(),
-            error,
-            retries: 0,
-        });
+        self.out.refused.push(failed(src, PathBuf::new(), error));
     }
 
     fn skip(&mut self, src: &Path, reason: String) {
@@ -197,7 +192,7 @@ impl Scanner<'_> {
         let entry = match self.req.src_fs.stat(src) {
             Ok(entry) => entry,
             Err(e) => {
-                self.refuse(src, e.to_string());
+                self.out.refused.push(failed_io(src, PathBuf::new(), &e));
                 return Ok(());
             }
         };
@@ -279,10 +274,7 @@ impl Scanner<'_> {
         while let Some(item) = walker.next() {
             match item {
                 Err(WalkError::Cancelled) => return Err(crate::fs::error::cancelled()),
-                Err(e) => {
-                    let path = e.path().map(Path::to_path_buf).unwrap_or_default();
-                    self.refuse(&path, e.to_string());
-                }
+                Err(e) => self.out.refused.push(walk_failed(&e)),
                 Ok(item) if item.descends && self.filter.excludes(&item.entry.name) => {
                     walker.skip_dir();
                 }

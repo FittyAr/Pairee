@@ -360,6 +360,9 @@ pub struct FailedFile {
     pub dst: PathBuf,
     pub error: String,
     pub retries: u32,
+    /// The system refused it for lack of permission: retrying with
+    /// administrator rights may work.
+    pub denied: bool,
 }
 
 #[derive(Debug, Clone)]

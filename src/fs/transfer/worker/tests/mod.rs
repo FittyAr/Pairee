@@ -1,3 +1,5 @@
+#[cfg(unix)]
+mod permissions;
 mod progress;
 mod regressions;
 

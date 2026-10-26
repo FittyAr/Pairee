@@ -9,20 +9,40 @@
 #[cfg(unix)]
 use std::collections::HashMap;
 
+/// The entries of passwd(5) or group(5) content as `(id, fields)`: both
+/// keep the numeric id in the third field.
+#[cfg(any(unix, test))]
+fn id_entries(content: &str) -> impl Iterator<Item = (u32, Vec<&str>)> {
+    content.lines().filter_map(|line| {
+        let fields: Vec<&str> = line.split(':').collect();
+        let id = fields.get(2)?.trim().parse::<u32>().ok()?;
+        Some((id, fields))
+    })
+}
+
 /// `id -> name` from passwd(5) or group(5) content: both keep the name in
-/// the first field and the numeric id in the third (first entry wins).
+/// the first field (first entry wins).
 #[cfg(any(unix, test))]
 fn parse_id_names(content: &str) -> std::collections::HashMap<u32, String> {
     let mut map = std::collections::HashMap::new();
-    for line in content.lines() {
-        let mut parts = line.split(':');
-        if let (Some(name), _, Some(id_str)) = (parts.next(), parts.next(), parts.next())
-            && let Ok(id) = id_str.trim().parse::<u32>()
-        {
-            map.entry(id).or_insert_with(|| name.to_string());
-        }
+    for (id, fields) in id_entries(content) {
+        map.entry(id).or_insert_with(|| fields[0].to_string());
     }
     map
+}
+
+/// The home folder (sixth field) of user `uid` in passwd(5) content.
+#[cfg(any(unix, test))]
+fn parse_home(content: &str, uid: u32) -> Option<std::path::PathBuf> {
+    id_entries(content)
+        .find(|(id, _)| *id == uid)
+        .and_then(|(_, fields)| fields.get(5).filter(|h| h.starts_with('/')).map(Into::into))
+}
+
+/// Home folder of user `uid` as `/etc/passwd` lists it (never `HOME`).
+#[cfg(unix)]
+pub fn home_of(uid: u32) -> Option<std::path::PathBuf> {
+    parse_home(&std::fs::read_to_string("/etc/passwd").ok()?, uid)
 }
 
 #[cfg(unix)]
@@ -185,6 +205,15 @@ alias:x:0:0::/:/bin/sh
         let groups = parse_id_names("wheel:x:10:alice,bob\nstaff::50:\n");
         assert_eq!(groups.get(&10).map(String::as_str), Some("wheel"));
         assert_eq!(groups.get(&50).map(String::as_str), Some("staff"));
+    }
+
+    #[test]
+    fn the_home_folder_comes_from_the_first_entry_of_the_user() {
+        let passwd = "root:x:0:0::/root:/bin/sh\nbob:x:1000:1000::/home/bob:/bin/sh\nalias:x:0:0::/:/bin/sh\nodd:x:7:7::relative:/bin/sh\n";
+        assert_eq!(parse_home(passwd, 0), Some("/root".into()));
+        assert_eq!(parse_home(passwd, 1000), Some("/home/bob".into()));
+        assert_eq!(parse_home(passwd, 7), None);
+        assert_eq!(parse_home(passwd, 42), None);
     }
 
     #[test]
