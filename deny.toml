@@ -19,7 +19,14 @@ targets = [
 
 [advisories]
 yanked = "deny"
-ignore = []
+# zbus 6 folded these crates into itself; keyring's Secret Service store
+# (keyring 4.2 -> secret-service 5.2) is still on zbus 5 and nothing newer
+# exists yet (2026-10-26). Drop these once it moves to zbus 6.
+ignore = [
+    { id = "RUSTSEC-2026-0370", reason = "zvariant: only through zbus 5 of keyring's Secret Service store" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names: only through zbus 5 of keyring's Secret Service store" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: only through zbus 5 of keyring's Secret Service store" },
+]
 
 [licenses]
 confidence-threshold = 0.8
