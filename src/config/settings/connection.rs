@@ -59,6 +59,15 @@ impl RemoteKind {
         }
     }
 
+    /// Translation key of the name in the connection dialog's protocol
+    /// field, which spells out that SFTP is the SSH one.
+    pub fn picker_label_key(self) -> &'static str {
+        match self {
+            Self::Sftp => "remote_kind_sftp_ssh",
+            other => other.label_key(),
+        }
+    }
+
     /// URL scheme of the backend (see `fs::remote::connect`).
     pub fn scheme(self) -> &'static str {
         match self {

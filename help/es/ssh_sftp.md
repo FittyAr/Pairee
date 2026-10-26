@@ -20,7 +20,7 @@ La columna izquierda lista las conexiones guardadas con su protocolo, p. ej. `ba
 | Campo | Significado |
 | :--- | :--- |
 | **Nombre** | Una etiqueta para la conexión guardada. |
-| **Protocolo** | SFTP, FTP, FTPS, WebDAV, WebDAV (HTTPS) o S3. Se cambia con `←` / `→` o `Espacio`. Un puerto que era el predeterminado del protocolo anterior pasa al del nuevo. |
+| **Protocolo** | SFTP (SSH: elíjalo para conectarse por SSH), FTP, FTPS, WebDAV, WebDAV (HTTPS) o S3. Se cambia con `←` / `→` o `Espacio`. Un puerto que era el predeterminado del protocolo anterior pasa al del nuevo. |
 | **Host** (**Bucket** en S3) | El nombre o la IP del servidor; en S3, el bucket. |
 | **Puerto** | Vacío usa el predeterminado del protocolo (22, 21, 80 o 443). S3 no lo usa. |
 | **Usuario** (**Clave de acceso** en S3) | El nombre de inicio de sesión. FTP y WebDAV entran de forma anónima sin él; S3 usa entonces `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. |

@@ -1,8 +1,8 @@
 name: Build dependencies
 description: >-
   System packages Pairee needs to build: pkg-config and the OpenSSL headers on
-  Linux, pkg-config on macOS (nothing on Windows), plus any extra apt
-  packages a job needs.
+  Linux, pkg-config on macOS, the Strawberry Perl that builds the vendored
+  OpenSSL of libssh2 on Windows, plus any extra apt packages a job needs.
 
 inputs:
   apt-extra:
@@ -27,3 +27,17 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: brew install pkg-config
+
+    # openssl-src runs OpenSSL's Configure with `perl`; under the bash shell
+    # that is Git's MSYS perl, which cannot configure an MSVC build. The
+    # image ships Strawberry Perl: point openssl-src at it.
+    - name: Use Strawberry Perl for OpenSSL
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $perl = 'C:\Strawberry\perl\bin\perl.exe'
+        if (-not (Test-Path $perl)) {
+          choco install strawberryperl --no-progress -y
+        }
+        if (-not (Test-Path $perl)) { throw "Strawberry Perl not found at $perl" }
+        "OPENSSL_SRC_PERL=$perl" >> $env:GITHUB_ENV

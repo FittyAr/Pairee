@@ -193,7 +193,7 @@ fn field_line(
     let text_x = row.x + LABEL_WIDTH;
     let hit = match (field, prompt.text_field(field)) {
         (ConnectionField::Kind, _) | (_, None) => {
-            let kind = t(prompt.kind.label_key());
+            let kind = t(prompt.kind.picker_label_key());
             spans.push(Span::styled(format!("< {kind} >"), style));
             None
         }

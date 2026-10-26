@@ -39,6 +39,8 @@ regex = "1.13"
 blake3 = "1.5.4"
 md-5 = "0.11"
 sha1 = "0.11"
+# Hashed host names in known_hosts (`|1|salt|hash` is HMAC-SHA1).
+hmac = "0.13"
 sha2 = "0.11.1"
 # Private, randomly named temp dirs for update downloads (0700 on Unix).
 tempfile = "3.27"
@@ -90,6 +92,11 @@ url = "2.5.8"
 bytes = "1.12"
 http-body = "1.1"
 zeroize = { version = "1.9.1", features = ["serde"] }
+# libssh2 (also git2's SSH transport) on a vendored OpenSSL everywhere: on
+# Windows the default WinCNG backend has no Ed25519 or ECDSA host keys or
+# modern key exchanges. Building OpenSSL on Windows needs Strawberry Perl
+# (`OPENSSL_SRC_PERL`, see README).
+ssh2 = { version = "0.9", features = ["vendored-openssl", "openssl-on-win32"] }
 
 [features]
 # Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in
@@ -132,11 +139,9 @@ tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
 windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Memory", "Win32_Foundation", "Win32_UI_Shell", "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_WindowsProgramming", "Win32_System_SystemInformation", "Win32_System_Pipes", "Win32_System_Threading", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader"] }
-ssh2 = { version = "0.9" }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider", "json"] }
-ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 # 0.3, the version crossterm uses, so only one signal-hook is built.
 signal-hook = { version = "0.3", features = ["iterator"] }
 # The PTY of background Terminal (`command &`) and apply-command

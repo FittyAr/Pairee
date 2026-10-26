@@ -272,6 +272,7 @@ error_ssh_handshake_failed = "Falló el apretón de manos (handshake) SSH"
 error_ssh_host_empty = "El servidor no puede estar vacío"
 error_ssh_host_key_check_failed = "Falló la comprobación de la clave de host SSH de {}"
 error_ssh_host_key_mismatch = "La clave de host SSH de {} NO coincide con la de known_hosts. Alguien podría estar interceptando la conexión (man-in-the-middle)."
+error_ssh_host_key_type_unknown = "{} envió su clave de host {}, pero known_hosts solo tiene su clave {}, así que no se pueden comparar. Agregue la clave {} del servidor a {} y vuelva a intentarlo."
 error_ssh_host_key_unknown = "La clave de host SSH de {} no está en known_hosts, así que se rechazó la conexión. Agregue la clave del servidor a {} y vuelva a intentarlo."
 error_ssh_init_sftp = "Error al inicializar el canal SFTP"
 error_ssh_key_missing = "El archivo de clave SSH no existe: {}"
@@ -1399,6 +1400,7 @@ cli_help_keymap_print = "Muestra la referencia en Markdown de un preset (por def
 
 # Remote connections (SFTP, FTP / FTPS, WebDAV, S3) and credential prompts
 remote_kind_sftp = "SFTP"
+remote_kind_sftp_ssh = "SFTP (SSH)"
 remote_kind_ftp = "FTP"
 remote_kind_ftps = "FTPS"
 remote_kind_webdav = "WebDAV"

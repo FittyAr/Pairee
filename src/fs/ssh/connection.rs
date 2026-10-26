@@ -39,6 +39,9 @@ pub fn open_session(login: &SshLogin<'_>) -> Result<Session> {
     // Bound every blocking libssh2 call (handshake, auth, SFTP) so a dead
     // server cannot hang a worker forever. 0 = no limit.
     sess.set_timeout(timeout_millis(login.timeout));
+    if let Some(path) = known_hosts_path() {
+        super::known_hosts::prefer_known_host_keys(&sess, &path, host, port);
+    }
     sess.handshake().context(t("error_ssh_handshake_failed"))?;
 
     verify_host_key(&mut sess, host, port)?;
@@ -103,13 +106,31 @@ fn verify_host_key(sess: &mut Session, host: &str, port: u16) -> Result<()> {
     let hostkey = sess
         .host_key()
         .ok_or_else(|| anyhow::anyhow!("SSH handshake returned no host key"))?;
-    let (key_bytes, _key_type) = hostkey;
-    host_key_verdict(
-        known_hosts.check_port(host, port, key_bytes),
-        host,
-        port,
-        known_hosts_path.as_deref(),
-    )
+    let (key_bytes, key_type) = hostkey;
+    let result = known_hosts.check_port(host, port, key_bytes);
+    if matches!(result, ssh2::CheckResult::Mismatch)
+        && let Some(path) = known_hosts_path.as_deref()
+        && let Some((received, known)) =
+            super::known_hosts::unknown_key_type(path, host, port, key_type)
+    {
+        anyhow::bail!(key_type_message(host, port, received, &known, path));
+    }
+    host_key_verdict(result, host, port, known_hosts_path.as_deref())
+}
+
+/// The "known_hosts has only other key types" refusal.
+pub(super) fn key_type_message(
+    host: &str,
+    port: u16,
+    received: &str,
+    known: &[String],
+    path: &Path,
+) -> String {
+    host_key_message("error_ssh_host_key_type_unknown", host, port)
+        .replacen("{}", received, 1)
+        .replacen("{}", &known.join(", "), 1)
+        .replacen("{}", received, 1)
+        .replacen("{}", &path.display().to_string(), 1)
 }
 
 /// Turns a `known_hosts` lookup result into the connect decision: only an

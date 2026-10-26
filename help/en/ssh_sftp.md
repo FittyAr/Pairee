@@ -20,7 +20,7 @@ The left column lists the saved connections with their protocol, e.g. `backup (S
 | Field | Meaning |
 | :--- | :--- |
 | **Name** | A label for the saved connection. |
-| **Protocol** | SFTP, FTP, FTPS, WebDAV, WebDAV (HTTPS) or S3. Change it with `←` / `→` or `Space`. A port that was the old protocol's default follows to the new one's. |
+| **Protocol** | SFTP (SSH: pick it to connect over SSH), FTP, FTPS, WebDAV, WebDAV (HTTPS) or S3. Change it with `←` / `→` or `Space`. A port that was the old protocol's default follows to the new one's. |
 | **Host** (**Bucket** for S3) | The server name or IP address; for S3, the bucket. |
 | **Port** | Empty uses the protocol's default (22, 21, 80 or 443). Not used by S3. |
 | **User** (**Access key** for S3) | The login name. FTP and WebDAV log in anonymously without one; S3 then uses `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. |

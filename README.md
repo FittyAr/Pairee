@@ -110,6 +110,17 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (Win
 #### Prerequisites
 Make sure you have [Rust](https://www.rust-lang.org/tools/install) **1.96 or higher** (edition 2024 / MSRV declared in `Cargo.toml`).
 
+The SSH support builds its own OpenSSL, which needs a C compiler and Perl:
+
+* **Linux:** `pkg-config`, `make`, Perl and a C compiler (`build-essential` on Debian/Ubuntu, `base-devel` on Arch).
+* **macOS:** the Xcode command line tools (`xcode-select --install`).
+* **Windows:** the MSVC build tools and [Strawberry Perl](https://strawberryperl.com/) (the Perl of Git for Windows cannot configure OpenSSL). Install it and point the build at it once:
+  ```powershell
+  winget install StrawberryPerl.StrawberryPerl
+  [Environment]::SetEnvironmentVariable('OPENSSL_SRC_PERL', 'C:\Strawberry\perl\bin\perl.exe', 'User')
+  ```
+  Open a new terminal afterwards. For an ARM64 build (`--target aarch64-pc-windows-msvc`) the Visual Studio "MSVC ARM64 build tools" component is needed too.
+
 #### Build and Run
 ```bash
 # Clone the repository

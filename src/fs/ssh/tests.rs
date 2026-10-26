@@ -184,3 +184,84 @@ fn sftp_attrs_show_mode_owner_and_read_only() {
     st.perm = Some(S_IFREG | 0o444);
     assert!(sftp_attrs(Path::new("/srv/a.txt"), &st).readonly);
 }
+
+/// Hashed lines made by `ssh-keygen -H` for `192.168.1.240` (port 22) and
+/// `[10.0.0.9]:2222`.
+const HASHED_KNOWN_HOSTS: &str = "\
+|1|7QL90qCovCIr+aDo9b7I+I+kkYs=|f5jy4c/UF2nVq5AoZHJ9H8i9PGk= ssh-ed25519 AAAA
+|1|6YvDYD+3GqCLfdG+7JWLFqQYEt4=|sjlGT2O00mpOHeO8bZIrKLSSxmI= ecdsa-sha2-nistp256 AAAA
+";
+
+#[test]
+fn known_key_types_read_plain_and_hashed_entries_of_the_host() {
+    use super::known_hosts::known_key_types;
+    let plain = "\
+# comment
+other.host ssh-rsa AAAA
+192.168.1.5,srv ssh-ed25519 AAAA
+srv ssh-rsa AAAA
+@cert-authority srv ssh-ed25519 AAAA
+[srv]:2222 ecdsa-sha2-nistp256 AAAA
+";
+    assert_eq!(
+        known_key_types(plain, "srv", 22),
+        ["ssh-ed25519", "ssh-rsa"]
+    );
+    assert_eq!(known_key_types(plain, "SRV", 2222), ["ecdsa-sha2-nistp256"]);
+    assert!(known_key_types(plain, "unknown", 22).is_empty());
+    assert_eq!(
+        known_key_types(HASHED_KNOWN_HOSTS, "192.168.1.240", 22),
+        ["ssh-ed25519"]
+    );
+    assert_eq!(
+        known_key_types(HASHED_KNOWN_HOSTS, "10.0.0.9", 2222),
+        ["ecdsa-sha2-nistp256"]
+    );
+    assert!(known_key_types(HASHED_KNOWN_HOSTS, "10.0.0.9", 22).is_empty());
+}
+
+/// A server known by its Ed25519 key is asked for that one first, not the
+/// ECDSA key libssh2 would pick (which known_hosts calls a mismatch).
+#[test]
+fn host_key_prefs_put_known_types_first() {
+    use super::known_hosts::host_key_prefs;
+    let supported = [
+        "ecdsa-sha2-nistp256",
+        "ssh-ed25519",
+        "rsa-sha2-512",
+        "rsa-sha2-256",
+        "ssh-rsa",
+    ];
+    assert_eq!(
+        host_key_prefs(&["ssh-ed25519".into()], &supported).as_deref(),
+        Some("ssh-ed25519,ecdsa-sha2-nistp256,rsa-sha2-512,rsa-sha2-256,ssh-rsa")
+    );
+    assert_eq!(
+        host_key_prefs(&["ssh-rsa".into(), "ssh-ed25519".into()], &supported).as_deref(),
+        Some("rsa-sha2-512,rsa-sha2-256,ssh-rsa,ssh-ed25519,ecdsa-sha2-nistp256")
+    );
+    assert_eq!(host_key_prefs(&[], &supported), None);
+    assert_eq!(
+        host_key_prefs(&["sk-ssh-ed25519@openssh.com".into()], &supported),
+        None
+    );
+}
+
+/// A key of a type known_hosts lacks names both types and the file.
+#[test]
+fn key_type_message_names_the_types_and_the_file() {
+    let msg = super::connection::key_type_message(
+        "192.168.1.240",
+        22,
+        "ssh-rsa",
+        &["ssh-ed25519".into()],
+        Path::new("known_hosts"),
+    );
+    assert!(msg.contains("192.168.1.240:22"), "{msg}");
+    assert!(
+        msg.contains("ssh-rsa") && msg.contains("ssh-ed25519"),
+        "{msg}"
+    );
+    assert!(msg.contains("known_hosts"), "{msg}");
+    assert!(!msg.contains("{}"), "{msg}");
+}

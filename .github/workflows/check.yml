@@ -137,6 +137,34 @@ jobs:
       - name: Run clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+  # The ARM64 Windows release is cross-compiled on an x64 runner, vendored
+  # OpenSSL (libssh2) included; building it here catches a break before a
+  # release does.
+  windows-arm64:
+    name: Build (windows-arm64)
+    runs-on: windows-latest
+    needs: policy
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+          targets: aarch64-pc-windows-msvc
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: aarch64-pc-windows-msvc
+
+      - name: Install build deps
+        uses: ./.github/actions/build-deps
+
+      - name: Build for ARM64
+        run: cargo build --locked --target aarch64-pc-windows-msvc
+
   rustfmt:
     name: Rustfmt
     runs-on: ubuntu-latest

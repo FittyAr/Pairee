@@ -272,6 +272,7 @@ error_ssh_handshake_failed = "SSH handshake failed"
 error_ssh_host_empty = "Host cannot be empty"
 error_ssh_host_key_check_failed = "The SSH host key check failed for {}"
 error_ssh_host_key_mismatch = "The SSH host key of {} does NOT match the one in known_hosts. Someone may be intercepting the connection (man-in-the-middle)."
+error_ssh_host_key_type_unknown = "{} sent its {} host key, but known_hosts only has its {} key, so the two cannot be compared. Add the server's {} key to {} and try again."
 error_ssh_host_key_unknown = "The SSH host key of {} is not in known_hosts, so the connection was refused. Add the server's host key to {} and try again."
 error_ssh_init_sftp = "Failed to initialize SFTP channel"
 error_ssh_key_missing = "The SSH key file does not exist: {}"
@@ -1399,6 +1400,7 @@ cli_help_keymap_print = "Print the Markdown reference of a preset (default: nort
 
 # Remote connections (SFTP, FTP / FTPS, WebDAV, S3) and credential prompts
 remote_kind_sftp = "SFTP"
+remote_kind_sftp_ssh = "SFTP (SSH)"
 remote_kind_ftp = "FTP"
 remote_kind_ftps = "FTPS"
 remote_kind_webdav = "WebDAV"

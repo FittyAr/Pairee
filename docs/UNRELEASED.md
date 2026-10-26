@@ -7,6 +7,7 @@
 
 ### Improved
 
+- Connection dialog: the SFTP protocol reads "SFTP (SSH)", so connecting over SSH is easy to find.
 - Archives: RAR, ISO, CAB, WIM, ARJ, LZH, CPIO, RPM, DEB, XAR, DMG, VHD/VHDX, SquashFS, CHM, split `.001` archives and single `.gz`/`.bz2`/`.xz`/`.zst`/`.lzma` files open as folders (view, Quick View, copy out with `F5`, extract) through an installed 7-Zip, which also reads the 7z archives with codecs the built-in reader lacks (Deflate64...). Without a full 7-Zip, a message says to install it.
 - Archives: **Extract** unpacks every selected archive (not only the one under the cursor) and says so when there is none; **Test** decompresses every entry instead of only listing them.
 
@@ -23,6 +24,9 @@
 
 ### Fixed
 
+- SFTP: servers whose `known_hosts` entry holds only some of their host keys (typically just the Ed25519 one that OpenSSH picked) no longer fail with a false "host key does NOT match" warning. Pairee now asks the server for a key type already in `known_hosts`, as OpenSSH does, instead of libssh2's own order (ECDSA first). When the server's key is of a type `known_hosts` lacks, the message says which key to add instead of warning of an attack.
+- SFTP and Git over SSH on Windows: Ed25519 and ECDSA host keys and the modern key exchanges (curve25519) work. libssh2 is now built on OpenSSL on Windows too; its Windows backend only knew RSA keys, so a server listed in `known_hosts` by its Ed25519 key was refused.
+- Error and info messages show their whole text, word-wrapped in a box that grows with it; long messages (a refused SSH host key, for one) used to be cut at the box's edge.
 - Linux installer: `pairee` starts from any new terminal right after `install.sh`, without exporting `PATH` by hand. The installer adds `~/.local/bin` to the `PATH` in the startup files of bash, zsh, fish, ksh and tcsh (on Ubuntu the folder was only picked up at the next login), links `/usr/local/bin/pairee` when run as root, and `uninstall` undoes both.
 - Archives: copying out of a 7z (`F5`) or viewing one of its files failed with a checksum error when other entries of the same solid block were passed over.
 - Archives: RAR and ISO extraction failed with the 7-Zip Pairee downloads (it cannot read them); an installed 7-Zip is now used first.
