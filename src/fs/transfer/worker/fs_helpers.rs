@@ -5,7 +5,12 @@
 /// delete it permanently instead.
 pub(super) fn send_to_recycle_bin_helper(path: &std::path::Path) -> std::io::Result<()> {
     trash::delete(path).map_err(|e| {
-        let (kind, reason) = trash_reason(e);
+        // The trash libraries do not always say why (macOS reports only an
+        // OS status): a folder refusing the removal is checked directly.
+        let (kind, reason) = match removal_refused(path) {
+            Some(refused) => (refused.kind(), refused.to_string()),
+            None => trash_reason(e),
+        };
         let message = crate::config::localization::t("error_trash_failed")
             .replacen("{}", &path.to_string_lossy(), 1)
             .replacen("{}", &reason, 1);
@@ -29,6 +34,32 @@ fn trash_reason(error: trash::Error) -> (std::io::ErrorKind, String) {
         }
         other => (std::io::ErrorKind::Other, other.to_string()),
     }
+}
+
+/// Unix: the error when the folder holding `path` refuses this process the
+/// write and search permission that removing an entry from it takes.
+#[cfg(unix)]
+pub(super) fn removal_refused(path: &std::path::Path) -> Option<std::io::Error> {
+    use std::os::unix::ffi::OsStrExt;
+    let parent = path.parent().filter(|p| !p.as_os_str().is_empty())?;
+    let parent = std::ffi::CString::new(parent.as_os_str().as_bytes()).ok()?;
+    // SAFETY: `parent` is a valid NUL-terminated path for the call.
+    let rc = unsafe {
+        libc::faccessat(
+            libc::AT_FDCWD,
+            parent.as_ptr(),
+            libc::W_OK | libc::X_OK,
+            libc::AT_EACCESS,
+        )
+    };
+    let error = std::io::Error::last_os_error();
+    (rc != 0 && error.kind() == std::io::ErrorKind::PermissionDenied).then_some(error)
+}
+
+/// Elsewhere the removal itself reports a refusal.
+#[cfg(not(unix))]
+pub(super) fn removal_refused(_path: &std::path::Path) -> Option<std::io::Error> {
+    None
 }
 
 /// Puts the trashed files that were at `paths` back (the undo of a copy

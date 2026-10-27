@@ -16,7 +16,7 @@ use super::super::job::TransferResults;
 use super::super::options::TransferOptions;
 use super::super::scan::ScanOutcome;
 use super::super::speed::SpeedReporter;
-use super::fs_helpers::send_to_recycle_bin_helper;
+use super::fs_helpers::{removal_refused, send_to_recycle_bin_helper};
 use crate::fs::descriptions::forget_description;
 use crate::fs::remove::remove_entry;
 
@@ -118,32 +118,6 @@ fn refuse_held_sources(
         scan.dirs_to_delete.retain(|path| !path.starts_with(src));
         scan.refused.retain(|failure| !failure.src.starts_with(src));
     }
-}
-
-/// Unix: the error when the folder holding `path` refuses this process the
-/// write and search permission that removing an entry from it takes.
-#[cfg(unix)]
-fn removal_refused(path: &Path) -> Option<std::io::Error> {
-    use std::os::unix::ffi::OsStrExt;
-    let parent = path.parent().filter(|p| !p.as_os_str().is_empty())?;
-    let parent = std::ffi::CString::new(parent.as_os_str().as_bytes()).ok()?;
-    // SAFETY: `parent` is a valid NUL-terminated path for the call.
-    let rc = unsafe {
-        libc::faccessat(
-            libc::AT_FDCWD,
-            parent.as_ptr(),
-            libc::W_OK | libc::X_OK,
-            libc::AT_EACCESS,
-        )
-    };
-    let error = std::io::Error::last_os_error();
-    (rc != 0 && error.kind() == ErrorKind::PermissionDenied).then_some(error)
-}
-
-/// Elsewhere the removal itself reports a refusal.
-#[cfg(not(unix))]
-fn removal_refused(_path: &Path) -> Option<std::io::Error> {
-    None
 }
 
 /// A failure was recorded for `dir` (unreadable) or something inside it.
