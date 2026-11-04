@@ -86,7 +86,7 @@ notify = "8.2"
 suppaftp = { version = "12.2.0", features = ["rustls-ring"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-platform-verifier = "0.7.1"
-rusty-s3 = "0.10.2"
+rusty-s3 = "0.11.0"
 quick-xml = "0.42.0"
 url = "2.5.8"
 bytes = "1.12"
