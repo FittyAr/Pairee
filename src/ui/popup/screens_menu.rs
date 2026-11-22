@@ -1,4 +1,4 @@
-use super::kit::{ListPopup, Scroll, list_area};
+use super::kit::{ListPopup, Scroll, list_area_with_hint};
 use crate::app::state::Screen;
 use crate::app::state::popup::ScreensMenu;
 use crate::config::localization::t;
@@ -26,9 +26,14 @@ impl DialogView for ScreensMenu {
                 )
             })
             .collect();
-        let width = rows.iter().map(|(text, _)| text.len()).max().unwrap_or(0);
+        let width = rows
+            .iter()
+            .map(|(text, _)| crate::ui::text_width::display_width(text))
+            .max()
+            .unwrap_or(0);
+        let hint = t("screens_menu_hint");
         ListPopup {
-            area: list_area(size, width.max(20), rows.len(), 20),
+            area: list_area_with_hint(size, width.max(20), rows.len(), &hint, 20),
             title: t("screens_menu_title"),
             border: theme.ui.warning,
             empty: None,
@@ -36,7 +41,7 @@ impl DialogView for ScreensMenu {
             rows,
             cursor: *cursor_idx,
             scroll: Scroll::Centered,
-            hint: Some(t("screens_menu_hint")),
+            hint: Some(hint),
             scrollbar: None,
         }
         .render(f, theme);

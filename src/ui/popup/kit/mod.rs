@@ -12,7 +12,7 @@ mod prompt_box;
 use field::template_with_field;
 pub use field::{FieldHit, FieldView, masked};
 pub use filter_list::FilterListView;
-pub use list_popup::{ListPopup, Scroll, list_area, marked};
+pub use list_popup::{ListPopup, Scroll, list_area, list_area_with_hint, marked};
 pub use prompt_box::PromptBox;
 
 use crate::app::text_input::TextField;

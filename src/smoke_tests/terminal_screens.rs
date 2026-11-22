@@ -142,3 +142,13 @@ fn the_panels_come_back_while_the_program_keeps_running() {
     h.wait_for_text("still-here");
     assert!(terminal(&h, id).is_running());
 }
+
+#[test]
+fn the_screens_list_shows_every_screen_and_its_whole_hint() {
+    let mut h = Harness::new();
+    run_in_background(&mut h, ECHO_INPUT);
+    h.keys("Alt+o @screens_list");
+    h.assert_screen("Panels");
+    h.assert_screen(&format!("Term: {ECHO_INPUT}"));
+    h.assert_screen("[Esc] Back");
+}

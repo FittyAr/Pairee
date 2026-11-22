@@ -17,6 +17,9 @@
 
 ### Fixed
 
+- Connection dialog: Enter on a saved connection in the list connects to it (it only loaded its fields, and Connect had to be reached by hand). A failed save shows its error over the dialog instead of closing it.
+- Screens list (F12): the box is as wide as its key hint and tall enough for it, so the hint is no longer cut and the screens show.
+
 - SFTP: a connection that fails (an unknown host, a wrong password) shows its error over the connection dialog instead of closing it, so the wrong field can be fixed and tried again; a missing field does the same.
 - SFTP: the command line of a panel showing a server runs the command on that server, in the panel's folder (it used to run on the local machine, in a folder that does not exist there, and fail without a word). Panels that have no shell (FTP, WebDAV, S3, inside an archive) say so. A local command that cannot start or exits with an error now says so too.
 - Windows: paths on a server read with `/` throughout (`/home/deck/umbral`, not `/home\deck\umbral`) in the panel title, the command line prompt, the info dialog, the viewer, the editor, file compare and the transfer dialogs.

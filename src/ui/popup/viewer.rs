@@ -4,7 +4,7 @@ use crate::app::state::popup::TextSearchState as Search;
 use crate::app::state::popup::{ViewerEncoding, ViewerSearchPrompt};
 use crate::config::localization::t;
 use crate::fs::text::ENCODINGS;
-use crate::ui::popup::kit::{self, FocusStyles, ListPopup, Scroll, list_area, marked};
+use crate::ui::popup::kit::{self, FocusStyles, ListPopup, Scroll, list_area_with_hint, marked};
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
@@ -38,12 +38,7 @@ fn render_encodings(
     let width = rows.iter().map(|(text, _)| text.len()).max().unwrap_or(0);
     let hint = t("viewer_encoding_hint");
     ListPopup {
-        area: list_area(
-            size,
-            width.max(crate::ui::text_width::display_width(&hint)),
-            rows.len() + 2,
-            20,
-        ),
+        area: list_area_with_hint(size, width, rows.len(), &hint, 20),
         title: t("viewer_encoding_title"),
         border: theme.popup_border,
         empty: None,

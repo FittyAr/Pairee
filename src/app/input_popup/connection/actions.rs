@@ -1,5 +1,5 @@
-//! Enter in the connection dialog: pick a saved connection, save / delete
-//! one, cancel or connect.
+//! Enter in the connection dialog: connect (to the saved connection under
+//! the cursor, too), save / delete one, or cancel.
 
 use crate::app::context::AppContext;
 use crate::app::state::popup::ConnectionField;
@@ -15,15 +15,16 @@ pub fn handle_enter(state: &mut AppState, context: &mut AppContext) {
         Prompt::ROW_LIST => {
             let saved = &context.config.settings.connections;
             let idx = prompt.selected_idx.unwrap_or(0);
-            match saved.get(idx) {
-                Some(conn) => prompt.load(idx, conn),
-                None => connect(state, context),
+            // Enter on a saved connection connects to it at once.
+            if let Some(conn) = saved.get(idx) {
+                prompt.load(idx, conn);
             }
+            connect(state, context);
         }
         Prompt::BUTTON_CANCEL => state.dialogs.clear(),
         Prompt::BUTTON_SAVE => {
             if let Err(key) = save(prompt, context) {
-                state.dialogs.replace(PopupType::error(t(key)));
+                state.dialogs.push(PopupType::error(t(key)));
             }
         }
         Prompt::BUTTON_DELETE => delete(prompt, context),
@@ -198,6 +199,32 @@ mod tests {
             ("uno", id.as_str())
         );
         assert_eq!(prompt.selected_idx, Some(0));
+    }
+
+    #[test]
+    fn enter_on_a_saved_connection_connects_to_it() {
+        let mut context = AppContext::new(AppConfig::default());
+        // No user: connecting stops at the check, before any network.
+        let mut saved = connection("box", "host");
+        saved.username.clear();
+        context.config.settings.connections = vec![saved];
+        let mut state = AppState::new(".".into(), ".".into());
+        let prompt = Prompt::new(ActivePanel::Left, &context.config.settings.connections);
+        state.dialogs.replace(PopupType::ConnectionPrompt(prompt));
+        let Some(PopupType::ConnectionPrompt(prompt)) = state.dialogs.top_mut() else {
+            unreachable!()
+        };
+        prompt.cursor_idx = Prompt::ROW_LIST;
+        handle_enter(&mut state, &mut context);
+        assert!(
+            matches!(state.dialogs.top(), Some(PopupType::Error(_))),
+            "it tried to connect (and said what is missing)"
+        );
+        state.dialogs.pop();
+        assert!(matches!(
+            state.dialogs.top(),
+            Some(PopupType::ConnectionPrompt(_))
+        ));
     }
 
     #[test]

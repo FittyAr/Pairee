@@ -33,6 +33,24 @@ pub fn list_area(screen: Rect, width: usize, rows: usize, max_height: u16) -> Re
     crate::ui::popup::centered_rect_fixed(width, height, screen)
 }
 
+/// [`list_area`] for a list with a `hint` under it: wide enough for the
+/// hint's longest line, and tall enough for the blank line and the hint.
+pub fn list_area_with_hint(
+    screen: Rect,
+    width: usize,
+    rows: usize,
+    hint: &str,
+    max_height: u16,
+) -> Rect {
+    let hint_width = hint
+        .lines()
+        .map(crate::ui::text_width::display_width)
+        .max()
+        .unwrap_or(0);
+    let hint_rows = 1 + hint.lines().count();
+    list_area(screen, width.max(hint_width), rows + hint_rows, max_height)
+}
+
 /// `" >  item "` for the cursor row, `"    item "` otherwise.
 pub fn marked(item: &str, is_cursor: bool) -> String {
     format!(" {}  {} ", if is_cursor { ">" } else { " " }, item)
