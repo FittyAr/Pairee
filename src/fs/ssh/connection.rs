@@ -182,8 +182,9 @@ fn authenticate(sess: &mut Session, login: &SshLogin<'_>) -> Result<()> {
         .map(Path::new)
     {
         // A key that was asked for but is not there is an error, not a
-        // reason to try the password or the default keys instead.
-        if !path.exists() {
+        // reason to try the password or the default keys instead. A folder
+        // (often the server folder typed in the wrong field) is no key.
+        if !path.is_file() {
             anyhow::bail!(t("error_ssh_key_missing").replacen(
                 "{}",
                 &path.display().to_string(),
@@ -364,6 +365,15 @@ mod timeout_tests {
         let mut session = ssh2::Session::new().unwrap();
         let err = super::authenticate(&mut session, &login).unwrap_err();
         assert!(err.to_string().contains("no_such_key"), "{err}");
+
+        // A folder (the server folder typed in Key Path) is no key either.
+        let folder = dir.path().to_str();
+        let login = crate::fs::ssh::SshLogin {
+            key_path: folder,
+            ..login
+        };
+        let err = super::authenticate(&mut session, &login).unwrap_err();
+        assert!(err.to_string().contains("Key Path"), "{err}");
     }
 
     #[test]
