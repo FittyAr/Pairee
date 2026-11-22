@@ -97,6 +97,7 @@ zeroize = { version = "1.9.1", features = ["serde"] }
 # modern key exchanges. Building OpenSSL on Windows needs Strawberry Perl
 # (`OPENSSL_SRC_PERL`, see README).
 ssh2 = { version = "0.9", features = ["vendored-openssl", "openssl-on-win32"] }
+vt100 = "0.18.1"
 
 [features]
 # Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in

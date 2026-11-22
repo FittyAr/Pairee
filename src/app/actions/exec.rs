@@ -1,7 +1,6 @@
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{AppState, PopupType, Screen, TerminalState};
 use crate::config::localization::t;
-use crate::fs::remote::RemoteConn;
 use crate::terminal::TerminalBackend;
 use anyhow::Result;
 use std::path::Path;
@@ -23,101 +22,36 @@ fn with_suspended_tui<T>(
     Ok(result)
 }
 
-/// Runs the user's command line `command_str` in the active panel's folder:
-/// on the local machine, or on the server of an SSH panel. A panel that
+/// Runs the user's command line `command_str` in the active panel's folder,
+/// on a terminal screen inside Pairee's layout: on the local machine, or on
+/// a terminal of the server of an SSH panel. Interactive programs work
+/// there (an emulated terminal), the panels come back with the screens
+/// keys while it runs, and Enter closes it once it ended. A panel that
 /// cannot run commands (FTP, WebDAV, S3, inside an archive) gets an error
 /// dialog instead of a local command run in a folder that does not exist.
-pub fn run_in_active_panel(
-    state: &mut AppState,
-    command_str: &str,
-    context: &AppContext,
-    terminal_backend: &mut TerminalBackend,
-) -> Result<()> {
+pub fn run_in_active_panel(state: &mut AppState, command_str: &str, context: &AppContext) {
+    let command = command_str.trim().to_string();
+    if command.is_empty() {
+        return;
+    }
+    let limit = state.screens.terminal_lines;
     let panel = state.get_active_panel();
     let (dir, source) = (panel.current_path.clone(), panel.source.clone());
     let caps = source.capabilities();
-    if caps.local_tools {
-        return execute_shell_command(command_str, &dir, context, terminal_backend);
-    }
-    match source.remote() {
-        Some(conn) if caps.run_commands => {
-            execute_remote_command(command_str, &dir, conn, terminal_backend)
+    let ts = if caps.local_tools {
+        if context.config.settings.automatic_update_env_variables {
+            crate::app::sys_helpers::refresh_env_vars();
         }
-        _ => {
-            state
-                .dialogs
-                .replace(PopupType::error(t("shell_remote_unsupported")));
-            Ok(())
-        }
-    }
-}
-
-/// Suspends the TUI **in-place**, runs a shell command natively, then
-/// restores it.
-fn execute_shell_command(
-    command_str: &str,
-    current_dir: &Path,
-    context: &AppContext,
-    terminal_backend: &mut TerminalBackend,
-) -> Result<()> {
-    if context.config.settings.automatic_update_env_variables {
-        crate::app::sys_helpers::refresh_env_vars();
-    }
-
-    // The command runs as typed, on the real terminal: interactive programs
-    // (python, `git commit`, `docker run -it`...) work, and its output stays
-    // on screen until Enter (no pager wrapped around it).
-    with_suspended_tui(terminal_backend, || {
-        println!("\n{}\n", t("shell_running").replacen("{}", command_str, 1));
-        let status = crate::shell::shell_command(command_str)
-            .current_dir(current_dir)
-            .stdin(std::process::Stdio::inherit())
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit())
-            .status();
-        report_outcome(status.map(|s| s.code()));
-    })?;
-    Ok(())
-}
-
-/// Suspends the TUI and runs `command_str` in `dir` on a terminal of the
-/// server of `conn`: Pairee's terminal shows it and types into it, so
-/// interactive programs work.
-fn execute_remote_command(
-    command_str: &str,
-    dir: &Path,
-    conn: &RemoteConn,
-    terminal_backend: &mut TerminalBackend,
-) -> Result<()> {
-    with_suspended_tui(terminal_backend, || {
-        println!(
-            "\n{}\n",
-            t("shell_remote_running")
-                .replacen("{}", &conn.user_at_host(), 1)
-                .replacen("{}", command_str, 1)
-        );
-        let size = crate::terminal::pty::PtySize::of_terminal();
-        let status = conn
-            .spawn_terminal(dir, command_str, size)
-            .and_then(crate::terminal::relay::relay);
-        report_outcome(status.map(Some));
-    })?;
-    Ok(())
-}
-
-/// Prints why a command could not start, or its exit status when it failed
-/// (a success prints nothing).
-fn report_outcome(status: std::io::Result<Option<i32>>) {
-    match status {
-        Ok(Some(0)) => {}
-        Ok(Some(code)) => println!(
-            "\n{}",
-            t("shell_exit_status").replacen("{}", &code.to_string(), 1)
-        ),
-        // Ended by a signal (Unix): the shell already said so.
-        Ok(None) => {}
-        Err(e) => eprintln!("\n{e}"),
-    }
+        TerminalState::spawn(command, &dir, limit)
+    } else if let Some(conn) = source.remote().filter(|_| caps.run_commands) {
+        TerminalState::spawn_remote(command, conn.clone(), dir, limit)
+    } else {
+        state
+            .dialogs
+            .replace(PopupType::error(t("shell_remote_unsupported")));
+        return;
+    };
+    state.push_screen(Screen::Terminal(ts));
 }
 
 // Suspends TUI and launches an external program with a fully-resolved argv.

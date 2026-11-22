@@ -57,10 +57,29 @@ pub fn render_screen(
             f,
             layout.main_rect,
             ts,
-            state.screens.active_id(),
-            &context.theme(),
+            &crate::ui::terminal_screen::TerminalView {
+                id: state.screens.active_id(),
+                theme: &context.theme(),
+                hint: &terminal_hint(ts, context),
+                focused: !state.dialogs.is_open(),
+            },
         ),
     }
+}
+
+/// What the keys do on a terminal screen, with the keys of the keymap.
+fn terminal_hint(ts: &crate::app::state::TerminalState, context: &AppContext) -> String {
+    use crate::config::localization::t;
+    use crate::keybindings::screens::TerminalAction;
+    let keys = &context.resolver.terminal;
+    let key = |action| keys.key_for(action).unwrap_or("?").to_string();
+    if !ts.is_running() {
+        return t("terminal_hint_done");
+    }
+    t("terminal_hint_running")
+        .replace("{panels}", &key(TerminalAction::Panels))
+        .replace("{kill}", &key(TerminalAction::Kill))
+        .replace("{close}", &key(TerminalAction::Close))
 }
 
 /// One panel, replaced by the quick view when that is open and the panel is

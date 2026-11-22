@@ -165,6 +165,9 @@ top         = "Shift+Home"
 bottom      = "Shift+End"
 kill        = "F8"
 close       = "F10"
+# Back to the panels while the program keeps running (Ctrl+Tab or the
+# screens list, F12, return to it).
+panels      = "Alt+o, Alt+O"
 
 # ══ Command line ══════════════════════════════════════════════════════════════
 # While the command line holds text (or has the focus). Typing, Left / Right,

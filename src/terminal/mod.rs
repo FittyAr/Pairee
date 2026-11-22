@@ -6,13 +6,13 @@ pub mod panic_hook;
 pub mod pty;
 pub mod pty_cmd;
 pub mod pty_control;
-pub mod relay;
 #[cfg(unix)]
 pub mod signals;
 #[cfg(windows)]
 pub mod signals_windows;
 pub mod standalone;
 pub mod suspend;
+pub mod vt;
 #[cfg(target_os = "linux")]
 pub mod x11_poll;
 

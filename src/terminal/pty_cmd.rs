@@ -109,12 +109,7 @@ pub struct PtyRun {
 
 impl PtyRun {
     /// Calls `on_line` with every complete output line until the child
-    /// exits; returns whether it succeeded.
-    pub fn wait(self, on_line: impl FnMut(String)) -> anyhow::Result<bool> {
-        self.wait_or_cancel(on_line, || false)
-    }
-
-    /// [`Self::wait`] that stops the child once `cancelled` turns `true`:
+    /// exits, and stops the child once `cancelled` turns `true`:
     /// it is killed, and killed again (harder, see [`PtyControl::kill`])
     /// every [`KILL_INSIST`] it keeps running.
     pub fn wait_or_cancel(
@@ -122,12 +117,28 @@ impl PtyRun {
         mut on_line: impl FnMut(String),
         cancelled: impl Fn() -> bool,
     ) -> anyhow::Result<bool> {
+        let mut lines = LineSplitter::default();
+        let status = self.wait_chunks(
+            |chunk| lines.push(chunk).into_iter().for_each(&mut on_line),
+            cancelled,
+        );
+        lines.finish().into_iter().for_each(on_line);
+        status
+    }
+
+    /// [`Self::wait_or_cancel`] with the output as it is read (bytes, for
+    /// a terminal emulator), not split into lines.
+    pub fn wait_chunks(
+        self,
+        mut on_chunk: impl FnMut(&[u8]),
+        cancelled: impl Fn() -> bool,
+    ) -> anyhow::Result<bool> {
         let PtyRun {
             waiter,
             reader,
             control,
         } = self;
-        let line_rx = read_lines(reader);
+        let chunk_rx = read_chunks(reader);
         let (done_tx, done_rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let _ = done_tx.send(waiter.wait());
@@ -146,8 +157,8 @@ impl PtyRun {
                 control.kill();
                 killed_at = Some(Instant::now());
             }
-            match line_rx.recv_timeout(std::time::Duration::from_millis(16)) {
-                Ok(line) => on_line(line),
+            match chunk_rx.recv_timeout(std::time::Duration::from_millis(16)) {
+                Ok(chunk) => on_chunk(&chunk),
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                     std::thread::sleep(std::time::Duration::from_millis(16));
@@ -155,65 +166,88 @@ impl PtyRun {
             }
         };
         control.release();
-        drain_after_exit(&line_rx, &mut on_line, DRAIN_QUIET, DRAIN_MAX);
+        drain_after_exit(
+            &chunk_rx,
+            &mut |chunk: Vec<u8>| on_chunk(&chunk),
+            DRAIN_QUIET,
+            DRAIN_MAX,
+        );
         status
     }
 }
 
-/// Passes on the lines still arriving after the child exited, until the
-/// reader ends, `quiet` passes without a line, or `max` passes. A reader
+/// Passes on the output still arriving after the child exited, until the
+/// reader ends, `quiet` passes without any, or `max` passes. A reader
 /// still blocked (a descendant holding the terminal) is left behind.
-fn drain_after_exit(
-    line_rx: &std::sync::mpsc::Receiver<String>,
-    on_line: &mut impl FnMut(String),
+fn drain_after_exit<T>(
+    rx: &std::sync::mpsc::Receiver<T>,
+    on_item: &mut impl FnMut(T),
     quiet: Duration,
     max: Duration,
 ) {
     let deadline = Instant::now() + max;
     loop {
         let wait = quiet.min(deadline.saturating_duration_since(Instant::now()));
-        match line_rx.recv_timeout(wait) {
-            Ok(line) => on_line(line),
+        match rx.recv_timeout(wait) {
+            Ok(item) => on_item(item),
             Err(_) => return,
         }
     }
 }
 
 /// Reads `reader` on a side thread (so PTY buffers cannot deadlock against
-/// `wait()`) and sends every complete line.
-fn read_lines(mut reader: Box<dyn Read + Send>) -> std::sync::mpsc::Receiver<String> {
-    let (line_tx, line_rx) = std::sync::mpsc::channel();
+/// `wait()`) and sends what it reads.
+fn read_chunks(mut reader: Box<dyn Read + Send>) -> std::sync::mpsc::Receiver<Vec<u8>> {
+    let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
-        let mut pending = Vec::new();
-        let mut acc = String::new();
         let mut chunk = [0u8; 4096];
         loop {
             match reader.read(&mut chunk) {
                 Ok(0) => break,
                 Ok(n) => {
-                    let scanned = acc.len();
-                    decode_utf8_chunk(&mut pending, &chunk[..n], &mut acc);
-                    for line in take_complete_lines(&mut acc, scanned) {
-                        if line_tx.send(line).is_err() {
-                            return;
-                        }
+                    if tx.send(chunk[..n].to_vec()).is_err() {
+                        return;
                     }
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                 Err(_) => break,
             }
         }
-        if !pending.is_empty() {
-            acc.push_str(&String::from_utf8_lossy(&pending));
-        }
-        for line in take_complete_lines(&mut acc, 0) {
-            let _ = line_tx.send(line);
-        }
-        if !acc.is_empty() {
-            let _ = line_tx.send(acc);
-        }
     });
-    line_rx
+    rx
+}
+
+/// Splits terminal output into lines: UTF-8 decoded across chunks, `\r\n`
+/// and ConPTY's cursor queries removed, overlong lines cut (see
+/// [`take_complete_lines`]).
+#[derive(Debug, Default)]
+pub struct LineSplitter {
+    /// Bytes of a character split across chunks.
+    pending: Vec<u8>,
+    /// Text of the line not finished yet.
+    acc: String,
+}
+
+impl LineSplitter {
+    /// The lines `chunk` completes.
+    pub fn push(&mut self, chunk: &[u8]) -> Vec<String> {
+        let scanned = self.acc.len();
+        decode_utf8_chunk(&mut self.pending, chunk, &mut self.acc);
+        take_complete_lines(&mut self.acc, scanned)
+    }
+
+    /// The rest, once the output ended (a last line without newline).
+    pub fn finish(&mut self) -> Vec<String> {
+        if !self.pending.is_empty() {
+            let rest = std::mem::take(&mut self.pending);
+            self.acc.push_str(&String::from_utf8_lossy(&rest));
+        }
+        let mut lines = take_complete_lines(&mut self.acc, 0);
+        if !self.acc.is_empty() {
+            lines.push(std::mem::take(&mut self.acc));
+        }
+        lines
+    }
 }
 
 /// The PTY layer quotes every argument itself, so the shell invocation
@@ -407,7 +441,9 @@ mod tests {
         let fake = FakePty { output, success };
         let (control, run) = spawn_on(&fake, "anything", None, FAKE_SIZE).unwrap();
         let mut lines = Vec::new();
-        let ok = run.wait(|line| lines.push(line)).unwrap();
+        let ok = run
+            .wait_or_cancel(|line| lines.push(line), || false)
+            .unwrap();
         (lines, ok, control)
     }
 

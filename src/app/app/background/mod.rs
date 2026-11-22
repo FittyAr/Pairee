@@ -5,13 +5,8 @@ pub mod transfer;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
-use crate::terminal::TerminalBackend;
 
-pub fn process_background_updates(
-    state: &mut AppState,
-    context: &AppContext,
-    terminal_backend: &mut TerminalBackend,
-) {
+pub fn process_background_updates(state: &mut AppState, context: &AppContext) {
     state.poll_auto_refresh(context.config.settings.show_hidden);
     state.poll_panel_listings();
     state.poll_quick_view();
@@ -30,12 +25,12 @@ pub fn process_background_updates(
     crate::app::actions::fs_ops::multi_rename::poll(state, context);
     state.poll_vfs_op(&context.config.settings);
     crate::app::sync::poll_folder_scan(state);
-    channels::process_terminal_updates(state);
+    channels::process_terminal_updates(state, context);
     channels::process_remote_connect_updates(state, context);
     crate::app::credential_requests::process(state);
     crate::app::session::remote::resume_pending(state, context);
     channels::process_search_updates(state);
     channels::process_dev_progress_updates(state);
     transfer::process_transfer_events(state, context);
-    channels::process_pending_custom_command(state, context, terminal_backend);
+    channels::process_pending_custom_command(state, context);
 }

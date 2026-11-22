@@ -7,6 +7,8 @@
 
 ### Improved
 
+- Command line: commands run on a terminal screen inside Pairee's layout instead of taking over the whole terminal until they end. The screen is an emulated terminal (colors, cursor, full-screen programs, scrollback), locally and on SSH panels, so a `sudo su` or `vim` no longer hides the menu and the key bars. `Alt+O` brings the panels back while the program keeps running (`Ctrl+Tab` or the Screens list return to it); the bottom border says which keys do what; once it ended, `Enter` or `Esc` closes it and the panels are read again. A trailing `&` still works and does the same. Cursor position queries are answered, so programs that wait for one (PowerShell under ConPTY) draw at once.
+
 ### Changed
 
 ### Deprecated

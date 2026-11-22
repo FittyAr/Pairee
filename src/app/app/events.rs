@@ -38,7 +38,7 @@ pub async fn handle_input_event(
             }
 
             // CLI input takes priority next if applicable
-            if handle_cli_input(state, key, context, terminal_backend).is_ok() {
+            if handle_cli_input(state, key, context).is_ok() {
                 return Ok(());
             }
 

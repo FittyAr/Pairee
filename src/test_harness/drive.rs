@@ -210,7 +210,7 @@ impl Harness {
     /// Drains the background channels once (one event-loop tick).
     pub fn pump(&mut self) {
         let _guard = self.rt.enter();
-        background::process_background_updates(&mut self.state, &self.ctx, &mut self.backend);
+        background::process_background_updates(&mut self.state, &self.ctx);
     }
 
     /// Pumps until no tracked background job is running, then once more so

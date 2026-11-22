@@ -354,6 +354,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Shift+Home` | Ir al inicio de la salida |
 | `Shift+PageDown` | Página abajo |
 | `Shift+PageUp` | Página arriba |
+| `Alt+O` · `Alt+o` | Volver a los paneles (sigue ejecutándose) |
 
 ### Sistema
 

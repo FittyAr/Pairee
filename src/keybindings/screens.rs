@@ -75,6 +75,9 @@ pub enum TerminalAction {
     Kill,
     /// Stops the process, if still running, and closes the screen.
     Close,
+    /// Shows the panels; the process keeps running (Ctrl+Tab or the
+    /// screens list come back to it).
+    Panels,
 }
 
 /// Command-line commands, used while the command line holds text or has
@@ -193,6 +196,7 @@ pub const TERMINAL_CATALOG: &[ScreenDef<TerminalAction>] = &[
     cmd("top", T::Top, C::Navigation),
     cmd("bottom", T::Bottom, C::Navigation),
     on_fkey(cmd("kill", T::Kill, C::System), "fkey_term_kill"),
+    cmd("panels", T::Panels, C::Navigation),
     must(on_fkey(
         cmd("close", T::Close, C::System),
         "fkey_term_close",

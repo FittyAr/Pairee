@@ -7,9 +7,7 @@ use crate::app::input::type_ahead::find_match;
 use crate::app::state::AppState;
 use crate::keybindings::options::TypingMode;
 use crate::keybindings::screens::CliAction;
-use crate::terminal::TerminalBackend;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::path::PathBuf;
 use std::time::Instant;
 
 /// Captures characters for bottom shell CLI command input.
@@ -22,13 +20,12 @@ pub fn handle_cli_input(
     state: &mut AppState,
     key: KeyEvent,
     context: &mut AppContext,
-    terminal_backend: &mut TerminalBackend,
 ) -> Result<(), ()> {
     if state.dialogs.is_open() {
         return Err(());
     }
     if state.cli.is_active() {
-        return edit_cli(state, key, context, terminal_backend);
+        return edit_cli(state, key, context);
     }
     // Uses an immutable peek so multi-key sequences are not consumed here.
     if context.resolver.would_trigger(key) {
@@ -85,19 +82,14 @@ fn type_ahead(state: &mut AppState, c: char) {
 /// it, the `[cli]` keymap completes names and deletes words, and typing and
 /// the cursor keys edit the text. Other keys (Up / Down, F-keys...) go on to
 /// the panels.
-fn edit_cli(
-    state: &mut AppState,
-    key: KeyEvent,
-    context: &mut AppContext,
-    terminal_backend: &mut TerminalBackend,
-) -> Result<(), ()> {
+fn edit_cli(state: &mut AppState, key: KeyEvent, context: &mut AppContext) -> Result<(), ()> {
     match key.code {
         KeyCode::Enter if key.modifiers.is_empty() => {
             let cmd = state.cli.text().trim().to_string();
             state.cli.reset();
             if !cmd.is_empty() {
                 state.push_command_history(cmd.clone());
-                run_cli_command(state, &cmd, context, terminal_backend);
+                run_cli_command(state, &cmd, context);
                 state.refresh_both_panels(context.config.settings.show_hidden);
             }
             return Ok(());
@@ -132,41 +124,15 @@ fn edit_cli(
 }
 
 /// Runs a submitted command line: `cd`, a background `... &` job or a shell command.
-fn run_cli_command(
-    state: &mut AppState,
-    cmd: &str,
-    context: &AppContext,
-    terminal_backend: &mut TerminalBackend,
-) {
-    let current_path = state.get_active_panel().current_path.clone();
+fn run_cli_command(state: &mut AppState, cmd: &str, context: &AppContext) {
     if let Some(arg) = cd_argument(cmd) {
         change_dir(state, arg);
     } else if let Some(query) = z_argument(cmd) {
         jump(state, query);
-    } else if let Some(cmd_bg) = cmd.strip_suffix('&') {
-        spawn_background(state, cmd_bg.trim().to_string(), current_path);
     } else {
-        let _ =
-            crate::app::actions::exec::run_in_active_panel(state, cmd, context, terminal_backend);
+        // `command &` (the background form other shells have) runs the
+        // same way: on its own screen, the panels a key away.
+        let cmd = cmd.strip_suffix('&').unwrap_or(cmd);
+        crate::app::actions::exec::run_in_active_panel(state, cmd, context);
     }
-}
-
-/// `command &`: runs on a PTY in a new terminal screen, streaming its
-/// output; on an SSH panel, on a terminal of the server. A panel that has
-/// no shell gets the error dialog instead.
-fn spawn_background(state: &mut AppState, cmd_bg: String, current_dir: PathBuf) {
-    use crate::app::state::{PopupType, Screen, TerminalState};
-    let limit = state.screens.terminal_lines;
-    let source = &state.get_active_panel().source;
-    let caps = source.capabilities();
-    let ts = if caps.local_tools {
-        TerminalState::spawn(cmd_bg, &current_dir, limit)
-    } else if let Some(conn) = source.remote().filter(|_| caps.run_commands) {
-        TerminalState::spawn_remote(cmd_bg, conn.clone(), current_dir, limit)
-    } else {
-        let text = crate::config::localization::t("shell_remote_unsupported");
-        state.dialogs.replace(PopupType::error(text));
-        return;
-    };
-    state.push_screen(Screen::Terminal(ts));
 }

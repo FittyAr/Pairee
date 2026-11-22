@@ -3,15 +3,21 @@
 use crate::app::context::AppContext;
 use crate::app::state::popup::SearchResults;
 use crate::app::state::{AppState, DevProgress, PopupType, Screen};
-use crate::terminal::TerminalBackend;
 
-/// New output and exits of the terminal screens' processes.
-pub fn process_terminal_updates(state: &mut AppState) {
+/// New output and exits of the terminal screens' processes. A command
+/// that ended may have changed files: the panels are read again.
+pub fn process_terminal_updates(state: &mut AppState, context: &AppContext) {
     let mut changed = false;
+    let mut ended = false;
     for screen in state.screens.iter_mut() {
         if let Screen::Terminal(ts) = screen {
+            let was_running = ts.is_running() && ts.vt.is_some();
             changed |= ts.poll();
+            ended |= was_running && !ts.is_running();
         }
+    }
+    if ended {
+        state.refresh_both_panels(context.config.settings.show_hidden);
     }
     if changed {
         state.mark_ui_dirty();
@@ -141,15 +147,11 @@ pub fn process_dev_progress_updates(state: &mut AppState) {
     }
 }
 
-pub fn process_pending_custom_command(
-    state: &mut AppState,
-    context: &AppContext,
-    terminal_backend: &mut TerminalBackend,
-) {
+/// A user menu command waiting to run (it opens a terminal screen; the
+/// panels are read again when it ends).
+pub fn process_pending_custom_command(state: &mut AppState, context: &AppContext) {
     if let Some(cmd) = state.pending_custom_command.take() {
-        let _ =
-            crate::app::actions::exec::run_in_active_panel(state, &cmd, context, terminal_backend);
-        state.refresh_both_panels(context.config.settings.show_hidden);
+        crate::app::actions::exec::run_in_active_panel(state, &cmd, context);
     }
 }
 

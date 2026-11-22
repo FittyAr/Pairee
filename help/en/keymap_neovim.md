@@ -348,6 +348,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 
 | Keys | Action |
 | :--- | :--- |
+| `Alt+O` · `Alt+o` | Back to the panels (keeps running) |
 | `Shift+End` | Go to end of output |
 | `Shift+Home` | Go to start of output |
 | `Shift+PageDown` | Page down |

@@ -69,7 +69,7 @@ async fn main_loop(
         }
 
         // 1. Process background operation updates (e.g. copy progress)
-        background::process_background_updates(state, context, terminal_backend);
+        background::process_background_updates(state, context);
         // 1.8 Process self-update checking, progress tracking, and installer execution
         updates::process_update_events(state, context);
         // 1.9 Process plugin requests

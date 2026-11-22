@@ -112,3 +112,33 @@ fn scrollback_is_bounded_and_scrolls() {
     h.keys("Shift+End");
     assert_eq!(terminal(&h, id).scroll, 0);
 }
+
+#[test]
+fn a_command_runs_on_a_screen_inside_the_layout_and_enter_closes_it() {
+    let mut h = Harness::new();
+    // A plain command (no `&`) no longer takes over the whole terminal.
+    h.text("echo inside-the-layout").keys("Enter");
+    let id = h.state.screens.active_id();
+    assert!(terminal(&h, id).vt.is_some(), "an emulated terminal");
+    h.wait_for_text("inside-the-layout");
+    h.wait_until("exit", |h| !terminal(h, id).is_running());
+    h.assert_screen("Enter / Esc");
+    h.keys("Enter");
+    assert_eq!(h.state.screens.len(), 1, "Enter closes it once it ended");
+    assert!(matches!(h.state.screens.active(), Screen::Panels));
+}
+
+#[test]
+fn the_panels_come_back_while_the_program_keeps_running() {
+    let mut h = Harness::new();
+    let id = run_in_background(&mut h, ECHO_INPUT);
+    h.keys("Alt+o");
+    assert!(matches!(h.state.screens.active(), Screen::Panels));
+    assert!(terminal(&h, id).is_running(), "it keeps running");
+    h.keys("@next_screen");
+    assert_eq!(h.state.screens.active_id(), id);
+    // Enter goes to the program while it runs.
+    h.text("still-here").keys("Enter");
+    h.wait_for_text("still-here");
+    assert!(terminal(&h, id).is_running());
+}
