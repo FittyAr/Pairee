@@ -22,8 +22,16 @@ yanked = "deny"
 # chrono is unmaintained (2026-11): suppaftp 12 (FTP) still depends on it,
 # and Pairee's own date formatting uses it in about 25 files. Drop this once
 # Pairee has moved to jiff and suppaftp no longer needs chrono.
+#
+# zbus 6 folded zvariant / zbus_names into itself; keyring's Secret Service
+# store (Linux only: keyring 4.2 -> secret-service 5.2) is still on zbus 5
+# and nothing newer exists yet (2026-11-22). Drop these once it moves to
+# zbus 6. (`cargo deny check` on Windows does not see them.)
 ignore = [
     { id = "RUSTSEC-2026-0543", reason = "chrono: needed by suppaftp; Pairee's own uses are to move to jiff" },
+    { id = "RUSTSEC-2026-0370", reason = "zvariant: only through zbus 5 of keyring's Secret Service store" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names: only through zbus 5 of keyring's Secret Service store" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: only through zbus 5 of keyring's Secret Service store" },
 ]
 
 [licenses]
