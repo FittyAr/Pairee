@@ -1,6 +1,8 @@
-//! Text mode selection of the viewer: whole lines, picked with
+//! Text mode cursor and selection of the viewer: a cursor line moved with
+//! the arrows (or put by a click), whole lines selected from it with
 //! Shift+arrows, Ctrl+A or by dragging the mouse, and copied to the
-//! clipboard (Ctrl+C) without opening the editor.
+//! clipboard (Ctrl+C) without opening the editor. With nothing selected,
+//! Ctrl+C copies the cursor line.
 //!
 //! Lines are the unit because the viewer wraps long lines and pages huge
 //! files from disk: a line range is cheap to keep and to read back.
@@ -80,34 +82,25 @@ pub struct Copied {
 }
 
 impl ViewerState {
-    /// Starts a selection at the first line shown, or moves its end by
-    /// `delta` lines, keeping that end on screen (`height` text rows).
-    pub fn select_by(&mut self, delta: isize, height: usize) {
-        let last = self.last_scroll();
-        let selection = self.selection.get_or_insert(LineSelection {
-            anchor: self.scroll,
-            end: self.scroll,
-        });
-        if delta != 0 {
-            selection.end = selection.end.saturating_add_signed(delta).min(last);
-        }
-        let end = selection.end;
-        self.reveal_line(end, height);
+    /// Moves the cursor line by `delta`. With `extend` (Shift) the
+    /// selection grows from where the cursor was to where it lands;
+    /// without, the selection goes. The cursor stays on screen (`height`
+    /// text rows).
+    pub fn move_cursor(&mut self, delta: isize, height: usize, extend: bool) {
+        let line = self.cursor.saturating_add_signed(delta);
+        self.cursor_to(line, height, extend);
     }
 
-    /// Extends the selection to `line` (a mouse drag), starting it there
-    /// when there is none.
-    pub fn select_to(&mut self, line: usize, height: usize) {
+    /// Puts the cursor on `line` (see [`Self::move_cursor`]).
+    pub fn cursor_to(&mut self, line: usize, height: usize, extend: bool) {
         let line = line.min(self.last_scroll());
-        match &mut self.selection {
-            Some(selection) => selection.end = line,
-            None => {
-                self.selection = Some(LineSelection {
-                    anchor: line,
-                    end: line,
-                })
-            }
+        if extend {
+            let anchor = self.selection.map_or(self.cursor, |s| s.anchor);
+            self.selection = Some(LineSelection { anchor, end: line });
+        } else {
+            self.selection = None;
         }
+        self.cursor = line;
         self.reveal_line(line, height);
     }
 
@@ -119,27 +112,52 @@ impl ViewerState {
         }
     }
 
-    /// Selects every line indexed so far.
+    /// Selects every line indexed so far (the cursor goes to the last).
     pub fn select_all(&mut self) {
+        let last = self.last_scroll();
         self.selection = Some(LineSelection {
             anchor: 0,
-            end: self.last_scroll(),
+            end: last,
         });
+        self.cursor = last;
     }
 
-    /// Scrolls so `line` is shown.
+    /// The lines a copy takes: the selection, else the cursor line.
+    pub fn copy_range(&self) -> RangeInclusive<usize> {
+        self.selection
+            .map_or(self.cursor..=self.cursor, |s| s.lines())
+    }
+
+    /// Scrolls so `line` is shown whole. Wrapped lines take several rows:
+    /// what the last frame painted says which lines fitted.
     fn reveal_line(&mut self, line: usize, height: usize) {
         if line < self.scroll {
             self.scroll = line;
-        } else if line >= self.scroll + height.max(1) {
-            self.scroll = line + 1 - height.max(1);
+            return;
+        }
+        let fitted = {
+            let layout = self.layout.borrow();
+            let painted_here = layout.rows.first().is_some_and(|r| r.0 == self.scroll);
+            painted_here
+                .then(|| {
+                    layout
+                        .rows
+                        .iter()
+                        .rfind(|(_, top, rows)| top + rows <= layout.area.bottom())
+                        .map(|r| r.0)
+                })
+                .flatten()
+        };
+        let last_shown = fitted.unwrap_or(self.scroll + height.max(1) - 1);
+        if line > last_shown {
+            self.scroll += line - last_shown;
         }
     }
 
-    /// The selected lines as text (`\n` between them), at most
-    /// [`MAX_COPY_BYTES`]; `None` without a selection.
-    pub fn selected_text(&self) -> Option<Copied> {
-        let range = self.selection?.lines();
+    /// The lines of [`Self::copy_range`] as text (`\n` between them), at
+    /// most [`MAX_COPY_BYTES`].
+    pub fn selected_text(&self) -> Copied {
+        let range = self.copy_range();
         let (first, last) = (*range.start(), *range.end());
         let mut text = String::new();
         let mut lines = 0;
@@ -155,22 +173,22 @@ impl ViewerState {
                     text.push('\n');
                 }
                 if text.len() + line.len() > MAX_COPY_BYTES {
-                    return Some(Copied {
+                    return Copied {
                         text,
                         lines,
                         truncated: true,
-                    });
+                    };
                 }
                 text.push_str(line);
                 lines += 1;
             }
             next += chunk.len();
         }
-        Some(Copied {
+        Copied {
             text,
             lines,
             truncated: false,
-        })
+        }
     }
 }
 
@@ -185,28 +203,31 @@ mod tests {
     }
 
     #[test]
-    fn shift_arrows_select_from_the_first_line_shown() {
+    fn the_cursor_moves_and_shift_selects_from_it() {
         let mut vw = viewer(50);
-        vw.scroll = 10;
-        vw.select_by(1, 5);
-        assert_eq!(vw.selection.unwrap().lines(), 10..=11);
-        vw.select_by(5, 5);
-        assert_eq!(vw.selection.unwrap().lines(), 10..=16);
-        assert_eq!(vw.scroll, 12, "the end stays on screen");
-        vw.select_by(-10, 5);
-        assert_eq!(vw.selection.unwrap().lines(), 6..=10);
-        assert_eq!(vw.scroll, 6);
-        let copied = vw.selected_text().unwrap();
-        assert_eq!(copied.text, "line 6\nline 7\nline 8\nline 9\nline 10");
-        assert_eq!((copied.lines, copied.truncated), (5, false));
+        vw.cursor_to(10, 5, false);
+        assert_eq!(vw.scroll, 6, "the cursor is kept on screen");
+        assert_eq!(vw.copy_range(), 10..=10, "no selection: the cursor line");
+        vw.move_cursor(2, 5, true);
+        assert_eq!(vw.selection.unwrap().lines(), 10..=12);
+        vw.move_cursor(-5, 5, true);
+        assert_eq!(vw.selection.unwrap().lines(), 7..=10, "past the anchor");
+        assert_eq!(vw.cursor, 7);
+        let copied = vw.selected_text();
+        assert_eq!(copied.text, "line 7\nline 8\nline 9\nline 10");
+        assert_eq!((copied.lines, copied.truncated), (4, false));
+        vw.move_cursor(1, 5, false);
+        assert!(vw.selection.is_none(), "a plain move drops the selection");
+        assert_eq!(vw.cursor, 8);
     }
 
     #[test]
     fn select_all_copies_every_line() {
         let mut vw = viewer(3);
-        assert!(vw.selected_text().is_none());
+        assert_eq!(vw.selected_text().text, "line 0");
         vw.select_all();
-        assert_eq!(vw.selected_text().unwrap().text, "line 0\nline 1\nline 2");
+        assert_eq!(vw.selected_text().text, "line 0\nline 1\nline 2");
+        assert_eq!(vw.cursor, 2);
     }
 
     #[test]
@@ -221,9 +242,22 @@ mod tests {
         assert_eq!(layout.line_at(0), Some(39));
         assert_eq!(layout.line_at(9), Some(42));
         vw.scroll = 40;
-        vw.select_to(41, 3);
-        vw.select_to(39, 3);
+        vw.cursor_to(41, 3, false);
+        vw.cursor_to(39, 3, true);
         assert_eq!(vw.selection.unwrap().lines(), 39..=41);
         assert_eq!(vw.scroll, 39);
+    }
+
+    #[test]
+    fn wrapped_lines_scroll_by_what_fitted() {
+        let mut vw = viewer(100);
+        vw.scroll = 10;
+        *vw.layout.borrow_mut() = TextLayout {
+            area: Rect::new(0, 0, 10, 4),
+            // Line 11 wraps over three rows: line 12 did not fit.
+            rows: vec![(10, 0, 1), (11, 1, 3)],
+        };
+        vw.cursor_to(12, 4, false);
+        assert_eq!(vw.scroll, 11);
     }
 }

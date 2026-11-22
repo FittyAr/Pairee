@@ -51,6 +51,9 @@ pub struct ViewerState {
     pub syntax_limits: SyntaxLimits,
     /// Lines selected for copying (text mode).
     pub selection: Option<super::selection::LineSelection>,
+    /// The cursor line of text mode: selections start from it, and a copy
+    /// with nothing selected takes it.
+    pub cursor: usize,
     /// The line a left-button press landed on: dragging from it selects.
     pub drag_anchor: Option<usize>,
     /// Where text mode painted its lines last frame (filled by painting).
@@ -165,6 +168,7 @@ impl ViewerState {
             pending_syntax: None,
             syntax_limits: SyntaxLimits::default(),
             selection: None,
+            cursor: 0,
             drag_anchor: None,
             layout: RefCell::default(),
         }
@@ -194,6 +198,7 @@ impl ViewerState {
         self.scroll = 0;
         self.notice = None;
         self.selection = None;
+        self.cursor = 0;
     }
 
     pub fn toggle_mode(&mut self) {
@@ -216,6 +221,7 @@ impl ViewerState {
         }
         self.scroll = 0;
         self.selection = None;
+        self.cursor = 0;
     }
 
     /// Rows of content in the current mode (lines indexed so far in text

@@ -6,7 +6,7 @@ use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::keybindings::screens::ViewerAction;
 use crate::ui::viewer::{LineSelection, ViewerMode};
-use crossterm::event::{KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
 /// Lines moved by PgUp / PgDn.
 const PAGE: usize = 20;
@@ -35,7 +35,17 @@ fn run(state: &mut AppState, command: ViewerAction, context: &AppContext) {
         return;
     };
     let rows = vw.text_rows();
+    // Text mode moves a cursor line (selections start from it); hex and
+    // image modes only scroll.
+    let text = vw.mode == ViewerMode::Text;
+    let page = rows.saturating_sub(1).max(1) as isize;
     match command {
+        V::LineUp if text => vw.move_cursor(-1, rows, false),
+        V::LineDown if text => vw.move_cursor(1, rows, false),
+        V::PageUp if text => vw.move_cursor(-page, rows, false),
+        V::PageDown if text => vw.move_cursor(page, rows, false),
+        V::Top if text => vw.cursor_to(0, rows, false),
+        V::Bottom if text => vw.cursor_to(usize::MAX, rows, false),
         V::LineUp => vw.scroll_up(1),
         V::LineDown => vw.scroll_down(1),
         V::PageUp => vw.scroll_up(PAGE),
@@ -54,11 +64,11 @@ fn run(state: &mut AppState, command: ViewerAction, context: &AppContext) {
         V::Encoding => crate::app::input_popup::viewer::open_encoding_selector(state),
         V::SearchNext => state.repeat_viewer_search(),
         V::SelectUp | V::SelectDown | V::SelectPageUp | V::SelectPageDown | V::SelectAll
-            if vw.mode != ViewerMode::Text => {}
-        V::SelectUp => vw.select_by(-1, rows),
-        V::SelectDown => vw.select_by(1, rows),
-        V::SelectPageUp => vw.select_by(-(PAGE as isize), rows),
-        V::SelectPageDown => vw.select_by(PAGE as isize, rows),
+            if !text => {}
+        V::SelectUp => vw.move_cursor(-1, rows, true),
+        V::SelectDown => vw.move_cursor(1, rows, true),
+        V::SelectPageUp => vw.move_cursor(-page, rows, true),
+        V::SelectPageDown => vw.move_cursor(page, rows, true),
         V::SelectAll => vw.select_all(),
         V::Copy => {}
         // A running search stops first, then the selection goes; the next
@@ -86,10 +96,11 @@ fn copy_selection(state: &mut AppState) {
     let Some(vw) = state.active_viewer_mut() else {
         return;
     };
-    let Some(copied) = vw.selected_text() else {
+    if vw.mode != ViewerMode::Text {
         vw.notice = Some(t("viewer_copy_nothing"));
         return;
-    };
+    }
+    let copied = vw.selected_text();
     let lines = copied.lines.to_string();
     let key = if copied.truncated {
         "viewer_copy_truncated"
@@ -124,8 +135,13 @@ pub fn handle_viewer_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
     let rows = vw.text_rows();
     match mouse.kind {
         MouseEventKind::Down(MouseButton::Left) if layout.contains(mouse.column, mouse.row) => {
-            vw.selection = None;
-            vw.drag_anchor = layout.line_at(mouse.row);
+            // A click puts the cursor there; Shift+click selects up to it.
+            let Some(line) = layout.line_at(mouse.row) else {
+                return false;
+            };
+            let extend = mouse.modifiers.contains(KeyModifiers::SHIFT);
+            vw.cursor_to(line, rows, extend);
+            vw.drag_anchor = Some(line);
         }
         MouseEventKind::Drag(MouseButton::Left) => {
             let (Some(anchor), Some(line)) = (vw.drag_anchor, layout.line_at(mouse.row)) else {
@@ -135,7 +151,7 @@ pub fn handle_viewer_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
                 anchor,
                 end: anchor,
             });
-            vw.select_to(line, rows);
+            vw.cursor_to(line, rows, true);
         }
         MouseEventKind::Up(MouseButton::Left) if vw.drag_anchor.is_some() => {
             vw.drag_anchor = None;

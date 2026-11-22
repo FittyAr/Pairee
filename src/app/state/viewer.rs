@@ -185,7 +185,11 @@ fn apply_search_hit(state: &mut AppState, hit: SearchHit) {
         return;
     };
     match hit.line {
-        Some(line) => vw.scroll = line as usize,
+        Some(line) => {
+            vw.scroll = line as usize;
+            vw.cursor = vw.scroll;
+            vw.selection = None;
+        }
         None => vw.notice = Some(t("viewer_search_not_found").replacen("{}", &hit.query, 1)),
     }
 }

@@ -3,8 +3,9 @@ use crate::syntax::LineTokens;
 use crate::ui::search_highlight::match_ranges;
 use crate::ui::styled_line::{Layer, LineView, styled_spans};
 use ratatui::layout::Rect;
+use ratatui::style::Modifier;
+use ratatui::text::Line;
 use ratatui::widgets::{Paragraph, Wrap};
-use ratatui::{style::Style, text::Line};
 
 /// The `height` visible lines: tabs expanded, colored by syntax (when on)
 /// and with the search matches highlighted while the find dialog is open.
@@ -46,15 +47,24 @@ pub(crate) fn text_lines(
                 let found = match_ranges(line, query, case);
                 layers.extend(found.into_iter().map(|r| (r, theme.search_match())));
             }
-            let selected = state.selection.is_some_and(|s| s.contains(first + i));
-            if selected {
-                layers.push((0..line.len(), theme.selection()));
-            }
-            let spans = Line::from(styled_spans(line, Style::default(), &layers, view));
-            if selected {
-                spans.style(theme.selection())
-            } else {
-                spans
+            // The cursor line reads like a selected one (Ctrl+C copies it
+            // when nothing is selected); inside a selection it is the end
+            // that moves, marked by an underline.
+            let n = first + i;
+            let row_style = match state.selection {
+                Some(_) if n == state.cursor => {
+                    Some(theme.selection().add_modifier(Modifier::UNDERLINED))
+                }
+                Some(s) if s.contains(n) => Some(theme.selection()),
+                None if n == state.cursor => Some(theme.selection()),
+                _ => None,
+            };
+            // Under the syntax colors: they keep their color on the bar.
+            let base = row_style.unwrap_or_default();
+            let spans = Line::from(styled_spans(line, base, &layers, view));
+            match row_style {
+                Some(style) => spans.style(style),
+                None => spans,
             }
         })
         .collect()
