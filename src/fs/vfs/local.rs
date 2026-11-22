@@ -157,7 +157,7 @@ impl Vfs for LocalVfs {
         mode: Option<u32>,
     ) -> io::Result<()> {
         if let Some(time) = modified {
-            filetime::set_file_mtime(path, filetime::FileTime::from_system_time(time))?;
+            crate::fs::set_modified(path, time)?;
         }
         #[cfg(unix)]
         if let Some(mode) = mode {

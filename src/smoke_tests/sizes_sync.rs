@@ -57,11 +57,11 @@ fn disk_usage_view_navigates_and_deletes() {
 /// left: new.txt, both.txt (newer); right: both.txt (older), extra.txt.
 fn two_sides() -> Harness {
     let h = Harness::new();
-    let older = filetime::FileTime::from_unix_time(1_600_000_000, 0);
+    let older = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
     h.write("work/left/new.txt", "new");
     h.write("work/left/both.txt", "left version");
     let right = h.write("work/right/both.txt", "old");
-    filetime::set_file_mtime(&right, older).unwrap();
+    crate::fs::set_modified(&right, older).unwrap();
     h.write("work/right/extra.txt", "extra");
     h
 }

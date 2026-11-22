@@ -75,7 +75,8 @@ pub fn quote_msvcrt(s: &str) -> String {
     out
 }
 
-/// Quote for the platform shell used by [`super::shell_command`].
+/// Quote for the platform shell (`sh -c` / `cmd.exe /C`, see
+/// [`super::shell_invocation`]).
 pub fn quote_native(s: &str) -> String {
     if cfg!(windows) {
         quote_cmd(s)

@@ -82,11 +82,7 @@ async fn stream_copies_resolve_conflicts_verify_and_keep_times() {
     std::fs::write(src.join("new.txt"), b"new").unwrap();
     std::fs::write(src.join("sub").join("old.txt"), b"source").unwrap();
     let when = SystemTime::UNIX_EPOCH + Duration::from_secs(1_500_000_000);
-    filetime::set_file_mtime(
-        src.join("new.txt"),
-        filetime::FileTime::from_system_time(when),
-    )
-    .unwrap();
+    crate::fs::set_modified(&src.join("new.txt"), when).unwrap();
     let dst = dir.path().join("dst");
     std::fs::create_dir_all(dst.join("src").join("sub")).unwrap();
     std::fs::write(dst.join("src").join("sub").join("old.txt"), b"keep").unwrap();

@@ -53,7 +53,7 @@ fn put_at(root: &Path, rel: &str, content: &str, time: SystemTime) -> PathBuf {
     let path = root.join(rel);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, content).unwrap();
-    filetime::set_file_mtime(&path, filetime::FileTime::from_system_time(time)).unwrap();
+    crate::fs::set_modified(&path, time).unwrap();
     path
 }
 

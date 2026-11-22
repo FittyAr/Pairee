@@ -219,8 +219,8 @@ fn change_right_before_arming_is_reported() {
 #[test]
 fn quiet_folder_is_not_reported_when_armed() {
     let dir = tempfile::tempdir().unwrap();
-    let old = filetime::FileTime::from_unix_time(1_600_000_000, 0);
-    filetime::set_file_mtime(dir.path(), old).unwrap();
+    let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
+    crate::fs::set_modified(dir.path(), old).unwrap();
     let (sink, rx) = sink();
     let plan = MonitorPlan {
         prefer_poll: true,

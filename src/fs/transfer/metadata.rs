@@ -15,8 +15,7 @@ pub fn preserve_metadata(src: &Path, dst: &Path, options: &TransferOptions) -> s
     let src_meta = std::fs::symlink_metadata(src)?;
     if src_meta.file_type().is_symlink() {
         if options.preserve_timestamps {
-            let (atime, mtime) = times(&src_meta);
-            filetime::set_symlink_file_times(dst, atime, mtime)?;
+            std::fs::set_times_nofollow(dst, times(&src_meta))?;
         }
         return Ok(());
     }
@@ -40,17 +39,22 @@ pub fn preserve_metadata(src: &Path, dst: &Path, options: &TransferOptions) -> s
     }
     // Times last: writing streams or attributes may touch them.
     if options.preserve_timestamps {
-        let (atime, mtime) = times(&src_meta);
-        filetime::set_file_times(dst, atime, mtime)?;
+        std::fs::set_times(dst, times(&src_meta))?;
     }
     Ok(())
 }
 
-fn times(meta: &Metadata) -> (filetime::FileTime, filetime::FileTime) {
-    (
-        filetime::FileTime::from_last_access_time(meta),
-        filetime::FileTime::from_last_modification_time(meta),
-    )
+/// The access and modification times of `meta` (those the platform
+/// reports; a missing one is left as it is on the copy).
+fn times(meta: &Metadata) -> std::fs::FileTimes {
+    let mut times = std::fs::FileTimes::new();
+    if let Ok(accessed) = meta.accessed() {
+        times = times.set_accessed(accessed);
+    }
+    if let Ok(modified) = meta.modified() {
+        times = times.set_modified(modified);
+    }
+    times
 }
 
 #[cfg(unix)]
@@ -250,8 +254,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("target.txt");
         std::fs::write(&target, b"x").unwrap();
-        let old = filetime::FileTime::from_unix_time(1_000_000_000, 0);
-        filetime::set_file_times(&target, old, old).unwrap();
+        let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+        let old_times = std::fs::FileTimes::new()
+            .set_accessed(old)
+            .set_modified(old);
+        std::fs::set_times(&target, old_times).unwrap();
         let before = std::fs::metadata(&target).unwrap();
 
         let src_link = dir.path().join("src_link");

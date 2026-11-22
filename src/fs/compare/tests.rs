@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 fn write_file(dir: &Path, name: &str, content: &[u8], time: SystemTime) {
     let path = dir.join(name);
     std::fs::write(&path, content).unwrap();
-    filetime::set_file_mtime(&path, filetime::FileTime::from_system_time(time)).unwrap();
+    crate::fs::set_modified(&path, time).unwrap();
 }
 
 fn pairs(left: &Path, right: &Path, case_insensitive: bool) -> Vec<EntryPair> {

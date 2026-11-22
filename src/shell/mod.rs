@@ -9,7 +9,9 @@ mod command;
 mod open;
 mod quote;
 
-pub use command::{shell_command, shell_invocation};
+#[cfg(windows)]
+pub use command::shell_command;
+pub use command::shell_invocation;
 pub use open::open_with_system_handler;
 #[cfg(windows)]
 pub use quote::quote_msvcrt;

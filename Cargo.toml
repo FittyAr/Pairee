@@ -46,7 +46,6 @@ sha2 = "0.11.1"
 tempfile = "3.27"
 crc32fast = "1.4.2"
 uuid = { version = "1.10.0", features = ["v4"] }
-filetime = "0.2.25"
 bytesize = "2.7"
 # Professional key-binding parser/dispatcher (replaces ad-hoc string maps).
 # Features: crossterm KeyEvent conversion, sequences, invalid-binding errors.
@@ -86,7 +85,7 @@ notify = "8.2"
 suppaftp = { version = "12.2.0", features = ["rustls-ring"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-platform-verifier = "0.7.1"
-rusty-s3 = "0.10.2"
+rusty-s3 = "0.12.0"
 quick-xml = "0.42.0"
 url = "2.5.8"
 bytes = "1.12"
@@ -206,7 +205,7 @@ exclude = ["fuzz"]
 # the MSRV job of check.yml builds with exactly this toolchain.
 [workspace.package]
 edition = "2024"
-rust-version = "1.96"
+rust-version = "1.99"
 license = "GPL-3.0-only"
 
 [workspace.lints.clippy]

@@ -28,6 +28,12 @@ fn is_server_path(text: &str) -> bool {
     text.starts_with('/') && !text.starts_with("//")
 }
 
+/// Sets the modification time of `path` (a file or a folder), leaving its
+/// access time alone.
+pub fn set_modified(path: &Path, time: std::time::SystemTime) -> std::io::Result<()> {
+    std::fs::set_times(path, std::fs::FileTimes::new().set_modified(time))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

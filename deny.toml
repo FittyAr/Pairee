@@ -19,13 +19,11 @@ targets = [
 
 [advisories]
 yanked = "deny"
-# zbus 6 folded these crates into itself; keyring's Secret Service store
-# (keyring 4.2 -> secret-service 5.2) is still on zbus 5 and nothing newer
-# exists yet (2026-10-26). Drop these once it moves to zbus 6.
+# chrono is unmaintained (2026-11): suppaftp 12 (FTP) still depends on it,
+# and Pairee's own date formatting uses it in about 25 files. Drop this once
+# Pairee has moved to jiff and suppaftp no longer needs chrono.
 ignore = [
-    { id = "RUSTSEC-2026-0370", reason = "zvariant: only through zbus 5 of keyring's Secret Service store" },
-    { id = "RUSTSEC-2026-0371", reason = "zbus_names: only through zbus 5 of keyring's Secret Service store" },
-    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: only through zbus 5 of keyring's Secret Service store" },
+    { id = "RUSTSEC-2026-0543", reason = "chrono: needed by suppaftp; Pairee's own uses are to move to jiff" },
 ]
 
 [licenses]
@@ -77,8 +75,8 @@ deny = [
 # already on its latest version). Drop an entry as soon as `cargo deny check
 # bans` reports it unused.
 skip = [
+    { crate = "constant_time_eq:0.4", reason = "blake3 1.8 uses 0.4; zip 9.8 uses 0.6. Until blake3 moves to 0.6." },
     { crate = "getrandom:0.2", reason = "ring 0.17 (rustls) uses 0.2; tempfile, uuid and sevenz-rust2 use 0.4. Until ring moves to getrandom 0.3+." },
-    { crate = "hashbrown:0.16", reason = "kasuari 0.4 (ratatui-core) uses 0.16; indexmap, lru and ratatui use 0.17. Until kasuari moves to 0.17." },
     { crate = "io-lifetimes:2", reason = "fs-set-times 0.20 uses 2; cap-primitives and io-extras use 3 (all cap-std). Until fs-set-times moves to 3." },
     { crate = "miniz_oxide:0.8", reason = "png 0.18 (image) uses 0.8; flate2 uses 0.9. Until png moves to 0.9." },
     { crate = "openssl-probe:0.1", reason = "git2 0.21 uses 0.1; native-tls and rustls-native-certs use 0.2. Until git2 moves to 0.2." },

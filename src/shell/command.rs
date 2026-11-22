@@ -20,7 +20,10 @@ fn comspec() -> String {
     std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string())
 }
 
-/// `std::process::Command` that runs `script` in the platform shell.
+/// `std::process::Command` that runs `script` in the platform shell (on
+/// Windows, the new-window launch; user command lines run on a PTY through
+/// [`shell_invocation`]).
+#[cfg(any(windows, test))]
 pub fn shell_command(script: &str) -> std::process::Command {
     #[cfg(windows)]
     {

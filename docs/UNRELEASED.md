@@ -11,6 +11,8 @@
 
 ### Changed
 
+- Building Pairee from source needs Rust 1.99 or newer (was 1.96): file times are now set with the standard library (`std::fs::set_times`), which replaces the deprecated `filetime` crate. Dependencies updated to their latest versions (rusty-s3 0.12 among them), which also clears the new security advisories of libz-sys, url and comrak.
+
 ### Deprecated
 
 ### Removed

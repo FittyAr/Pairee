@@ -37,6 +37,6 @@ pub use descriptions::{read_description, write_description};
 pub use entry::FileEntry;
 pub use link::{LinkKind, create_link};
 pub use mkdir::{create_directory, create_empty_file};
-pub use path_util::{display_path, file_name_lossy};
+pub use path_util::{display_path, file_name_lossy, set_modified};
 pub use privileges::{FsOperation, is_elevated, run_in_elevated_helper};
 pub use remove::remove_entry as remove_link;
