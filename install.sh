@@ -540,6 +540,10 @@ print_summary() {
     echo "Settings: ${BLUE}${CONFIG_DIR}/${NC}"
     if [ -f "$SUDO_LIB_DIR/pairee" ]; then
         echo "sudo:     ${BLUE}${SUDO_LIB_DIR}/pairee${NC} (sudo pairee)"
+    elif [ "$(id -u)" -ne 0 ]; then
+        echo "sudo:     ${YELLOW}not set up${NC}: 'sudo pairee' and 'pairee' in a root shell"
+        echo "          do not find ${BIN_DIR}. To add them, run:"
+        echo "          curl -fsSL https://raw.githubusercontent.com/${REPO}/master/install.sh | sh -s -- --sudo-command"
     fi
     echo ""
 
@@ -696,11 +700,12 @@ install_sudo_command() {
         if ! command -v sudo > /dev/null 2>&1 || ! has_tty; then
             return 0
         fi
-        printf "Make 'sudo pairee' work too (a root-owned copy in %s; asks for your password)? [y/N]: " "$SUDO_LIB_DIR"
+        # Yes by default: without it `sudo pairee` (and `pairee` in a root
+        # shell from `sudo su`) is "command not found".
+        printf "Make 'sudo pairee' work too (a root-owned copy in %s; asks for your password)? [Y/n]: " "$SUDO_LIB_DIR"
         read -r SUDO_ANSWER < /dev/tty || SUDO_ANSWER="n"
         case "$SUDO_ANSWER" in
-            [yY] | [yY][eE][sS]) ;;
-            *)
+            [nN] | [nN][oO])
                 echo "Skipped; run the installer with --sudo-command to add it later."
                 return 0
                 ;;

@@ -53,7 +53,7 @@ terminal running it, so the summary gives the full path for that one.
 
 `sudo pairee` looks the command up in sudo's `secure_path`, which has
 `/usr/local/bin` but not `~/.local/bin`. A user installation therefore
-offers (or makes without asking, with `--sudo-command`) a root-owned copy in
+offers (yes by default; made without asking with `--sudo-command`) a root-owned copy in
 `/usr/local/lib/FittyAr/Pairee/pairee` linked from `/usr/local/bin/pairee`,
 installed through `sudo`; it is never a link to the user's own copy, which
 anything running as the user could replace and root would then run. Later

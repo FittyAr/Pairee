@@ -77,7 +77,7 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (Win
 
     The program goes to `~/.local/lib/FittyAr/Pairee` with a `pairee` command in `~/.local/bin`, which the installer adds to the `PATH` of bash, zsh, fish, ksh and tcsh (and of `/usr/local/bin` too when run as root), so `pairee` starts from any new terminal with no extra steps (an install of an earlier version, the program itself in `~/.local/bin`, is moved there by the installer or the next self-update); translations and help go to the settings folder.
 
-    `sudo pairee` cannot find `~/.local/bin` (sudo's `secure_path` leaves it out), so the installer offers a root-owned copy in `/usr/local/lib/FittyAr/Pairee` linked from `/usr/local/bin/pairee` (add `--sudo-command` to make it without asking); later installs refresh it and `uninstall` removes it. Run as root, Pairee keeps its settings in root's own home, never in yours.
+    `sudo pairee` cannot find `~/.local/bin` (sudo's `secure_path` leaves it out), so the installer offers (yes by default) a root-owned copy in `/usr/local/lib/FittyAr/Pairee` linked from `/usr/local/bin/pairee` (add `--sudo-command` to make it without asking); later installs refresh it and `uninstall` removes it. Run as root, Pairee keeps its settings in root's own home, never in yours.
   * **Build from Source (Debug/Source Mode):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug
