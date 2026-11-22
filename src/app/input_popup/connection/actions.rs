@@ -118,8 +118,9 @@ fn connect(state: &mut AppState, context: &AppContext) {
     };
     let conn = prompt.to_connection();
     let panel = state.panels.active_tab_id(prompt.panel);
+    // Messages open over the dialog: closing them returns to the fields.
     if let Some(key) = missing_field(&conn, false) {
-        state.dialogs.replace(PopupType::error(t(key)));
+        state.dialogs.push(PopupType::error(t(key)));
         return;
     }
     let message = t("progress_connecting_remote").replacen(
@@ -127,7 +128,7 @@ fn connect(state: &mut AppState, context: &AppContext) {
         &crate::fs::remote::user_at_host(&conn.username, &conn.host),
         1,
     );
-    state.dialogs.replace(PopupType::info(message));
+    state.dialogs.push(PopupType::info(message));
     start_connection(state, context, panel, conn);
 }
 

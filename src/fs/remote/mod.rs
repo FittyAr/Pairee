@@ -128,6 +128,7 @@ fn without_password(url: &str) -> String {
 const REMOTE: Capabilities = Capabilities {
     attributes: false,
     local_tools: false,
+    run_commands: false,
     ..Capabilities::FULL
 };
 

@@ -9,8 +9,6 @@ pub mod tabs;
 pub mod ui_settings;
 pub mod views;
 
-pub use exec::execute_shell_command;
-
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
 use crate::keybindings::Action;

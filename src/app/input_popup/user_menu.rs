@@ -123,7 +123,7 @@ fn execute_item(
         // shell-quoted values so a filename containing shell
         // metacharacters (`;`, `|`, `$`, `` ` ``, etc.) cannot break out
         // of the surrounding command and execute arbitrary code.
-        // `execute_shell_command` later routes the resulting string
+        // `exec::run_in_active_panel` later routes the resulting string
         // through the platform shell, so unquoted substitutions would be
         // a command-injection vector.
         let final_cmd = if let Some(e) = highlighted {

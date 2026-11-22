@@ -40,15 +40,32 @@ pub fn process_remote_connect_updates(state: &mut AppState, context: &AppContext
             state.dialogs.clear();
             state.refresh_tab(tab, show_hidden, true);
         }
-        Err(e) => {
-            state.dialogs.replace(PopupType::error(format!(
-                "{} {}",
-                crate::config::localization::t("error_remote_connect_failed"),
-                e
-            )));
-        }
+        Err(e) => report_connect_failure(state, &e),
     }
     state.mark_ui_dirty();
+}
+
+/// Shows why a connection failed. The connection dialog it was started
+/// from stays open under the message (the progress note above it closes),
+/// so a wrong field can be fixed and tried again without reopening it.
+fn report_connect_failure(state: &mut AppState, error: &anyhow::Error) {
+    let message = PopupType::error(format!(
+        "{} {}",
+        crate::config::localization::t("error_remote_connect_failed"),
+        error
+    ));
+    let from_dialog = state
+        .dialogs
+        .iter()
+        .any(|d| matches!(d, PopupType::ConnectionPrompt(_)));
+    if !from_dialog {
+        state.dialogs.replace(message);
+        return;
+    }
+    while !matches!(state.dialogs.top(), Some(PopupType::ConnectionPrompt(_))) {
+        state.dialogs.pop();
+    }
+    state.dialogs.push(message);
 }
 
 /// Matches of the Find file search shown so far, and its end.
@@ -130,13 +147,47 @@ pub fn process_pending_custom_command(
     terminal_backend: &mut TerminalBackend,
 ) {
     if let Some(cmd) = state.pending_custom_command.take() {
-        let active_path = state.get_active_panel().current_path.clone();
-        let _ = crate::app::actions::exec::execute_shell_command(
-            &cmd,
-            &active_path,
-            context,
-            terminal_backend,
-        );
+        let _ =
+            crate::app::actions::exec::run_in_active_panel(state, &cmd, context, terminal_backend);
         state.refresh_both_panels(context.config.settings.show_hidden);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::{ActivePanel, ConnectionPromptState};
+    use std::path::PathBuf;
+
+    fn state() -> AppState {
+        AppState::new(PathBuf::from("."), PathBuf::from("."))
+    }
+
+    #[test]
+    fn a_failed_connection_keeps_its_dialog_open_under_the_error() {
+        let mut state = state();
+        state
+            .dialogs
+            .replace(PopupType::ConnectionPrompt(ConnectionPromptState::new(
+                ActivePanel::Left,
+                &[],
+            )));
+        state.dialogs.push(PopupType::info("connecting"));
+        report_connect_failure(&mut state, &anyhow::anyhow!("no such host"));
+        assert_eq!(state.dialogs.depth(), 2);
+        assert!(matches!(state.dialogs.top(), Some(PopupType::Error(_))));
+        state.dialogs.pop();
+        assert!(matches!(
+            state.dialogs.top(),
+            Some(PopupType::ConnectionPrompt(_))
+        ));
+    }
+
+    #[test]
+    fn a_failed_restore_without_a_dialog_shows_only_the_error() {
+        let mut state = state();
+        report_connect_failure(&mut state, &anyhow::anyhow!("no such host"));
+        assert_eq!(state.dialogs.depth(), 1);
+        assert!(matches!(state.dialogs.top(), Some(PopupType::Error(_))));
     }
 }

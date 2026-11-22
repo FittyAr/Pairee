@@ -1,4 +1,3 @@
-use crate::app::actions::execute_shell_command;
 use crate::app::actions::panel_search::open as open_search;
 use crate::app::context::AppContext;
 use crate::app::input::cli_cd::{cd_argument, change_dir, jump, z_argument};
@@ -144,10 +143,13 @@ fn run_cli_command(
         change_dir(state, arg);
     } else if let Some(query) = z_argument(cmd) {
         jump(state, query);
-    } else if let Some(cmd_bg) = cmd.strip_suffix('&') {
+    } else if let Some(cmd_bg) = cmd.strip_suffix('&')
+        && state.get_active_panel().source.capabilities().local_tools
+    {
         spawn_background(state, cmd_bg.trim().to_string(), current_path);
     } else {
-        let _ = execute_shell_command(cmd, &current_path, context, terminal_backend);
+        let _ =
+            crate::app::actions::exec::run_in_active_panel(state, cmd, context, terminal_backend);
     }
 }
 

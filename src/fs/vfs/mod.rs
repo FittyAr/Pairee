@@ -51,6 +51,9 @@ pub struct Capabilities {
     /// Paths are real local paths, so tools that run on local files
     /// (editor, attributes, links, wipe, archivers, shell commands) work.
     pub local_tools: bool,
+    /// The command line can run commands in the panel's folder: locally
+    /// ([`Self::local_tools`]) or on the server ([`Vfs::run_command`]).
+    pub run_commands: bool,
 }
 
 impl Capabilities {
@@ -62,6 +65,7 @@ impl Capabilities {
         rename: false,
         attributes: false,
         local_tools: false,
+        run_commands: false,
     };
 
     /// Everything (the local filesystem).
@@ -72,6 +76,7 @@ impl Capabilities {
         rename: true,
         attributes: true,
         local_tools: true,
+        run_commands: true,
     };
 
     pub fn allows(self, capability: Capability) -> bool {
@@ -281,6 +286,15 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
     }
 
     fn rename(&self, _from: &Path, _to: &Path) -> io::Result<()> {
+        Err(unsupported())
+    }
+
+    /// Runs the shell `command` in the folder `dir` on the machine this
+    /// adapter reaches (the command line of a remote panel), writing its
+    /// output (standard output and error together) to `out` as it arrives.
+    /// Returns the command's exit status. Only adapters with a remote shell
+    /// (SFTP over SSH) support it; the others return [`unsupported`].
+    fn run_command(&self, _dir: &Path, _command: &str, _out: &mut dyn Write) -> io::Result<i32> {
         Err(unsupported())
     }
 
