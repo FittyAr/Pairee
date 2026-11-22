@@ -69,10 +69,10 @@ pub fn render_conflict_dialog(
         None => t("transfer_unknown"),
     };
     let comparison_text = t("transfer_conflict_compare")
-        .replace("{src}", &conflict.src_path.to_string_lossy())
+        .replace("{src}", &crate::fs::display_path(&conflict.src_path))
         .replace("{src_size}", &src_size_str)
         .replace("{src_time}", &time(conflict.src_modified))
-        .replace("{dst}", &conflict.dst_path.to_string_lossy())
+        .replace("{dst}", &crate::fs::display_path(&conflict.dst_path))
         .replace("{dst_size}", &dst_size_str)
         .replace("{dst_time}", &time(conflict.dst_modified));
 

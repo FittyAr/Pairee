@@ -2,6 +2,8 @@ use super::state::ViewerState;
 use crate::syntax::LineTokens;
 use crate::ui::search_highlight::match_ranges;
 use crate::ui::styled_line::{Layer, LineView, styled_spans};
+use ratatui::layout::Rect;
+use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::{style::Style, text::Line};
 
 /// The `height` visible lines: tabs expanded, colored by syntax (when on)
@@ -44,7 +46,36 @@ pub(crate) fn text_lines(
                 let found = match_ranges(line, query, case);
                 layers.extend(found.into_iter().map(|r| (r, theme.search_match())));
             }
-            Line::from(styled_spans(line, Style::default(), &layers, view))
+            let selected = state.selection.is_some_and(|s| s.contains(first + i));
+            if selected {
+                layers.push((0..line.len(), theme.selection()));
+            }
+            let spans = Line::from(styled_spans(line, Style::default(), &layers, view));
+            if selected {
+                spans.style(theme.selection())
+            } else {
+                spans
+            }
         })
         .collect()
+}
+
+/// Where `lines` (the first being line `first`) land in `area` once
+/// wrapped, for the mouse (see [`super::TextLayout`]).
+pub(crate) fn layout(first: usize, lines: &[Line<'static>], area: Rect) -> super::TextLayout {
+    let mut rows = Vec::with_capacity(lines.len());
+    let mut top = area.y;
+    for (i, line) in lines.iter().enumerate() {
+        if top >= area.bottom() {
+            break;
+        }
+        let height = Paragraph::new(line.clone())
+            .wrap(Wrap { trim: false })
+            .line_count(area.width)
+            .max(1);
+        let height = u16::try_from(height).unwrap_or(u16::MAX);
+        rows.push((first + i, top, height));
+        top = top.saturating_add(height);
+    }
+    super::TextLayout { area, rows }
 }

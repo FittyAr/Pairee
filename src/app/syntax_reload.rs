@@ -135,10 +135,10 @@ mod tests {
         };
         let mut state = AppState::new(".".into(), ".".into());
         let doc = vec!["TODO".to_string()];
-        state.push_screen(Screen::Viewer(ViewerState::from_text(
+        state.push_screen(Screen::Viewer(Box::new(ViewerState::from_text(
             PathBuf::from("a.reloadnotes"),
             doc,
-        )));
+        ))));
         std::fs::write(
             &file,
             "name = \"ReloadNotes\"\nextensions = [\"reloadnotes\"]",

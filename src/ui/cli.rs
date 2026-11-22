@@ -75,7 +75,7 @@ fn prompt(state: &AppState) -> String {
         .unwrap_or_default();
     format!(
         "{screen_indicator}{clipboard_indicator}{}{prompt_symbol}",
-        state.get_active_panel().current_path.to_string_lossy()
+        state.get_active_panel().path_text()
     )
 }
 

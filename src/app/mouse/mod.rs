@@ -151,9 +151,10 @@ pub async fn handle(
             return Ok(consumed);
         }
     }
-    Ok(crate::app::screen_input::editor::handle_editor_mouse(
-        state, mouse,
-    ))
+    Ok(
+        crate::app::screen_input::editor::handle_editor_mouse(state, mouse)
+            || crate::app::screen_input::viewer::handle_viewer_mouse(state, mouse),
+    )
 }
 
 /// Continues or ends a drag started here (tagging rows, moving the panel

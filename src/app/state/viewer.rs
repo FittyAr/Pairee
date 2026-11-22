@@ -53,7 +53,7 @@ impl AppState {
     /// Opens the internal viewer on `path`. The file is opened by a
     /// background job; a "Loading…" viewer is shown meanwhile.
     pub fn open_viewer(&mut self, path: PathBuf, settings: &Settings, hex: bool) {
-        self.push_screen(Screen::Viewer(ViewerState::loading(path.clone())));
+        self.push_screen(Screen::Viewer(Box::new(ViewerState::loading(path.clone()))));
         let allow_image = settings.image_preview_enabled;
         let policy = encoding_policy(settings);
         let syntax = crate::syntax::SyntaxLimits::from_settings(settings);
@@ -91,7 +91,7 @@ impl AppState {
     /// First viewer screen showing `path` (`loading` placeholders only when asked).
     fn viewer_for(&mut self, path: &Path, loading: bool) -> Option<&mut ViewerState> {
         self.screens.iter_mut().find_map(|s| match s {
-            Screen::Viewer(v) if v.path == path && (!loading || v.loading) => Some(v),
+            Screen::Viewer(v) if v.path == path && (!loading || v.loading) => Some(v.as_mut()),
             _ => None,
         })
     }
@@ -222,7 +222,7 @@ mod tests {
         let path = dir.path().join("a.rs");
         std::fs::write(&path, "fn main() {}").unwrap();
         let mut state = AppState::new(dir.path().into(), dir.path().into());
-        state.push_screen(Screen::Viewer(ViewerState::loading(path.clone())));
+        state.push_screen(Screen::Viewer(Box::new(ViewerState::loading(path.clone()))));
         let on = SyntaxLimits {
             enabled: true,
             max_bytes: 1 << 20,

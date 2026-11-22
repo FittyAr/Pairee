@@ -123,7 +123,7 @@ pub fn poll(state: &mut AppState) -> bool {
             match (what, listing) {
                 (ArchiveRead::List, Ok(list)) => {
                     let viewer = crate::ui::viewer::ViewerState::from_text(path, list);
-                    state.push_screen(Screen::Viewer(viewer));
+                    state.push_screen(Screen::Viewer(Box::new(viewer)));
                 }
                 (ArchiveRead::Test, Ok(_)) => {
                     state.dialogs.replace(PopupType::info(t("archive_test_ok")))

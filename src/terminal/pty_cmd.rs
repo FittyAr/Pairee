@@ -69,6 +69,15 @@ fn spawn_on(
     if script.trim().is_empty() {
         anyhow::bail!("empty command");
     }
+    let spawned = system
+        .spawn(&shell_command(script, cwd, size))
+        .with_context(|| format!("spawn in pty: {script}"))?;
+    Ok(take_over(spawned))
+}
+
+/// The control and output of a child already running on a terminal (a
+/// local PTY, or a remote one: see [`super::pty::RemotePty`]).
+pub fn take_over(spawned: SpawnedPty) -> (PtyControl, PtyRun) {
     let SpawnedPty {
         pid,
         reader,
@@ -76,9 +85,7 @@ fn spawn_on(
         master,
         killer,
         waiter,
-    } = system
-        .spawn(&shell_command(script, cwd, size))
-        .with_context(|| format!("spawn in pty: {script}"))?;
+    } = spawned;
     let control = PtyControl::new(Control {
         pid,
         input: Some(spawn_writer(writer)),
@@ -90,7 +97,7 @@ fn spawn_on(
         reader,
         control: control.clone(),
     };
-    Ok((control, run))
+    (control, run)
 }
 
 /// A spawned PTY child whose output is still to be read.

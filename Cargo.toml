@@ -12,7 +12,7 @@ readme = "README.md"
 [dependencies]
 # No termwiz/termina backends: default features would list them in the lock
 # through weak `?/underline-color` features (never built, but audited).
-ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] }
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache", "unstable-rendered-line-info"] }
 crossterm = "0.29.0"
 tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
 serde = { version = "1.0", features = ["derive"] }

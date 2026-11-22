@@ -74,7 +74,7 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
 
     format!(
         " {}{}{}{} [{}{}]{} ",
-        panel.current_path.to_string_lossy(),
+        panel.path_text(),
         remote_suffix,
         git_suffix,
         branch,

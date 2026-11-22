@@ -143,6 +143,13 @@ edit        = "F6"
 search      = "F7"
 search_next = "F3"
 encoding    = "F8"
+# Text mode: select whole lines and copy them (or drag the mouse).
+select_up        = "Shift+Up"
+select_down      = "Shift+Down"
+select_page_up   = "Shift+PageUp"
+select_page_down = "Shift+PageDown"
+select_all       = "Ctrl+a, Ctrl+A"
+copy             = "Ctrl+c, Ctrl+C, Ctrl+Insert"
 quit        = "Esc, F10"
 
 # ══ Terminal screens (`command &`) ════════════════════════════════════════════

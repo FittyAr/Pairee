@@ -52,7 +52,7 @@ pub struct Capabilities {
     /// (editor, attributes, links, wipe, archivers, shell commands) work.
     pub local_tools: bool,
     /// The command line can run commands in the panel's folder: locally
-    /// ([`Self::local_tools`]) or on the server ([`Vfs::run_command`]).
+    /// ([`Self::local_tools`]) or on the server ([`Vfs::spawn_terminal`]).
     pub run_commands: bool,
 }
 
@@ -289,12 +289,17 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
         Err(unsupported())
     }
 
-    /// Runs the shell `command` in the folder `dir` on the machine this
-    /// adapter reaches (the command line of a remote panel), writing its
-    /// output (standard output and error together) to `out` as it arrives.
-    /// Returns the command's exit status. Only adapters with a remote shell
-    /// (SFTP over SSH) support it; the others return [`unsupported`].
-    fn run_command(&self, _dir: &Path, _command: &str, _out: &mut dyn Write) -> io::Result<i32> {
+    /// Starts the shell `command` in the folder `dir` on a terminal of
+    /// `size` on the machine this adapter reaches (the command line of a
+    /// remote panel). Only adapters with a remote shell (SFTP over SSH)
+    /// support it ([`Capabilities::run_commands`]); the others return
+    /// [`unsupported`].
+    fn spawn_terminal(
+        &self,
+        _dir: &Path,
+        _command: &str,
+        _size: crate::terminal::pty::PtySize,
+    ) -> io::Result<crate::terminal::pty::RemotePty> {
         Err(unsupported())
     }
 

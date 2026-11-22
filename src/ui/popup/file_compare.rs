@@ -71,7 +71,7 @@ fn summary(view: &FileCompareView, theme: &ResolvedTheme) -> Vec<Line<'static>> 
 fn path_line(key: &str, path: &Path) -> Line<'static> {
     Line::from(format!(
         " {}",
-        t(key).replace("{}", &path.to_string_lossy())
+        t(key).replace("{}", &crate::fs::display_path(path))
     ))
 }
 

@@ -80,9 +80,9 @@ fn execute_shell_command(
     Ok(())
 }
 
-/// Suspends the TUI and runs `command_str` in `dir` on the server of
-/// `conn`, its output shown as it arrives (no input: the command runs
-/// without a terminal of its own).
+/// Suspends the TUI and runs `command_str` in `dir` on a terminal of the
+/// server of `conn`: Pairee's terminal shows it and types into it, so
+/// interactive programs work.
 fn execute_remote_command(
     command_str: &str,
     dir: &Path,
@@ -96,7 +96,10 @@ fn execute_remote_command(
                 .replacen("{}", &conn.user_at_host(), 1)
                 .replacen("{}", command_str, 1)
         );
-        let status = conn.run_command(dir, command_str, &mut std::io::stdout());
+        let size = crate::terminal::pty::PtySize::of_terminal();
+        let status = conn
+            .spawn_terminal(dir, command_str, size)
+            .and_then(crate::terminal::relay::relay);
         report_outcome(status.map(Some));
     })?;
     Ok(())

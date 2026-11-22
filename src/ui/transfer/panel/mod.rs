@@ -173,5 +173,5 @@ pub fn summarize_path(path: &std::path::Path) -> String {
         }
         return file_name.to_string_lossy().into_owned();
     }
-    path.to_string_lossy().into_owned()
+    crate::fs::display_path(path)
 }

@@ -143,9 +143,7 @@ fn run_cli_command(
         change_dir(state, arg);
     } else if let Some(query) = z_argument(cmd) {
         jump(state, query);
-    } else if let Some(cmd_bg) = cmd.strip_suffix('&')
-        && state.get_active_panel().source.capabilities().local_tools
-    {
+    } else if let Some(cmd_bg) = cmd.strip_suffix('&') {
         spawn_background(state, cmd_bg.trim().to_string(), current_path);
     } else {
         let _ =
@@ -153,9 +151,22 @@ fn run_cli_command(
     }
 }
 
-/// `command &`: runs on a PTY in a new terminal screen, streaming its output.
+/// `command &`: runs on a PTY in a new terminal screen, streaming its
+/// output; on an SSH panel, on a terminal of the server. A panel that has
+/// no shell gets the error dialog instead.
 fn spawn_background(state: &mut AppState, cmd_bg: String, current_dir: PathBuf) {
+    use crate::app::state::{PopupType, Screen, TerminalState};
     let limit = state.screens.terminal_lines;
-    let ts = crate::app::state::TerminalState::spawn(cmd_bg, &current_dir, limit);
-    state.push_screen(crate::app::state::Screen::Terminal(ts));
+    let source = &state.get_active_panel().source;
+    let caps = source.capabilities();
+    let ts = if caps.local_tools {
+        TerminalState::spawn(cmd_bg, &current_dir, limit)
+    } else if let Some(conn) = source.remote().filter(|_| caps.run_commands) {
+        TerminalState::spawn_remote(cmd_bg, conn.clone(), current_dir, limit)
+    } else {
+        let text = crate::config::localization::t("shell_remote_unsupported");
+        state.dialogs.replace(PopupType::error(text));
+        return;
+    };
+    state.push_screen(Screen::Terminal(ts));
 }

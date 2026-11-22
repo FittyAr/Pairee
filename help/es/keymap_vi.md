@@ -282,11 +282,27 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+d` · `Ctrl+f` · `PageDown` | Página abajo |
 | `Ctrl+b` · `Ctrl+u` · `PageUp` | Página arriba |
 
+### Selección
+
+| Teclas | Acción |
+| :--- | :--- |
+| `Shift+Down` | Seleccionar línea abajo |
+| `Shift+Up` | Seleccionar línea arriba |
+| `Shift+PageDown` | Seleccionar página abajo |
+| `Shift+PageUp` | Seleccionar página arriba |
+| `Ctrl+a` · `Ctrl+A` | Seleccionar todo |
+
 ### Archivos
 
 | Teclas | Acción |
 | :--- | :--- |
 | `F6` | Editar archivo |
+
+### Portapapeles
+
+| Teclas | Acción |
+| :--- | :--- |
+| `Ctrl+Insert` · `Ctrl+c` · `Ctrl+C` | Copiar la selección |
 
 ### Búsqueda
 

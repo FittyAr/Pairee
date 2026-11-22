@@ -52,11 +52,11 @@ pub fn build_info_panel_lines(state: &AppState) -> Vec<String> {
         }
 
         lines.push(String::new());
-        lines.push(row(PATH, entry.path.to_string_lossy().into_owned()));
+        lines.push(row(PATH, crate::fs::display_path(&entry.path)));
     }
 
     lines.push(String::new());
-    lines.push(row(DIR, panel.current_path.to_string_lossy().into_owned()));
+    lines.push(row(DIR, panel.path_text()));
 
     let (total_files, total_dirs, total_size) = panel.entry_totals();
     lines.push(row(FILES, total_files.to_string()));

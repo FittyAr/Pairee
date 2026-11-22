@@ -239,7 +239,7 @@ pub struct DevProgress {
 #[derive(Debug)]
 pub enum Screen {
     Panels,
-    Viewer(crate::ui::viewer::ViewerState),
+    Viewer(Box<crate::ui::viewer::ViewerState>),
     Editor(Box<EditorState>),
     Terminal(TerminalState),
 }

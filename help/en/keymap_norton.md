@@ -277,11 +277,27 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `PageDown` | Page down |
 | `PageUp` | Page up |
 
+### Selection
+
+| Keys | Action |
+| :--- | :--- |
+| `Ctrl+a` · `Ctrl+A` | Select all |
+| `Shift+Down` | Select line down |
+| `Shift+Up` | Select line up |
+| `Shift+PageDown` | Select page down |
+| `Shift+PageUp` | Select page up |
+
 ### Files
 
 | Keys | Action |
 | :--- | :--- |
 | `F6` | Edit file |
+
+### Clipboard
+
+| Keys | Action |
+| :--- | :--- |
+| `Ctrl+Insert` · `Ctrl+c` · `Ctrl+C` | Copy selection |
 
 ### Search
 

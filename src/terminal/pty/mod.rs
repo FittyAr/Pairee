@@ -72,6 +72,39 @@ pub struct SpawnedPty {
     pub waiter: Box<dyn ChildWaiter>,
 }
 
+/// A command running on a terminal of another machine (an SSH server):
+/// the parts of a [`SpawnedPty`], with an exit code instead of a waiter
+/// (the command line shows it).
+pub struct RemotePty {
+    pub reader: Box<dyn Read + Send>,
+    pub writer: Box<dyn Write + Send>,
+    pub master: Box<dyn PtyMaster>,
+    pub killer: Box<dyn ChildKiller>,
+    /// Blocks until the command ends; its exit code.
+    pub exit: Box<dyn FnOnce() -> io::Result<i32> + Send>,
+}
+
+impl RemotePty {
+    /// The same command as a [`SpawnedPty`] (no local pid), for the
+    /// terminal screens.
+    pub fn into_spawned(self) -> SpawnedPty {
+        struct Exit(Box<dyn FnOnce() -> io::Result<i32> + Send>);
+        impl ChildWaiter for Exit {
+            fn wait(self: Box<Self>) -> io::Result<bool> {
+                (self.0)().map(|code| code == 0)
+            }
+        }
+        SpawnedPty {
+            pid: None,
+            reader: self.reader,
+            writer: self.writer,
+            master: self.master,
+            killer: self.killer,
+            waiter: Box::new(Exit(self.exit)),
+        }
+    }
+}
+
 /// Starts commands on pseudo terminals.
 pub trait PtySystem {
     fn spawn(&self, cmd: &PtyCommand) -> io::Result<SpawnedPty>;

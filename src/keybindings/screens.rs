@@ -48,7 +48,16 @@ pub enum ViewerAction {
     Search,
     SearchNext,
     Encoding,
-    /// Stops a running search, else closes the viewer.
+    /// Starts a line selection or moves its end (text mode).
+    SelectUp,
+    SelectDown,
+    SelectPageUp,
+    SelectPageDown,
+    SelectAll,
+    /// Copies the selected lines to the clipboard.
+    Copy,
+    /// Stops a running search, else drops the selection, else closes the
+    /// viewer.
     Quit,
 }
 
@@ -167,6 +176,12 @@ pub const VIEWER_CATALOG: &[ScreenDef<ViewerAction>] = &[
     on_fkey(cmd("search", V::Search, C::Search), "fkey_vw_search"),
     cmd("search_next", V::SearchNext, C::Search),
     on_fkey(cmd("encoding", V::Encoding, C::View), "fkey_vw_encoding"),
+    cmd("select_up", V::SelectUp, C::Selection),
+    cmd("select_down", V::SelectDown, C::Selection),
+    cmd("select_page_up", V::SelectPageUp, C::Selection),
+    cmd("select_page_down", V::SelectPageDown, C::Selection),
+    cmd("select_all", V::SelectAll, C::Selection),
+    cmd("copy", V::Copy, C::Clipboard),
     must(on_fkey(cmd("quit", V::Quit, C::System), "fkey_vw_quit")),
 ];
 

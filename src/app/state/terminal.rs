@@ -7,7 +7,7 @@ use crate::terminal::pty::PtySize;
 use crate::terminal::pty_control::PtyControl;
 use std::collections::VecDeque;
 use std::path::Path;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 /// Output lines kept when no limit is configured.
 pub const DEFAULT_LINES: usize = 10_000;
@@ -90,7 +90,8 @@ pub struct TerminalState {
     pub scroll: usize,
     /// When set, Transfer Engine apply-command output is routed here.
     pub job_id: Option<uuid::Uuid>,
-    process: Option<PtyControl>,
+    /// Set once the process started (a remote one starts in the job).
+    process: Arc<OnceLock<PtyControl>>,
     /// Waits for the process; its result is the exit status.
     run: JobSlot<Result<bool, String>>,
     seen_version: u64,
@@ -104,7 +105,7 @@ impl TerminalState {
             status: TermStatus::Running,
             scroll: 0,
             job_id: None,
-            process: None,
+            process: Arc::default(),
             run: JobSlot::default(),
             seen_version: 0,
         }
@@ -124,15 +125,9 @@ impl TerminalState {
         let size = PtySize::of_terminal();
         match crate::terminal::pty_cmd::spawn_shell_on_pty(&ts.command, Some(cwd), size) {
             Ok((control, run)) => {
-                ts.process = Some(control);
+                let _ = ts.process.set(control);
                 let output = ts.output.clone();
-                ts.run.start(move |_| {
-                    run.wait(|line| {
-                        output.push(line);
-                        crate::app::jobs::wake_event_loop();
-                    })
-                    .map_err(|e| e.to_string())
-                });
+                ts.run.start(move |_| stream(run, &output));
             }
             Err(e) => {
                 let text = crate::config::localization::t("terminal_spawn_failed");
@@ -143,19 +138,51 @@ impl TerminalState {
         ts
     }
 
+    /// Starts `command` in `dir` on a terminal of the server `conn` reaches
+    /// (`command &` on an SSH panel). The login happens in the job; a
+    /// failure is shown as the screen's output.
+    pub fn spawn_remote(
+        command: String,
+        conn: crate::fs::remote::RemoteConn,
+        dir: std::path::PathBuf,
+        limit: usize,
+    ) -> Self {
+        let ts = Self::new(command, limit);
+        let (process, output, line) = (
+            Arc::clone(&ts.process),
+            ts.output.clone(),
+            ts.command.clone(),
+        );
+        let size = PtySize::of_terminal();
+        let mut ts = ts;
+        ts.run.start(move |_| {
+            let pty = conn.spawn_terminal(&dir, &line, size).map_err(|e| {
+                crate::config::localization::t("terminal_spawn_failed").replacen(
+                    "{}",
+                    &e.to_string(),
+                    1,
+                )
+            })?;
+            let (control, run) = crate::terminal::pty_cmd::take_over(pty.into_spawned());
+            let _ = process.set(control);
+            stream(run, &output)
+        });
+        ts
+    }
+
     pub fn is_running(&self) -> bool {
         self.status == TermStatus::Running
     }
 
     /// Process id of the running command (none for Transfer Engine jobs).
     pub fn pid(&self) -> Option<u32> {
-        self.process.as_ref().and_then(PtyControl::pid)
+        self.process.get().and_then(PtyControl::pid)
     }
 
     /// Stops the process, if any is still running.
     pub fn kill(&self) {
         if self.is_running()
-            && let Some(process) = &self.process
+            && let Some(process) = self.process.get()
         {
             process.kill();
         }
@@ -164,7 +191,7 @@ impl TerminalState {
     /// Gives the running process the new size of Pairee's terminal.
     pub fn resize(&self, size: PtySize) {
         if self.is_running()
-            && let Some(process) = &self.process
+            && let Some(process) = self.process.get()
         {
             process.resize(size);
         }
@@ -173,7 +200,7 @@ impl TerminalState {
     /// Types `bytes` into the running process. `false` when it cannot take
     /// input (exited, or a Transfer Engine job).
     pub fn send_input(&self, bytes: &[u8]) -> bool {
-        self.is_running() && self.process.as_ref().is_some_and(|p| p.send(bytes))
+        self.is_running() && self.process.get().is_some_and(|p| p.send(bytes))
     }
 
     /// Ends a Transfer Engine job screen.
@@ -208,6 +235,16 @@ impl TerminalState {
             self.scroll.saturating_sub(lines)
         };
     }
+}
+
+/// Streams the output of `run` into `output` until it exits; whether it
+/// succeeded.
+fn stream(run: crate::terminal::pty_cmd::PtyRun, output: &TermOutput) -> Result<bool, String> {
+    run.wait(|line| {
+        output.push(line);
+        crate::app::jobs::wake_event_loop();
+    })
+    .map_err(|e| e.to_string())
 }
 
 /// A screen that goes away (closed, or the app quits) stops its process.

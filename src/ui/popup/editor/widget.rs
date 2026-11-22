@@ -158,7 +158,7 @@ fn text_lines(
 /// Frame titled with the file name and a `*` when modified.
 fn editor_block<'a>(ed: &EditorState, theme: &ResolvedTheme) -> Block<'a> {
     let title = t("editor_title")
-        .replacen("{}", &ed.display_path().to_string_lossy(), 1)
+        .replacen("{}", &crate::fs::display_path(ed.display_path()), 1)
         .replacen("{}", if ed.is_dirty() { "*" } else { "" }, 1);
     Block::default()
         .borders(Borders::ALL)

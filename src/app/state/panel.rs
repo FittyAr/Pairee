@@ -187,6 +187,11 @@ impl PanelState {
 
     /// Points the panel at `path` with the cursor on the first row and no
     /// selection (the caller refreshes the listing).
+    /// The folder shown, as the user reads it (see [`crate::fs::display_path`]).
+    pub fn path_text(&self) -> String {
+        crate::fs::display_path(&self.current_path)
+    }
+
     pub fn open_path(&mut self, path: PathBuf) {
         self.current_path = path;
         self.cursor_index = 0;

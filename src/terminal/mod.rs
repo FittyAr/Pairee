@@ -1,10 +1,12 @@
 pub mod backend;
 pub mod events;
+pub mod keys;
 pub mod mouse;
 pub mod panic_hook;
 pub mod pty;
 pub mod pty_cmd;
 pub mod pty_control;
+pub mod relay;
 #[cfg(unix)]
 pub mod signals;
 #[cfg(windows)]

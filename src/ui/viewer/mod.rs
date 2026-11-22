@@ -1,9 +1,11 @@
 mod hex;
 mod image;
+mod selection;
 mod state;
 mod status;
 mod text;
 
+pub use selection::{LineSelection, TextLayout};
 pub use state::{VIEWER_MAX_BYTES, ViewerMode, ViewerState, decode_image};
 
 use crate::config::localization::t;
@@ -72,7 +74,10 @@ pub fn render_viewer(f: &mut Frame, area: Rect, state: &ViewerState, opts: &View
     let height = area.height.saturating_sub(2) as usize;
     let para = match state.mode {
         ViewerMode::Text => {
-            Paragraph::new(text::text_lines(state, height, opts)).wrap(Wrap { trim: false })
+            let lines = text::text_lines(state, height, opts);
+            let inner = area.inner(ratatui::layout::Margin::new(1, 1));
+            *state.layout.borrow_mut() = text::layout(state.scroll, &lines, inner);
+            Paragraph::new(lines).wrap(Wrap { trim: false })
         }
         ViewerMode::Hex => Paragraph::new(hex::hex_lines(state, height)),
         ViewerMode::Image => image::placeholder(state),

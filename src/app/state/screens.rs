@@ -195,10 +195,10 @@ mod tests {
     use std::path::PathBuf;
 
     fn viewer(name: &str) -> Screen {
-        Screen::Viewer(crate::ui::viewer::ViewerState::from_text(
+        Screen::Viewer(Box::new(crate::ui::viewer::ViewerState::from_text(
             PathBuf::from(name),
             Vec::new(),
-        ))
+        )))
     }
 
     #[test]

@@ -101,27 +101,6 @@ impl SharedSshClient {
             other => other.map_err(io_err),
         }
     }
-
-    /// [`Self::with_sftp`] for the SSH session itself (new channels).
-    fn with_session<T>(
-        &self,
-        op: impl Fn(&ssh2::Session) -> Result<T, ssh2::Error>,
-    ) -> io::Result<T> {
-        let first = op(&self.lock().session);
-        match first {
-            Err(e) if connection_lost(&e) && self.reconnect().is_ok() => {
-                op(&self.lock().session).map_err(io_err)
-            }
-            other => other.map_err(io_err),
-        }
-    }
-}
-
-/// The remote command line: `command` run from `dir` (quoted for the
-/// server's POSIX shell, `/` separators whatever the local platform).
-fn exec_line(dir: &Path, command: &str) -> String {
-    let dir = dir.to_string_lossy().replace('\\', "/");
-    format!("cd {} && {}", crate::shell::quote_posix(&dir), command)
 }
 
 impl Vfs for SharedSshClient {
@@ -236,34 +215,14 @@ impl Vfs for SharedSshClient {
         self.with_sftp(|sftp| sftp.rename(from, to, None))
     }
 
-    /// An `exec` channel running `cd <dir> && <command>` in the user's login
-    /// shell, standard error merged into the output. The output is copied
-    /// as it arrives; a long silence (longer than the session timeout) is
-    /// waited out instead of failing, so slow commands finish.
-    fn run_command(&self, dir: &Path, command: &str, out: &mut dyn Write) -> io::Result<i32> {
-        let line = exec_line(dir, command);
-        let mut channel = self.with_session(|session| {
-            let mut channel = session.channel_session()?;
-            channel.handle_extended_data(ssh2::ExtendedData::Merge)?;
-            channel.exec(&line)?;
-            channel.send_eof()?;
-            Ok(channel)
-        })?;
-        let mut buf = [0u8; 8192];
-        loop {
-            match channel.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    out.write_all(&buf[..n])?;
-                    out.flush()?;
-                }
-                Err(e) if e.kind() == io::ErrorKind::TimedOut => {}
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(e) => return Err(e),
-            }
-        }
-        channel.wait_close().map_err(io_err)?;
-        channel.exit_status().map_err(io_err)
+    /// A terminal on the server (see [`super::pty`]).
+    fn spawn_terminal(
+        &self,
+        dir: &Path,
+        command: &str,
+        size: crate::terminal::pty::PtySize,
+    ) -> io::Result<crate::terminal::pty::RemotePty> {
+        super::pty::spawn(self, dir, command, size)
     }
 
     fn attributes(&self, path: &Path) -> io::Result<FileAttrs> {
@@ -292,23 +251,5 @@ impl Vfs for SharedSshClient {
             ..opts.clone()
         };
         Ok(panel_listing(dir, children, &opts))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::exec_line;
-    use std::path::Path;
-
-    #[test]
-    fn remote_commands_start_in_the_quoted_panel_folder() {
-        assert_eq!(
-            exec_line(Path::new("/home/deploy"), "mkdir certs"),
-            "cd '/home/deploy' && mkdir certs"
-        );
-        assert_eq!(
-            exec_line(Path::new("/srv/it's; rm -rf ~"), "ls"),
-            r"cd '/srv/it'\''s; rm -rf ~' && ls"
-        );
     }
 }

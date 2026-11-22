@@ -49,6 +49,12 @@ pub struct ViewerState {
     /// The settings `syntax` was chosen with (kept to choose again after
     /// an encoding change).
     pub syntax_limits: SyntaxLimits,
+    /// Lines selected for copying (text mode).
+    pub selection: Option<super::selection::LineSelection>,
+    /// The line a left-button press landed on: dragging from it selects.
+    pub drag_anchor: Option<usize>,
+    /// Where text mode painted its lines last frame (filled by painting).
+    pub layout: RefCell<super::selection::TextLayout>,
 }
 
 pub(crate) fn is_image_extension(path: &Path) -> bool {
@@ -102,7 +108,7 @@ impl ViewerState {
             Ok(opened) => opened,
             Err(e) => {
                 let msg = t("viewer_read_error")
-                    .replacen("{}", &path.to_string_lossy(), 1)
+                    .replacen("{}", &crate::fs::display_path(&path), 1)
                     .replacen("{}", &e.to_string(), 1);
                 return Self::from_text(path, vec![msg]);
             }
@@ -158,6 +164,9 @@ impl ViewerState {
             syntax: RefCell::new(None),
             pending_syntax: None,
             syntax_limits: SyntaxLimits::default(),
+            selection: None,
+            drag_anchor: None,
+            layout: RefCell::default(),
         }
     }
 
@@ -184,6 +193,7 @@ impl ViewerState {
         self.mode = ViewerMode::Text;
         self.scroll = 0;
         self.notice = None;
+        self.selection = None;
     }
 
     pub fn toggle_mode(&mut self) {
@@ -205,6 +215,7 @@ impl ViewerState {
             };
         }
         self.scroll = 0;
+        self.selection = None;
     }
 
     /// Rows of content in the current mode (lines indexed so far in text

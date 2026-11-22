@@ -74,7 +74,7 @@ fn view_terminal_output(state: &mut AppState, idx: usize) {
     let title = t("terminal_view_output_title").replacen("{}", &ts.command, 1);
     let viewer =
         crate::ui::viewer::ViewerState::from_text(std::path::PathBuf::from(title), ts.output.all());
-    state.push_screen(Screen::Viewer(viewer));
+    state.push_screen(Screen::Viewer(Box::new(viewer)));
     state.dialogs.clear();
 }
 

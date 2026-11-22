@@ -3,8 +3,10 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::screens::ViewerAction;
-use crossterm::event::KeyEvent;
+use crate::ui::viewer::{LineSelection, ViewerMode};
+use crossterm::event::{KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 
 /// Lines moved by PgUp / PgDn.
 const PAGE: usize = 20;
@@ -25,9 +27,14 @@ pub fn handle_viewer_screen(
 
 fn run(state: &mut AppState, command: ViewerAction, context: &AppContext) {
     use ViewerAction as V;
+    if command == V::Copy {
+        copy_selection(state);
+        return;
+    }
     let Some(vw) = state.active_viewer_mut() else {
         return;
     };
+    let rows = vw.text_rows();
     match command {
         V::LineUp => vw.scroll_up(1),
         V::LineDown => vw.scroll_down(1),
@@ -46,8 +53,94 @@ fn run(state: &mut AppState, command: ViewerAction, context: &AppContext) {
             .replace(PopupType::ViewerSearchPrompt(Default::default())),
         V::Encoding => crate::app::input_popup::viewer::open_encoding_selector(state),
         V::SearchNext => state.repeat_viewer_search(),
-        // A running search stops first; the next Quit closes the viewer.
+        V::SelectUp | V::SelectDown | V::SelectPageUp | V::SelectPageDown | V::SelectAll
+            if vw.mode != ViewerMode::Text => {}
+        V::SelectUp => vw.select_by(-1, rows),
+        V::SelectDown => vw.select_by(1, rows),
+        V::SelectPageUp => vw.select_by(-(PAGE as isize), rows),
+        V::SelectPageDown => vw.select_by(PAGE as isize, rows),
+        V::SelectAll => vw.select_all(),
+        V::Copy => {}
+        // A running search stops first, then the selection goes; the next
+        // Quit closes the viewer.
         V::Quit if state.cancel_viewer_search() => {}
+        V::Quit if vw_has_selection(state) => {
+            if let Some(vw) = state.active_viewer_mut() {
+                vw.selection = None;
+            }
+        }
         V::Quit => state.close_current_screen(),
     }
+}
+
+fn vw_has_selection(state: &mut AppState) -> bool {
+    state
+        .active_viewer_mut()
+        .is_some_and(|vw| vw.selection.is_some())
+}
+
+/// Copies the active viewer's selected lines (to the editor's clipboard,
+/// which keeps them inside Pairee when there is no system clipboard) and
+/// says so in the status line.
+fn copy_selection(state: &mut AppState) {
+    let Some(vw) = state.active_viewer_mut() else {
+        return;
+    };
+    let Some(copied) = vw.selected_text() else {
+        vw.notice = Some(t("viewer_copy_nothing"));
+        return;
+    };
+    let lines = copied.lines.to_string();
+    let key = if copied.truncated {
+        "viewer_copy_truncated"
+    } else {
+        "viewer_copied"
+    };
+    let system = state.editor_clipboard.copy(copied.text);
+    let key = if system {
+        key
+    } else {
+        "viewer_copied_internal"
+    };
+    if let Some(vw) = state.active_viewer_mut() {
+        vw.notice = Some(t(key).replacen("{}", &lines, 1));
+    }
+}
+
+/// The mouse over the active viewer: a left press on the text and a drag
+/// select whole lines (scrolling when the pointer leaves the text). `true`
+/// when it did something.
+pub fn handle_viewer_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
+    if state.dialogs.is_open() {
+        return false;
+    }
+    let Some(vw) = state.active_viewer_mut() else {
+        return false;
+    };
+    if vw.mode != ViewerMode::Text {
+        return false;
+    }
+    let layout = vw.layout.borrow().clone();
+    let rows = vw.text_rows();
+    match mouse.kind {
+        MouseEventKind::Down(MouseButton::Left) if layout.contains(mouse.column, mouse.row) => {
+            vw.selection = None;
+            vw.drag_anchor = layout.line_at(mouse.row);
+        }
+        MouseEventKind::Drag(MouseButton::Left) => {
+            let (Some(anchor), Some(line)) = (vw.drag_anchor, layout.line_at(mouse.row)) else {
+                return false;
+            };
+            vw.selection.get_or_insert(LineSelection {
+                anchor,
+                end: anchor,
+            });
+            vw.select_to(line, rows);
+        }
+        MouseEventKind::Up(MouseButton::Left) if vw.drag_anchor.is_some() => {
+            vw.drag_anchor = None;
+        }
+        _ => return false,
+    }
+    true
 }
