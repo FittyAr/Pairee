@@ -123,7 +123,7 @@ assert_cmd = "2.2"
 # In-process servers the remote backends run their Vfs contract tests
 # against (src/fs/remote/tests): WebDAV, S3 (checks request signatures)
 # and FTP, all serving temporary folders.
-dav-server = { version = "0.11", default-features = false, features = ["localfs"] }
+dav-server = { version = "0.12", default-features = false, features = ["localfs"] }
 s3s = "0.17"
 s3s-fs = "0.17"
 libunftp = { version = "0.23", default-features = false, features = ["ring"] }
