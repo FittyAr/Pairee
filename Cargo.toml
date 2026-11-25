@@ -126,7 +126,7 @@ assert_cmd = "2.2"
 dav-server = { version = "0.11", default-features = false, features = ["localfs"] }
 s3s = "0.17"
 s3s-fs = "0.17"
-libunftp = { version = "0.23", default-features = false, features = ["ring"] }
+libunftp = { version = "0.25", default-features = false, features = ["ring"] }
 unftp-sbe-fs = "0.4"
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio", "server", "http1"] }
