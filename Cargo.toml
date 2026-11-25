@@ -82,7 +82,7 @@ notify = "8.2"
 # Remote backends (src/fs/remote): FTP/FTPS over rustls (ring), S3 request
 # signing (sans-IO, sent with reqwest), WebDAV PROPFIND parsing, URLs and
 # the streamed request bodies of uploads.
-suppaftp = { version = "12.2.0", features = ["rustls-ring"] }
+suppaftp = { version = "13.0.0", features = ["rustls-ring"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-platform-verifier = "0.7.1"
 rusty-s3 = "0.12.0"

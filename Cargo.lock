@@ -4510,11 +4510,11 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "suppaftp"
-version = "12.2.2"
+version = "13.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5194aa1ffcbd7d68a421ec66a26a773d9737154911b4685232d0bf0b7a94f707"
+checksum = "919688e3d2128f0c3e77f4dff7a2035f2d73ccf488851ba96ba42002e850cad5"
 dependencies = [
- "chrono",
+ "jiff 1.0.2",
  "lazy-regex",
  "log",
  "rustls",
