@@ -121,7 +121,7 @@ Así no se duplica lógica de negocio: el mouse es otro *front-end* de las misma
 
 | Superficie | Clic izq. | Doble clic | Clic der. | Rueda / drag |
 |---|---|---|---|---|
-| Fila de panel | activa panel + mueve cursor | `Enter` (abrir/entrar) | según `mouse_right_click`: `mark` (Norton/Far, default) o `menu` (menú contextual) | rueda: 3 filas; `Ctrl`+clic marca; `Shift`+clic marca rango; drag der. marca rango (Far) |
+| Fila de panel | activa panel + mueve cursor | `Enter` (abrir/entrar) | según `mouse_right_click`: `mark` (default) o `menu` (menú contextual) | rueda: 3 filas; `Ctrl`+clic marca; `Shift`+clic marca rango; drag der. marca rango |
 | Encabezado de columna | ordenar por esa columna (repetir = invertir) | — | — | — |
 | Ruta / título del panel | historial de carpetas | — | selector de unidad | — |
 | Barra de pestañas | activar (ya existe) | renombrar | menú de pestaña | medio = cerrar (ya existe); rueda = siguiente/anterior |
@@ -211,7 +211,7 @@ Criterio de aceptación: **todo elemento que se pueda accionar con teclado se pu
 - [x] Rueda sin depender de que la scrollbar esté visible.
 
 ### Fase 3 — Barras
-- [x] Menú superior y desplegables (`src/ui/menu/*`, `input_popup/menu.rs`), hover. Los desplegables se ubican bajo su título (antes, columnas fijas que no seguían la traducción). Con la barra oculta, la fila superior la revela al apuntar (como Far); las pestañas de esa fila conservan sus clics.
+- [x] Menú superior y desplegables (`src/ui/menu/*`, `input_popup/menu.rs`), hover. Los desplegables se ubican bajo su título (antes, columnas fijas que no seguían la traducción). Con la barra oculta, la fila superior la revela al apuntar; las pestañas de esa fila conservan sus clics.
 - [x] Barra de F-keys (`src/ui/fkeys.rs`): el clic pulsa la tecla con los modificadores de la fila mostrada, así sirve en panel, editor y visor.
 - [x] CLI (`src/ui/cli.rs`), barra de transferencias, badge de update.
 - [-] **Decisión: NO realizar.** Rueda en la barra de pestañas: no queda claro qué lado ni desde qué pestaña avanzar.

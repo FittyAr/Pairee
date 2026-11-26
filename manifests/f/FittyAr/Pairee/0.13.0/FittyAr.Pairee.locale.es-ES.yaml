@@ -13,14 +13,13 @@ PackageUrl: https://github.com/FittyAr/Pairee
 License: GPL-3.0
 LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
-ShortDescription: Gestor de archivos de terminal de doble panel, inspirado en Norton Commander y Far Manager.
+ShortDescription: Gestor de archivos de terminal de doble panel.
 Description: Un gestor de archivos moderno en Rust con diseño de doble panel, temas y soporte completo para ratón. Cuenta con temas personalizables, traducciones, soporte para formatos estándar de archivo comprimido, combinaciones de teclas a medida y comandos interactivos.
 Tags:
   - rust
   - gestor-de-archivos
   - tui
   - terminal
-  - norton-commander
   - explorador
 ReleaseNotesUrl: https://github.com/FittyAr/Pairee/releases/tag/v0.13.0
 ManifestType: locale

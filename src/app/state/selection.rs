@@ -1,5 +1,5 @@
 //! Tagging panel entries, and the one rule of what each way of tagging may
-//! take (setting "Select folders", `select_folders`, as in Far Manager):
+//! take (setting "Select folders", `select_folders`):
 //!
 //! * One entry at a time (Insert / Space, Ctrl+click, a right click) always
 //!   toggles the entry under the cursor, folder or not: the user pointed at

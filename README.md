@@ -9,7 +9,7 @@
 
 ## Pairee - ⚡ Modern Dual-Panel Terminal File Manager
 
-Pairee is a modern, highly modular, and cross-platform terminal file manager inspired by the classic **Norton Commander** and **Far Manager**. Built in Rust utilizing `ratatui` and `crossterm`, it aims to provide an efficient, fast, and extensible file management experience directly within your console.
+Pairee is a modern, highly modular, and cross-platform terminal file manager. Built in Rust utilizing `ratatui` and `crossterm`, it aims to provide an efficient, fast, and extensible file management experience directly within your console.
 
 - 🚀 **Full Asynchronous Support**: All long-running filesystem operations (Copy, Move, Wipe, Delete) run on background threads (`tokio`), keeping the UI perfectly responsive.
 - 💪 **Async Task Scheduling**: Real-time progress tracking, progress bar popups, and task cancellation for concurrent workers.

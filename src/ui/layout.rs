@@ -29,7 +29,7 @@ pub fn calculate_layout(
         Some(crate::app::state::PopupType::Menu(_))
     );
     // A menu bar that is not always shown lies over the top row while a
-    // menu is open (as in Far), so opening it never moves the panels.
+    // menu is open, so opening it never moves the panels.
     let menu_height = u16::from(settings.interface_always_show_menu_bar);
 
     let fkeys_height = if settings.interface_show_key_bar && config.keybindings.preset == "norton" {

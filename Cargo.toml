@@ -173,7 +173,7 @@ assets = [
 [package.metadata.generate-rpm]
 name = "pairee"
 summary = "A sleek, dual-panel terminal file manager"
-description = "A modern Rust clone of Norton Commander with dual-panel layout, themes, and full mouse support."
+description = "A dual-panel terminal file manager written in Rust, with themes and full mouse support."
 license = "GPLv3"
 categories = ["Applications/System"]
 assets = [

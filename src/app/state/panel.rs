@@ -16,8 +16,8 @@ pub struct PanelState {
     /// Index of the currently highlighted item
     pub cursor_index: usize,
     /// First entry shown. The view only scrolls when the cursor leaves it
-    /// (as in Far and MC), so rows stay put under the mouse; kept up to
-    /// date by the renderer, which knows the panel height.
+    /// so rows stay put under the mouse. The renderer keeps this up to date
+    /// using the panel height.
     pub scroll_top: std::cell::Cell<usize>,
     /// Set of file/folder paths selected (tagged) by the user
     pub selected_paths: HashSet<PathBuf>,

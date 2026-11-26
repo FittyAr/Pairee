@@ -48,7 +48,7 @@
       desktop4:SupportsMultipleInstances="true">
       <uap:VisualElements
         DisplayName="Pairee"
-        Description="Dual-panel terminal file manager inspired by Norton Commander and Far Manager."
+        Description="Dual-panel terminal file manager."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

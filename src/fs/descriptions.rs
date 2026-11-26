@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::borrow::Cow;
 use std::path::Path;
 
-/// Filename used for per-directory file descriptions (Norton Commander style).
+/// Filename used for per-directory file descriptions.
 pub const DESCRIPTIONS_FILE: &str = "descript.ion";
 
 /// Reads the description for a specific file from the `descript.ion` file in its parent directory.
@@ -79,13 +79,11 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
     }
 
     if !description.trim().is_empty() {
-        // Quote the entry name. The Norton Commander / Far Manager
-        // `descript.ion` format requires names that contain whitespace
-        // (or `"`) to be wrapped in double quotes with any internal `"`
-        // doubled. Without the escape, a file whose name itself contains
-        // a double-quote would produce a corrupt / ambiguous line that
-        // cannot be parsed back (and the user could end up with a
-        // description bound to a different file).
+        // Quote the entry name. The `descript.ion` format requires names that
+        // contain whitespace (or `"`) to be wrapped in double quotes with
+        // any internal `"` doubled. Without the escape, a double quote in
+        // a filename would make the line ambiguous and could bind the
+        // description to a different file.
         let needs_quoting = filename.contains(' ') || filename.contains('"');
         let entry_name = if needs_quoting {
             let escaped = filename.replace('"', "\"\"");
@@ -212,8 +210,8 @@ mod tests {
         );
     }
 
-    /// Far Manager and Total Commander write `descript.ion` in the OEM or
-    /// ANSI code page: updating one entry keeps the others, bytes intact.
+    /// Some `descript.ion` files use an OEM or ANSI code page. Updating one
+    /// entry keeps the others, bytes intact.
     #[test]
     fn legacy_encoded_files_keep_their_other_entries() {
         let dir = tempfile::tempdir().expect("tempdir");

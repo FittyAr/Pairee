@@ -91,7 +91,7 @@ impl SortField {
         })
     }
 
-    /// Letter shown in the panel title (as Far Manager's).
+    /// Letter shown in the panel title.
     pub fn letter(self) -> &'static str {
         match self {
             Self::Name => "N",

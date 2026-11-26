@@ -9,7 +9,7 @@
 
 ## Pairee - ⚡ Gestor de Archivos de Terminal Moderno de Doble Panel
 
-Pairee es un gestor de archivos para terminal moderno, multiplataforma y altamente modular, inspirado en los clásicos **Norton Commander** y **Far Manager**. Desarrollado en Rust utilizando `ratatui` y `crossterm`, su objetivo es proporcionar una experiencia de gestión de archivos eficiente, rápida y extensible directamente en tu consola.
+Pairee es un gestor de archivos para terminal moderno, multiplataforma y altamente modular. Desarrollado en Rust utilizando `ratatui` y `crossterm`, su objetivo es proporcionar una experiencia de gestión de archivos eficiente, rápida y extensible directamente en tu consola.
 
 - 🚀 **Soporte Asíncrono Completo**: Todas las operaciones pesadas del sistema de archivos (Copiar, Mover, Borrado Seguro, Eliminar) se procesan en segundo plano (`tokio`), manteniendo la interfaz perfectamente fluida y responsiva.
 - 💪 **Planificación de Tareas Asíncronas**: Seguimiento del progreso en tiempo real con ventanas emergentes de barras de progreso y cancelación de tareas para trabajadores concurrentes.

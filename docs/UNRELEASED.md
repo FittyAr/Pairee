@@ -6,6 +6,8 @@
 
 ### Changed
 
+- Package descriptions and general documentation describe Pairee on its own. Keyboard preset names and shortcuts are unchanged.
+
 ### Deprecated
 
 ### Removed

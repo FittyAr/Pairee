@@ -12,12 +12,15 @@
 `FittyAr.Pairee` is **not yet in** [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs)
 (the 0.6.0 pull requests #394315 and #394525 were closed unmerged; the first
 one failed on a missing MSVC runtime). The 0.11.0 new-package pull request,
-[#452771](https://github.com/microsoft/winget-pkgs/pull/452771), passed every
-validation check and waits for an administrator: the `Policy-Test-1.2`
-(security) label, most likely raised by the code Pairee downloads (its
-updater and plugin manager) and only a Windows Package Manager administrator
-can clear it. `winget.yml` handles both cases on its own, after every
-published release:
+[#452771](https://github.com/microsoft/winget-pkgs/pull/452771), received a [reviewer request](https://github.com/microsoft/winget-pkgs/pull/452771#issuecomment-6674573652)
+to remove third-party brand names from `ShortDescription` after the
+`Policy-Test-1.2` check reported `Targeted Brand`. Keep that field and the
+search tags focused on Pairee in both locales. The first-submission workflow
+reads templates from the release tag, so a change on the default branch
+won't fix a rerun for a tag that already exists. For v0.13.0, generate the
+manifests and correct the descriptions and tags before submitting.
+
+Once a release is published, `winget.yml` chooses one of two paths:
 
 | Package in winget-pkgs? | What `winget.yml` does |
 |---|---|

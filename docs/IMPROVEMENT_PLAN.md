@@ -16,7 +16,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 
 ## 1. Resumen ejecutivo
 
-**Pairee** es un gestor de archivos dual-panel en Rust (estilo Norton/Far), con TUI (`ratatui`/`crossterm`), operaciones async, motor de transferencias, Git, SSH/SFTP, plugins Lua, auto-update y empaquetado multiplataforma.
+**Pairee** es un gestor de archivos dual-panel en Rust, con TUI (`ratatui`/`crossterm`), operaciones async, motor de transferencias, Git, SSH/SFTP, plugins Lua, auto-update y empaquetado multiplataforma.
 
 ### Indicadores (baseline → actual)
 
@@ -202,7 +202,7 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 - **No usarlo junto a `keybinds` como dos keymaps completos** (doble verdad, scopes duplicados, peor mantenimiento).
 - **Opcional en fase posterior (F.3):** evaluar which-key **solo** si queremos popup de leader/secuencias *después* de migrar a `keybinds`, **o** migrar el input entero a which-key y **no** usar `keybinds`.
-- Si en el futuro se prefiere which-key solo: conviene cuando el producto priorice leader-keys y ayuda contextual tipo modal over F-keys clásicas. Hoy Pairee es Norton/Far → F-keys + presets → **`keybinds` primero**.
+- Si en el futuro se prefiere which-key solo: conviene cuando el producto priorice leader-keys y ayuda contextual tipo modal over F-keys clásicas. Hoy Pairee prioriza las teclas de función y los presets de teclado → **`keybinds` primero**.
 
 **Resumen:** implementar **`keybinds` obligatorio**; `ratatui-which-key` **no** en el primer PR (salvo spike de 1 día que demuestre que puede reemplazar todo el stack sin dualismo).
 

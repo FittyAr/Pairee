@@ -167,7 +167,7 @@ impl Default for Theme {
 }
 
 impl Theme {
-    /// Generates the classic Norton Commander blue/cyan interface colors.
+    /// Generates the classic blue/cyan interface colors.
     pub fn classic_blue() -> Self {
         Self {
             name: "classic_blue".to_string(),

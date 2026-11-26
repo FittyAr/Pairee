@@ -1,4 +1,4 @@
-//! Stable panel scrolling (as in Far and MC): the view only moves when the
+//! Stable panel scrolling: the view only moves when the
 //! cursor leaves it, so the rows under the mouse stay put between the two
 //! clicks of a double click.
 

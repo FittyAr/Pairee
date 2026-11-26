@@ -186,7 +186,7 @@ impl MouseMode {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum RightClick {
-    /// Tags the entry, and dragging tags a range (Norton / Far).
+    /// Tags the entry, and dragging tags a range.
     #[default]
     Mark,
     /// Opens the context menu.

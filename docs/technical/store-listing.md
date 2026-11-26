@@ -18,7 +18,7 @@ characters (21 words in all).
 
 ### Description
 
-Pairee is a fast dual-panel file manager for the terminal, inspired by Norton Commander and Far Manager and written in Rust. Two panels side by side, the keys you already know, and every long operation in the background so the interface never freezes.
+Pairee is a fast dual-panel file manager for the terminal, written in Rust. Two panels side by side, the keys you already know, and every long operation in the background so the interface never freezes.
 
 FILES, EVERYWHERE
 • Copy, move, rename, delete and wipe with a transfer panel that shows progress, speed, conflicts and retries; copies resume where they stopped after a crash or power cut, and overwritten files go to the Recycle Bin so a copy can be undone.
@@ -41,7 +41,7 @@ Pairee is free and open source (GPL-3.0): https://github.com/FittyAr/Pairee. It 
 
 ### Short description
 
-Fast dual-panel terminal file manager inspired by Norton Commander and Far Manager: remote servers, archives, editor, Git and plugins.
+Fast dual-panel terminal file manager: remote servers, archives, editor, Git and plugins.
 
 ### What's new in 0.11.0
 
@@ -73,7 +73,7 @@ Fast dual-panel terminal file manager inspired by Norton Commander and Far Manag
 
 ### Search terms
 
-file manager · norton commander · far manager · terminal · dual panel · sftp · rust
+file manager · terminal · dual panel · sftp · rust
 
 ---
 
@@ -81,7 +81,7 @@ file manager · norton commander · far manager · terminal · dual panel · sft
 
 ### Descripción
 
-Pairee es un gestor de archivos de doble panel para la terminal, rápido, inspirado en Norton Commander y Far Manager y escrito en Rust. Dos paneles lado a lado, las teclas que ya conoces, y cada operación larga en segundo plano para que la interfaz nunca se congele.
+Pairee es un gestor de archivos de doble panel para la terminal, rápido, escrito en Rust. Dos paneles lado a lado, las teclas que ya conoces, y cada operación larga en segundo plano para que la interfaz nunca se congele.
 
 ARCHIVOS, EN TODAS PARTES
 • Copia, mueve, renombra, elimina y borra de forma segura con un panel de transferencias que muestra progreso, velocidad, conflictos y reintentos; las copias continúan donde quedaron tras un cuelgue o un corte de luz, y los archivos sobrescritos van a la Papelera de reciclaje para poder deshacer la copia.
@@ -104,7 +104,7 @@ Pairee es libre y de código abierto (GPL-3.0): https://github.com/FittyAr/Paire
 
 ### Descripción breve
 
-Gestor de archivos de doble panel para la terminal, inspirado en Norton Commander y Far Manager: servidores remotos, archivos comprimidos, editor, Git y plugins.
+Gestor de archivos de doble panel para la terminal: servidores remotos, archivos comprimidos, editor, Git y plugins.
 
 ### Novedades de la 0.11.0
 
@@ -136,4 +136,4 @@ Gestor de archivos de doble panel para la terminal, inspirado en Norton Commande
 
 ### Términos de búsqueda
 
-gestor de archivos · norton commander · far manager · terminal · doble panel · sftp · rust
+gestor de archivos · terminal · doble panel · sftp · rust

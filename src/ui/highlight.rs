@@ -27,7 +27,6 @@ impl HighlightRule {
 }
 
 /// Returns the built-in default highlight rules.
-/// These match the classic NC/Far Manager color scheme.
 pub fn default_highlight_rules() -> Vec<HighlightRule> {
     vec![
         // Directories — bright cyan

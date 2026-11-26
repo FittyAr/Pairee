@@ -13,7 +13,7 @@ PackageUrl: https://github.com/FittyAr/Pairee
 License: GPL-3.0
 LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
-ShortDescription: A dual-panel terminal file manager inspired by Norton Commander and Far Manager.
+ShortDescription: A dual-panel terminal file manager.
 Description: A modern Rust file manager with dual-panel layout, themes, and full mouse support. It features customizable themes, translations, standard archive support, keybindings resolver, and smooth terminal interactions.
 Moniker: pairee
 Tags:
@@ -21,7 +21,6 @@ Tags:
   - file-manager
   - tui
   - terminal
-  - norton-commander
   - explorer
 ReleaseNotesUrl: https://github.com/FittyAr/Pairee/releases/tag/v0.13.0
 ManifestType: defaultLocale

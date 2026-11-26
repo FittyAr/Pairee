@@ -136,7 +136,7 @@ fn select_item(state: &mut AppState) {
 
 /// Tags or untags entry `idx` of the active panel on its own (Insert, a
 /// click): folders too, whatever "Select folders" says
-/// (`state::selection`). Like Far/MC, tagging a folder also measures it.
+/// (`state::selection`). Tagging a folder also measures it.
 pub(crate) fn set_selected(state: &mut AppState, idx: usize, selected: bool) {
     measure_if_tagged(state, idx..=idx, selected);
     state.get_active_panel_mut().set_selected(idx, selected);

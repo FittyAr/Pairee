@@ -106,5 +106,5 @@ listings).
 
 - `file_descriptions_*` were removed; if `descript.ion` behaviour becomes
   configurable, add typed fields next to `fs/descriptions.rs` instead of
-  reviving the old Far-style strings.
+  reviving the old untyped strings.
 - `auto_drop_menu` is read but has no dialog row.
