@@ -482,27 +482,48 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px 24px;
+  gap: 16px 28px;
 }
 
-.store-text {
+.store-copy {
+  flex: 1 1 280px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.store-copy strong {
+  display: block;
   color: var(--text);
-  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .store-links {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px 18px;
+  gap: 12px 20px;
 }
 
-.btn-store {
-  padding: 10px 20px;
-  font-size: 0.95rem;
+.store-badge {
+  display: inline-flex;
+  border-radius: 6px;
+  transition: transform 0.25s ease;
+}
+
+.store-badge:hover {
+  transform: translateY(-2px);
+}
+
+.store-badge img {
+  display: block;
+  width: auto;
+  height: 48px;
 }
 
 .store-app-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--accent-soft);
   font-size: 0.9rem;
 }

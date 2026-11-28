@@ -23,10 +23,12 @@ function updateLanguage(lang) {
     if (value.includes('<')) el.innerHTML = value;
     else el.textContent = value;
   });
-  document.querySelectorAll('[data-i18n-alt]').forEach(el => {
-    const value = translations[lang][el.getAttribute('data-i18n-alt')];
-    if (value) el.setAttribute('alt', value);
-  });
+  for (const attr of ['alt', 'src']) {
+    document.querySelectorAll(`[data-i18n-${attr}]`).forEach(el => {
+      const value = translations[lang][el.getAttribute(`data-i18n-${attr}`)];
+      if (value) el.setAttribute(attr, value);
+    });
+  }
 
   const page = document.body.dataset.page;
   const title = page ? t(`${page}_seo_title`) : t('title');
