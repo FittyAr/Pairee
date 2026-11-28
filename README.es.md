@@ -87,7 +87,7 @@ Pairee ofrece binarios precompilados de forma automática mediante GitHub Action
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- uninstall
     ```
 
-* **Windows (Microsoft Store):** consigue [Pairee en la Microsoft Store](https://apps.microsoft.com/detail/9PBSDNBTP2JZ); la Store lo mantiene actualizado.
+* **Windows (Microsoft Store, a modo de donación):** [Pairee en la Microsoft Store](https://apps.microsoft.com/detail/9PBSDNBTP2JZ) es una descarga paga que apoya el proyecto, y la Store lo mantiene actualizado. Pairee sigue siendo gratis: si lo quieres sin costo, usa cualquiera de los otros métodos de esta página.
 
 * **Windows (PowerShell):**
   * **Lanzamiento Estándar:**
