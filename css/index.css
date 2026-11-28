@@ -471,6 +471,46 @@
   color: var(--accent-soft);
 }
 
+.store-row {
+  max-width: 900px;
+  margin: 24px auto 0;
+  padding: 18px 22px;
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-md);
+  background: rgba(26, 164, 215, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+}
+
+.store-text {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.store-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+
+.btn-store {
+  padding: 10px 20px;
+  font-size: 0.95rem;
+}
+
+.store-app-link {
+  color: var(--accent-soft);
+  font-size: 0.9rem;
+}
+
+.store-app-link:hover {
+  text-decoration: underline;
+}
+
 .install-extras {
   max-width: 900px;
   margin: 24px auto 0;
