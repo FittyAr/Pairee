@@ -87,6 +87,8 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (Win
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- uninstall
     ```
 
+* **Windows (Microsoft Store):** get [Pairee on the Microsoft Store](https://apps.microsoft.com/detail/9PBSDNBTP2JZ); the Store keeps it up to date.
+
 * **Windows (PowerShell):**
   * **Standard Release:**
     ```powershell
